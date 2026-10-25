@@ -21,11 +21,13 @@ class TrajectoryBudget(StrictModel):
 
 
 class TrajectoryPlan(StrictModel):
+    schema_version: Literal[1, 2] = 1
     name: str = Field(min_length=1, max_length=160)
     source_directory: Path
     source_checkpoint_ref: str = Field(pattern=r"^[0-9a-f]{64}$")
     state_policy: Literal["reset"]
     max_proposal_stages: int = Field(strict=True, ge=1, le=2)
+    max_generations: int = Field(strict=True, ge=1, le=2, default=1)
     budget: TrajectoryBudget
 
     @field_validator("source_directory")
@@ -123,7 +125,7 @@ def validate_state(program, state, anchor):
     if (
         type(state["generation"]) is not int
         or type(state["revision"]) is not int
-        or state["generation"] not in {0, 1}
+        or not 0 <= state["generation"] <= (plan.max_generations if plan.schema_version == 2 else 1)
         or state["generation"] != state["revision"]
         or len(history) != state["generation"] + 1
         or len(set(history)) != len(history)

@@ -8,6 +8,11 @@ from pydantic import Field, model_validator
 
 from quant_rsi.artifacts import canonical, digest
 from quant_rsi.schemas import DevelopmentPlan, FactorSpec, StrictModel
+from quant_rsi.task_definition import (
+    RegisteredNeighborDomain,
+    TrajectoryRegistration,
+    domain_ref,
+)
 
 C2_FINGERPRINT = "16b85204c89093fef074a58f2f445216d17ef81875b4042352babd42dd64230f"
 
@@ -31,14 +36,41 @@ class PackageLineage(StrictModel):
 
 
 class ResearchPlan(StrictModel):
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     plan_type: Literal["development_research"]
     development: DevelopmentPlan
     policy: SearchPolicy
     package_lineage: PackageLineage | None = None
+    neighbor_domain: RegisteredNeighborDomain | None = None
+    trajectory_registration: TrajectoryRegistration | None = None
 
     @model_validator(mode="after")
     def valid_start(self) -> Self:
+        if (self.schema_version == 2) != (self.neighbor_domain is not None):
+            raise ValueError("research version 2 requires an explicit registered neighbor domain")
+        if (self.schema_version == 2) != (self.trajectory_registration is not None):
+            raise ValueError(
+                "research version 2 requires preregistered cumulative authority limits"
+            )
+        if self.neighbor_domain is not None:
+            domain = self.neighbor_domain
+            registration = self.trajectory_registration
+            if (
+                self.development.budget.max_attempts > registration.worker_attempts
+                or self.development.budget.max_worker_seconds
+                > registration.registered_worker_seconds
+            ):
+                raise ValueError("gen0 reset grant exceeds its registered cumulative authority")
+            if (
+                self.policy.neighbor_order != "window_first"
+                or self.policy.window_min != domain.window_min
+                or self.policy.window_max not in domain.caps
+                or (
+                    self.package_lineage is None
+                    and self.policy.window_max != domain.initial_window_max
+                )
+            ):
+                raise ValueError("research policy is outside its registered cap schedule")
         if len(self.development.proposals) != 1:
             raise ValueError("research template must contain exactly the initial baseline")
         factor = FactorSpec.model_validate_json(canonical(self.development.proposals[0].factor))
@@ -52,7 +84,7 @@ class ResearchPlan(StrictModel):
 
 
 def package_definition(plan: ResearchPlan) -> dict:
-    return {
+    value = {
         "kind": "ResearcherPackage",
         "interface_version": 1,
         "state_schema_version": 1,
@@ -76,6 +108,12 @@ def package_definition(plan: ResearchPlan) -> dict:
         "policy": plan.policy.model_dump(mode="json"),
         "rng": None,
     }
+    if plan.neighbor_domain is not None:
+        value.update(
+            package_version=2,
+            registered_neighbor_domain_ref=domain_ref(plan),
+        )
+    return value
 
 
 def factor_identity(factor: dict) -> str:

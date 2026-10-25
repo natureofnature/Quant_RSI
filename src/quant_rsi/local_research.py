@@ -6,9 +6,17 @@ from decimal import Decimal
 import numpy as np
 
 from quant_rsi import execution_account as account
-from quant_rsi import market_contracts
+from quant_rsi import market_contracts, replay_memo
 from quant_rsi.artifacts import canonical, digest
-from quant_rsi.asof import make_feature_view, mature_label, predict_view, qualifications
+from quant_rsi.asof import (
+    _mature_label_with_visible,
+    make_feature_view,
+    predict_view,
+    qualifications,
+)
+from quant_rsi.asof import (
+    mature_label as mature_label,
+)
 from quant_rsi.market_contracts import DataContract, timestamp, utc_text
 from quant_rsi.market_data import economic_identity, market_context, parse_csv, visible_revisions
 from quant_rsi.schemas import LocalDataSpec
@@ -150,9 +158,22 @@ class LocalResearchData:
 
 
 def training_view(data, plan, factor):
+    return replay_memo.calculate("training_view", _training_view, (data, plan, factor))
+
+
+def _training_view(data, plan, factor):
     if data.spec != plan.data:
         raise ValueError("local worker data specification differs from the sealed plan")
     cutoff = data.decision_at(plan.data.train_cutoff)
+    label_visibility = {}
+
+    def visible_for_labels(basis):
+        if basis not in label_visibility:
+            label_visibility[basis] = visible_revisions(
+                data.snapshot, data.contract, cutoff, basis=basis
+            )
+        return label_visibility[basis]
+
     rows, x, y, used = [], [], [], set()
     available = []
     for index in range(factor.window, plan.data.train_cutoff):
@@ -160,8 +181,13 @@ def training_view(data, plan, factor):
             data.snapshot, data.contract, data.dates[index], data.decision_at(index), factor
         )
         for feature in view["rows"]:
-            label = mature_label(
-                data.snapshot, data.contract, data.dates[index], feature["instrument"], cutoff
+            label = _mature_label_with_visible(
+                data.snapshot,
+                data.contract,
+                data.dates[index],
+                feature["instrument"],
+                cutoff,
+                visible_for=visible_for_labels,
             )
             eligible = feature["status"] == "eligible" and label["status"] == "mature"
             rows.append(
@@ -206,6 +232,12 @@ def training_view(data, plan, factor):
 
 
 def development_predictions(data, plan, factor, model_text):
+    return replay_memo.calculate(
+        "development_predictions", _development_predictions, (data, plan, factor, model_text)
+    )
+
+
+def _development_predictions(data, plan, factor, model_text):
     return [
         predict_view(
             model_text,
@@ -296,6 +328,10 @@ def known_notices(snapshot, contract, as_of, *, basis=None):
 
 
 def evaluate_local(data, plan, predictions):
+    return replay_memo.calculate("evaluate_local", _evaluate_local, (data, plan, predictions))
+
+
+def _evaluate_local(data, plan, predictions):
     rules = plan.portfolio
     if rules.currency != data.contract.currency or set(rules.fill_cap_units) != set(
         data.instruments

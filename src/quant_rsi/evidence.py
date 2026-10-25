@@ -65,6 +65,8 @@ def import_packages(path, *, local=False):
     with controller.controller_lock(path):
         journal, store, manifest, plan = package_experiment.open_package(path, replay=True)
         try:
+            if plan.schema_version != 1 or plan.neighbor_domain is not None:
+                raise ValueError("C5 does not admit registered-domain multigeneration profiles")
             if plan.development.data.source != ("local_event_snapshot" if local else "synthetic"):
                 raise ValueError(
                     "local C5 task program requires a local C4 source"
@@ -98,6 +100,7 @@ def import_packages(path, *, local=False):
                 for k in ("base_package_ref", "proposer_ref", "request_ref", "evidence_ref")
             ] + [decision["patch_ref"]]
             artifact_objects = {key: store.json(key) for key in artifact_refs}
+            require_legacy_import(dict(plans=plans, artifacts=artifact_objects))
             artifact_objects[ref(manifest)] = manifest
             artifact_objects[journal.state()["decision_ref"]] = decision
             summary = package_experiment.summarize(journal, store, manifest, decision, reports)
@@ -115,6 +118,22 @@ def import_packages(path, *, local=False):
             }
         finally:
             journal.close()
+
+
+def require_legacy_import(imported):
+    """New trajectory interventions cannot silently enter the unchanged C5 contract."""
+    for value in imported["plans"].values():
+        plan = ResearchPlan.model_validate_json(canonical(value))
+        if plan.schema_version != 1 or plan.neighbor_domain is not None:
+            raise ValueError("C5 imported research profile is unsupported")
+    for value in imported["artifacts"].values():
+        if not isinstance(value, dict):
+            continue
+        if (
+            value.get("kind") == "PolicyPatch"
+            and (value.get("schema_version") != 1 or value.get("path") != "policy.neighbor_order")
+        ) or (value.get("kind") == "ProposerPackage" and value.get("version") != 1):
+            raise ValueError("C5 imported patch/proposer family is unsupported")
 
 
 def parse_program(raw):
@@ -144,12 +163,14 @@ def init_evidence(spec: ProgramInput):
                     )
                 if bootstrap.exists():
                     saved = decode(bootstrap.read_bytes())
+                    require_legacy_import(saved["imported"])
                     if saved["id"] != authority.anchor["authority_id"]:
                         raise ValueError("bootstrap/anchor identity conflict")
                     bootstrap.unlink()
                 return authority.summary()
         if bootstrap.exists():
             saved = decode(bootstrap.read_bytes())
+            require_legacy_import(saved["imported"])
             if saved["inputs"] != inputs or saved["runtime"] != controller.runtime_identity():
                 raise ValueError("bootstrap belongs to another input/runtime")
         else:
@@ -365,6 +386,16 @@ class Authority:
             self.program = self.store.json(self.anchor["program_ref"])
             if self.program["authority_id"] != self.anchor["authority_id"]:
                 raise ValueError("authority/program identity mismatch")
+            require_legacy_import(
+                dict(
+                    plans={
+                        role: self.store.json(ref) for role, ref in self.program["plans"].items()
+                    },
+                    artifacts={
+                        ref: self.store.json(ref) for ref in self.program["package_artifacts"]
+                    },
+                )
+            )
             if (
                 verify_runtime
                 and self.store.json(self.program["runtime_ref"]) != controller.runtime_identity()

@@ -1,5 +1,6 @@
 """Finite, development-only package trajectory with a single durable authority."""
 
+import sqlite3
 import uuid
 from pathlib import Path
 
@@ -62,12 +63,21 @@ def init_trajectory(plan: TrajectoryPlan):
                 ):
                     raise ValueError("trajectory authority already has different frozen inputs")
                 return summarize(authority)
+        registration = None
+        if plan.schema_version == 2:
+            from quant_rsi.trajectory_registration import begin_handoff
+
+            registration = begin_handoff(plan, owner_fd)
         marker = root.parent / "trajectory_initialization.json"
         if marker.exists():
             saved = decode(marker.read_bytes())
             if (
                 substantive(saved["input"]) != substantive(plan.model_dump(mode="json"))
                 or saved["runtime"] != controller.runtime_identity()
+                or (
+                    registration is not None
+                    and saved["authority_id"] != registration["handoff"]["authority_id"]
+                )
             ):
                 raise ValueError("trajectory initialization identity conflict")
         else:
@@ -75,7 +85,9 @@ def init_trajectory(plan: TrajectoryPlan):
                 raise ValueError("trajectory data exists without its initialization authority")
             saved = dict(
                 kind="TrajectoryInitialization",
-                authority_id=uuid.uuid4().hex,
+                authority_id=(
+                    registration["handoff"]["authority_id"] if registration else uuid.uuid4().hex
+                ),
                 input=plan.model_dump(mode="json"),
                 runtime=controller.runtime_identity(),
                 program_ref=None,
@@ -87,6 +99,16 @@ def init_trajectory(plan: TrajectoryPlan):
             source = plan.source_directory.resolve()
             if source == root or root in source.parents or source in root.parents:
                 raise ValueError("trajectory source and authority must be disjoint")
+            if registration is not None:
+                dry_ref, _ = capture_research(
+                    source,
+                    None,
+                    publish=None,
+                    initial=True,
+                    expected_checkpoint=plan.source_checkpoint_ref,
+                )
+                if dry_ref != registration["handoff"]["source_receipt_ref"]:
+                    raise ValueError("root source changed after its irreversible handoff")
             receipt_ref, receipt = capture_research(
                 source,
                 store,
@@ -95,6 +117,9 @@ def init_trajectory(plan: TrajectoryPlan):
                 expected_checkpoint=plan.source_checkpoint_ref,
             )
             costs = receipt["costs"]
+            source_plan = ResearchPlan.model_validate_json(store.get(receipt["research_plan_ref"]))
+            if (plan.schema_version == 2) != (source_plan.neighbor_domain is not None):
+                raise ValueError("trajectory version must match the explicitly registered root")
             if any(costs[unit] > getattr(plan.budget, unit) for unit in UNITS):
                 raise ValueError(
                     "trajectory budget does not cover its actual historical source costs"
@@ -109,13 +134,52 @@ def init_trajectory(plan: TrajectoryPlan):
                 source_data_ref=receipt["data_ref"],
                 initial_costs=costs,
                 initial_head=head_from(receipt_ref, receipt),
-                proposer_ref=store.put_json(changes.proposer_definition()),
+                proposer_ref=store.put_json(changes.proposer_definition(source_plan)),
                 saturation_proposer_ref=store.put_json(saturation_proposer()),
                 boundary="development_only_no_protected_evidence_or_promotion",
             )
+            if plan.schema_version == 2:
+                from quant_rsi.task_definition import domain_ref
+                from quant_rsi.trajectory_multigen import terminal_proposer
+
+                program.update(
+                    schema_version=2,
+                    profile="registered_cap_v2",
+                    authority_root=str(root),
+                    registered_neighbor_domain_ref=domain_ref(source_plan),
+                    saturation_proposer_ref=store.put_json(terminal_proposer()),
+                    root_registration_ref=store.put_json(registration),
+                )
             saved["program_ref"] = store.put_json(program)
             atomic_write(marker, canonical(saved))
         program = store.json(saved["program_ref"])
+        if registration is not None:
+            from quant_rsi.trajectory_registration import verify_frozen_handoff
+
+            if store.json(program["root_registration_ref"]) != registration:
+                raise ValueError("trajectory initialization registration changed")
+            initial = store.json(program["initial_head"]["research_receipt_ref"])
+            verify_frozen_handoff(program, initial, store)
+            verify_research_receipt(store, initial)
+            if (root / "control.sqlite").exists():
+                with sqlite3.connect(
+                    f"{(root / 'control.sqlite').as_uri()}?mode=ro", uri=True
+                ) as db:
+                    tables = db.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
+                    if db.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+                        raise ValueError("trajectory partial initialization journal is corrupt")
+                if tables:
+                    recovery_anchor = dict(
+                        kind="TrajectoryAuthority",
+                        authority_id=saved["authority_id"],
+                        program_ref=saved["program_ref"],
+                    )
+                    with TrajectoryLedger(
+                        root, bootstrap_anchor=recovery_anchor, readonly=True
+                    ) as prior:
+                        summarize(prior)
         materialize(store, program["source_files_ref"], root / "source")
         anchor = dict(
             kind="TrajectoryAuthority",
@@ -210,7 +274,7 @@ def reserve_stage(authority):
 def package_operation(authorization, ref, index, targets):
     return dict(
         kind="package_round",
-        stage=0,
+        stage=authorization["stage"],
         authorization_ref=ref,
         child_campaign_id=authorization["child_campaign_id"],
         steps=1,
@@ -220,7 +284,7 @@ def package_operation(authorization, ref, index, targets):
 
 
 def child_binding(authority):
-    stage = authority.state["stages"][0]
+    stage = authority.state["stages"][authority.state["pending"]["stage"]]
     auth = authority.store.json(stage["authorization_ref"])
     context = dict(
         kind="TrajectoryC4Context",
@@ -294,6 +358,8 @@ def finish_committed_pair(authority, child, owner_fd):
 def execute_package_round(authority, owner_fd):
     require_owner(authority.root, owner_fd)
     auth, context, child = child_binding(authority)
+    if auth.get("profile") == "registered_cap_v2":
+        materialize(authority.store, auth["source_files_ref"], Path(auth["source_directory"]))
     pending = authority.state["pending"]
     snapshot = package_snapshot(authority, child)
     if snapshot is None or not round_committed(snapshot[1], pending):
@@ -301,7 +367,7 @@ def execute_package_round(authority, owner_fd):
             package_experiment.resume_package(child, steps=1, trajectory_owner_fd=owner_fd)
         else:
             package_experiment.create_package(
-                authority.root / "source",
+                Path(auth["source_directory"]),
                 child,
                 state_policy="reset",
                 steps=1,
@@ -338,7 +404,7 @@ def execute_package_round(authority, owner_fd):
         )
 
     def change(state):
-        stage = state["stages"][0]
+        stage = state["stages"][pending["stage"]]
         stage["consumed"] = costs
         stage["receipts"].append(evidence)
         stage["status"] = "evaluated" if complete else "running"
@@ -346,13 +412,18 @@ def execute_package_round(authority, owner_fd):
 
     authority.update("trajectory_child_operation_committed", change)
     if decision["outcome"] == "no_patch":
-        seal(authority, "first_proposal_no_patch")
+        seal(
+            authority,
+            "proposal_no_patch"
+            if authority.program.get("schema_version") == 2
+            else "first_proposal_no_patch",
+        )
     elif decision["outcome"] != "patch":
         seal(authority, "change_proposal_rejected")
 
 
 def candidate_evidence(authority):
-    stage = authority.state["stages"][0]
+    stage = authority.state["stages"][-1]
     if stage["status"] != "evaluated" or not stage["receipts"]:
         raise ValueError("candidate requires a completed paired development stage")
     pair = stage["receipts"][-1]
@@ -374,7 +445,8 @@ def candidate_evidence(authority):
     changes.validate_lineage(plan, authority.store)
     if (
         plan.package_lineage is None
-        or plan.policy.neighbor_order != "operator_first"
+        or plan.policy.neighbor_order
+        != ("window_first" if plan.neighbor_domain is not None else "operator_first")
         or candidate["package_ref"] != package["decision"]["candidate_package_ref"]
         or authority.store.json(candidate["package_ref"]) != researcher.package_definition(plan)
     ):
@@ -417,7 +489,7 @@ def advance_head(authority, *, request_id, expected_head, expected_revision):
         previous_head=state["head"],
         head=head,
         revision=state["revision"] + 1,
-        package_receipt_ref=state["stages"][0]["receipts"][-1]["package_receipt_ref"],
+        package_receipt_ref=state["stages"][-1]["receipts"][-1]["package_receipt_ref"],
         qualification="experimental_development_head_not_accepted_or_release",
     )
     ref = authority.store.put_json(receipt)
@@ -428,7 +500,7 @@ def advance_head(authority, *, request_id, expected_head, expected_revision):
         )
         next_state["semantic_history"].append(head["semantic_ref"])
         next_state["decisions"][request_id] = ref
-        next_state["stages"][0]["candidate_head"] = head
+        next_state["stages"][-1]["candidate_head"] = head
 
     authority.update("trajectory_experimental_head_advanced", change)
     return receipt
@@ -482,7 +554,7 @@ def saturate(authority):
     seal(authority, "grammar_exhausted")
 
 
-def seal(authority, reason, *, failure=None):
+def seal(authority, reason, *, failure=None, terminal_evidence_ref=None):
     state = authority.state
     if state["status"] == "SEALED":
         return
@@ -501,6 +573,8 @@ def seal(authority, reason, *, failure=None):
         protected_evidence="not_accessed",
         promotion="not_requested",
     )
+    if terminal_evidence_ref is not None:
+        receipt["terminal_evidence_ref"] = terminal_evidence_ref
     ref = authority.store.put_json(receipt)
     authority.update(
         "trajectory_sealed",
@@ -512,52 +586,72 @@ def resume_trajectory(*, steps=1):
     research.validate_steps(steps)
     with locked_trajectory() as (root, owner_fd):
         with TrajectoryLedger(root, owner_fd=owner_fd) as authority:
-            summarize(authority)
-            for _ in range(steps):
-                state = authority.state
-                if state["status"] == "SEALED":
-                    break
-                if not state["stages"]:
-                    reserve_stage(authority)
-                elif state["pending"] is not None:
-                    try:
-                        execute_package_round(authority, owner_fd)
-                    except ValueError as error:
-                        seal(
-                            authority,
-                            "required_child_operation_failed",
-                            failure=dict(type=type(error).__name__, message=str(error)),
-                        )
-                elif state["generation"] == 0:
-                    stage = state["stages"][0]
-                    pair = authority.store.json(stage["receipts"][-1]["package_receipt_ref"])
-                    outcome = pair["decision"]["outcome"]
-                    if outcome != "patch":
-                        seal(
-                            authority,
-                            "first_proposal_no_patch"
-                            if outcome == "no_patch"
-                            else "change_proposal_rejected",
-                        )
-                    else:
-                        advance_head(
-                            authority,
-                            request_id=stage["request_id"] + ":head",
-                            expected_head=state["head"]["package_ref"],
-                            expected_revision=0,
-                        )
-                elif len(state["stages"]) == 2:
-                    seal(authority, "grammar_exhausted")
-                elif len(state["stages"]) >= authority.program["input"]["max_proposal_stages"]:
-                    seal(authority, "proposal_stage_limit")
-                else:
-                    saturate(authority)
-            return summarize(authority)
+            if authority.program.get("schema_version") == 2:
+                from quant_rsi.replay_memo import CalculationScope
+
+                with CalculationScope(controller.runtime_identity()):
+                    return _resume_locked(authority, owner_fd, steps)
+            return _resume_locked(authority, owner_fd, steps)
+
+
+def _resume_locked(authority, owner_fd, steps):
+    summarize(authority)
+    for _ in range(steps):
+        state = authority.state
+        if state["status"] == "SEALED":
+            break
+        if authority.program.get("schema_version") == 2:
+            from quant_rsi.trajectory_multigen import resume_step
+
+            resume_step(authority, owner_fd)
+            continue
+        if not state["stages"]:
+            reserve_stage(authority)
+        elif state["pending"] is not None:
+            try:
+                execute_package_round(authority, owner_fd)
+            except ValueError as error:
+                seal(
+                    authority,
+                    "required_child_operation_failed",
+                    failure=dict(type=type(error).__name__, message=str(error)),
+                )
+        elif state["generation"] == 0:
+            stage = state["stages"][0]
+            pair = authority.store.json(stage["receipts"][-1]["package_receipt_ref"])
+            outcome = pair["decision"]["outcome"]
+            if outcome != "patch":
+                seal(
+                    authority,
+                    "first_proposal_no_patch"
+                    if outcome == "no_patch"
+                    else "change_proposal_rejected",
+                )
+            else:
+                advance_head(
+                    authority,
+                    request_id=stage["request_id"] + ":head",
+                    expected_head=state["head"]["package_ref"],
+                    expected_revision=0,
+                )
+        elif len(state["stages"]) == 2:
+            seal(authority, "grammar_exhausted")
+        elif len(state["stages"]) >= authority.program["input"]["max_proposal_stages"]:
+            seal(authority, "proposal_stage_limit")
+        else:
+            saturate(authority)
+    return summarize(authority)
 
 
 def verify_authority_receipts(authority):
     """Bind every committed parent decision and cost to its sealed child evidence."""
     state, program, store = authority.state, authority.program, authority.store
+    if program.get("schema_version") == 2:
+        from quant_rsi.trajectory_multigen import verify_authority
+
+        verify_authority(authority)
+        verify_terminal(authority)
+        return
     initial_ref = program["initial_head"]["research_receipt_ref"]
     initial = store.json(initial_ref)
     if (
@@ -682,6 +776,11 @@ def verify_authority_receipts(authority):
             raise ValueError(
                 "trajectory head CAS receipt does not bind its complete actual candidate"
             )
+    verify_terminal(authority)
+
+
+def verify_terminal(authority):
+    state, program, store = authority.state, authority.program, authority.store
     if state["terminal_ref"] is not None:
         terminal = store.json(state["terminal_ref"])
         last_event_ref = authority.connection.execute(
@@ -718,7 +817,7 @@ def summarize(authority):
                 authority.store.json(pair["package_receipt_ref"]),
                 pair["arm_receipts"],
             )
-        if stage["ordinal"] == 1:
+        if "response_ref" in stage:
             authority.store.get(stage["response_ref"])
     used = {
         unit: program["initial_costs"][unit]

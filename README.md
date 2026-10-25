@@ -2,6 +2,8 @@
 
 有限开发轨迹的入口、预算与恢复说明见 [Development trajectory](docs/development_trajectory.md)。
 
+新的显式 v2 多代能力及运行前登记见 [Bounded multigeneration development](docs/bounded_multigeneration.md)；真实两代与恢复验收仍待完成。
+
 基于 [已确认架构](docs/architecture.md) 的量化研究系统。当前提供合成数据上的 **M0 固定模型内核、C2 动态研究循环、C4 受限研究包实验和 C5 工程保护评估**，以及 [本地数据、同 C2 研究、独立推理和持久化基线观察](docs/local_observer.md)。各运行内程序保持固定；真实市场 pilot、经校准的统计晋升和完整递归自改进仍未完成。
 
 ## 安装与运行

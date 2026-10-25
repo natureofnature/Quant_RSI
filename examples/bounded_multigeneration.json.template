@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "name": "bounded-cap-development",
+  "source_directory": "SET_SAME_CANONICAL_ABSOLUTE_ROOT_SOURCE",
+  "source_checkpoint_ref": "SET_ACTUAL_SETTLED_ROOT_CHECKPOINT_SHA256",
+  "state_policy": "reset",
+  "max_proposal_stages": 2,
+  "max_generations": 2,
+  "budget": {
+    "worker_attempts": "SET_SAME_PREREGISTERED_TOTAL_ATTEMPT_LIMIT",
+    "registered_worker_seconds": "SET_SAME_PREREGISTERED_TOTAL_SECOND_LIMIT"
+  }
+}

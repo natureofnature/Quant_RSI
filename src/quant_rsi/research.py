@@ -12,6 +12,7 @@ from quant_rsi.journal import TERMINAL
 from quant_rsi.research_journal import ResearchJournal
 from quant_rsi.researcher import ResearchPlan, advance, factor_identity, initial_state
 from quant_rsi.schemas import DevelopmentPlan, FactorSpec, Proposal
+from quant_rsi.trajectory_registration import registered_creation, registered_resume
 
 
 def authorize_managed(
@@ -30,6 +31,10 @@ def authorize_managed(
     if context is None:
         if view is not None:
             raise ValueError("bound development data requires a controller grant")
+        if plan.schema_version == 2:
+            from quant_rsi.trajectory_registration import require_root_identity
+
+            require_root_identity(plan, root, campaign_id, trajectory_owner_fd)
         return
     if owner_fd is None and plan.development.data.source != "local_event_snapshot":
         raise ValueError("managed research arm requires package resume")
@@ -72,6 +77,12 @@ def preflight_managed(root, owner_fd, trajectory_owner_fd, *, steps=None):
     elif manifest_path.exists():
         manifest = decode(manifest_path.read_bytes())
         if "launch_context_ref" not in manifest:
+            store = ArtifactStore(root / "artifacts")
+            plan = ResearchPlan.model_validate_json(store.get(manifest["research_plan_ref"]))
+            if plan.schema_version == 2:
+                authorize_managed(
+                    root, plan, manifest["campaign_id"], None, None, owner_fd, trajectory_owner_fd
+                )
             return
         if owner_fd is None:
             raise ValueError("managed research arm requires package resume")
@@ -94,6 +105,7 @@ def preflight_managed(root, owner_fd, trajectory_owner_fd, *, steps=None):
         )
 
 
+@registered_creation
 def create_research(
     plan: ResearchPlan,
     root: Path,
@@ -196,6 +208,9 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
         trajectory_owner_fd,
     )
     store = ArtifactStore(root / "artifacts")
+    if plan.neighbor_domain is not None:
+        store.put_json(plan.neighbor_domain.model_dump(mode="json"))
+        store.put_json(plan.trajectory_registration.model_dump(mode="json"))
     for ref, value in (saved.get("package_artifacts") or {}).items():
         if digest(canonical(value)) != ref:
             raise ValueError("package artifact reference mismatch")
@@ -239,7 +254,9 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
             raise ValueError("bound development data requires a controller grant")
         data_ref = store.put_json(bound_view["data"])
     template_ref = store.put_json(plan.development.model_dump(mode="json"))
-    task_ref = store.put_json({"data_ref": data_ref, "development_template_ref": template_ref})
+    from quant_rsi.task_definition import task_definition
+
+    task_ref = store.put_json(task_definition(plan, data_ref, template_ref))
     package_ref = store.put_json(researcher.package_definition(plan))
     memory_ref = store.put_json(
         {
@@ -267,6 +284,12 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
     }
     if saved.get("launch_context") is not None:
         manifest["launch_context_ref"] = store.put_json(saved["launch_context"])
+    elif plan.schema_version == 2:
+        from quant_rsi.trajectory_registration import require_root_identity
+
+        manifest["root_registration_identity_ref"] = store.put_json(
+            require_root_identity(plan, root, saved["campaign_id"], trajectory_owner_fd)
+        )
     if bound_view is not None:
         manifest["bound_view_ref"] = store.put_json(bound_view)
     path = root / "manifest.json"
@@ -314,10 +337,14 @@ def open_research(root: Path, *, verify_runtime=True):
             from quant_rsi.changes import validate_lineage
 
             validate_lineage(plan, store)
-        if store.json(manifest["task_ref"]) != {
-            "data_ref": manifest["data_ref"],
-            "development_template_ref": manifest["development_template_ref"],
-        }:
+        from quant_rsi.task_definition import task_definition, verify_domain
+        from quant_rsi.trajectory_registration import verify_root_manifest
+
+        verify_domain(plan, store)
+        verify_root_manifest(plan, store, manifest)
+        if store.json(manifest["task_ref"]) != task_definition(
+            plan, manifest["data_ref"], manifest["development_template_ref"]
+        ):
             raise ValueError("research task binding mismatch")
         data = MarketData.from_json(store.json(manifest["data_ref"]))
         from quant_rsi.local_research import LocalResearchData
@@ -685,6 +712,7 @@ def validate_steps(steps):
         raise ValueError("steps must be an integer between 1 and 100")
 
 
+@registered_resume
 def resume_research(
     root: Path,
     *,

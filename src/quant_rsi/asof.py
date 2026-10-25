@@ -165,13 +165,25 @@ def make_feature_view(
 
 
 def mature_label(snapshot, contract, session_id, instrument, training_cutoff, *, basis=None):
+    return _mature_label_with_visible(
+        snapshot, contract, session_id, instrument, training_cutoff, basis=basis
+    )
+
+
+def _mature_label_with_visible(
+    snapshot, contract, session_id, instrument, training_cutoff, *, basis=None, visible_for=None
+):
     index = session_index(contract, session_id)
     if instrument not in contract.instruments:
         raise ValueError("label instrument is outside the registered identity grid")
     if index + 2 >= len(contract.calendar.sessions):
         return {"status": "immature", "reason": "future_label_sessions_absent", "value": None}
     basis = basis or contract.knowledge_basis
-    visible = visible_revisions(snapshot, contract, training_cutoff, basis=basis)
+    visible = (
+        visible_revisions(snapshot, contract, training_cutoff, basis=basis)
+        if visible_for is None
+        else visible_for(basis)
+    )
     label_end = contract.calendar.sessions[index + 2].open_at
     if any(
         item["event"]["kind"] == "CORPORATE_ACTION_NOTICE"

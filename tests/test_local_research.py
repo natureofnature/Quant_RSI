@@ -92,6 +92,85 @@ def test_local_training_information_age_is_not_refreshed_by_import(local_plan):
         LocalResearchData.from_json(tampered)
 
 
+def test_training_label_visibility_is_rebuilt_for_each_call(local_plan, monkeypatch):
+    from quant_rsi import local_research
+
+    data = LocalResearchData.from_json(export_local_data(local_plan.development.data))
+    factor = FactorSpec(op="momentum", window=2)
+    original = local_research.visible_revisions
+    cutoffs = []
+
+    def visible(snapshot, contract, cutoff, **kwargs):
+        cutoffs.append(cutoff)
+        return original(snapshot, contract, cutoff, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("training-view calculation must not fit or dispatch")
+
+    monkeypatch.setattr(local_research, "visible_revisions", visible)
+    monkeypatch.setattr(lgb, "train", forbidden)
+    monkeypatch.setattr(controller.subprocess, "Popen", forbidden)
+    first = training_view(data, local_plan.development, factor)
+    assert cutoffs == [data.decision_at(local_plan.development.data.train_cutoff)]
+    expected = canonical(
+        dict(x=first[0].tolist(), y=first[1].tolist(), metadata=first[2], mask=first[3])
+    )
+    first[0][0, 0] += 100
+    first[2]["qualifications"].append("caller mutation")
+    first[3]["rows"][0]["training_eligible"] = False
+    second = training_view(data, local_plan.development, factor)
+    assert len(cutoffs) == 2 and cutoffs[0] == cutoffs[1]
+    assert (
+        canonical(
+            dict(x=second[0].tolist(), y=second[1].tolist(), metadata=second[2], mask=second[3])
+        )
+        == expected
+    )
+
+
+def test_training_view_rejects_before_label_visibility(local_plan, monkeypatch):
+    from quant_rsi import local_research
+
+    data = LocalResearchData.from_json(export_local_data(local_plan.development.data))
+    factor = FactorSpec(op="momentum", window=2)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("label visibility was evaluated before the original guard")
+
+    def feature_failure(*args, **kwargs):
+        raise ValueError("feature failure sentinel")
+
+    monkeypatch.setattr(local_research, "visible_revisions", forbidden)
+    monkeypatch.setattr(local_research, "make_feature_view", feature_failure)
+    changed = local_plan.development.model_copy(
+        update={"data": local_plan.development.data.model_copy(update={"train_cutoff": 21})}
+    )
+    with pytest.raises(ValueError, match="data specification differs"):
+        training_view(data, changed, factor)
+    with pytest.raises(ValueError, match="feature failure sentinel"):
+        training_view(data, local_plan.development, factor)
+
+
+def test_public_label_guards_still_precede_visibility(local_plan, monkeypatch):
+    from quant_rsi import asof
+
+    data = LocalResearchData.from_json(export_local_data(local_plan.development.data))
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("public label guard unexpectedly read visibility")
+
+    monkeypatch.setattr(asof, "visible_revisions", forbidden)
+    with pytest.raises(ValueError, match="session"):
+        asof.mature_label(data.snapshot, data.contract, "missing", "A", "invalid cutoff")
+    with pytest.raises(ValueError, match="instrument"):
+        asof.mature_label(data.snapshot, data.contract, "s2", "missing", "invalid cutoff")
+    assert asof.mature_label(data.snapshot, data.contract, "s31", "A", "invalid cutoff") == {
+        "status": "immature",
+        "reason": "future_label_sessions_absent",
+        "value": None,
+    }
+
+
 def test_synthetic_generator_refuses_local_input(local_plan):
     from quant_rsi.data import synthetic_data
 
