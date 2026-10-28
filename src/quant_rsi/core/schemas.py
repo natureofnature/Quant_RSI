@@ -57,6 +57,12 @@ class Proposal(StrictModel):
 
 
 class FactorSpec(StrictModel):
+    # Minimal executable vocabulary for the current bounded factor search.
+    # RFC #24 targets automatic proposal, composition, evaluation, and selection
+    # of multi-source factor graphs within registered operators, data permissions,
+    # and budgets. Operators can expand through versioned, validated extensions;
+    # broader multi-source discovery is planned, not implemented by this schema.
+    # https://github.com/natureofnature/Quant_RSI/issues/24
     op: Literal["momentum", "mean_return"]
     window: int = Field(ge=1, le=30)
 
