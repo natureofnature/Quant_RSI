@@ -19,7 +19,7 @@ from quant_rsi.research.study_estimators import StandardizedRidge, model_configu
 
 
 class LightGBMDemo:
-    """Two development fits share fixed origins and one mature-label training window."""
+    """Development fits share fixed origins and one mature-label training window."""
 
     def __init__(
         self,
@@ -213,9 +213,9 @@ class LightGBMDemo:
             result["model_note"] = (
                 "Retrospective development study on "
                 + ("retained public daily prices. " if self.price_info else "synthetic prices. ")
-                + "Both revisions use the same training window and evaluation origins. "
+                + "All revisions use the same training window and evaluation origins. "
                 "Current news guides retrospective factor selection, not historically available "
-                "features. The second revision reuses disclosed development outcomes, so this "
+                "features. Each revision reuses disclosed development outcomes, so this "
                 "is not independent holdout validation. Five-session outcomes overlap."
             )
         if self.news_feature_support is not None:

@@ -11,7 +11,39 @@ An interactive terminal opens the live research UI automatically; the saved repo
 also available at `/tmp/ko-study/report.html`. The default uses Codex CLI saved authentication,
 KO's configured relationship profile, registered issuer RSS and public daily
 prices. Install/login to Codex first; the existing LightGBM dependency performs
-two actual fits. The smaller `research-demo` command remains unchanged.
+two actual fits by default. The smaller `research-demo` command retains its defaults.
+
+## Bounded research iterations
+
+Use `--rounds 5 --max-fits 4 --patience 2` to request up to five rounds with a four-fit
+allowance and early stopping after two consecutive non-improvements. `--rounds` and
+`--max-fits` accept 2–10; the fit allowance defaults to the round limit. `--patience`
+accepts 1–10 and is disabled by default. One round is one hypothesis and one fit,
+including the initial baseline. Configuration is recorded before any provider work.
+
+Each successful trial is compared with the incumbent using the preselected development
+metric. Ties, missing metrics and worse results retain the incumbent. Subsequent LLM
+calls receive its hypothesis/feedback plus all previous trial hypotheses, factor IDs,
+development metrics and decisions, including rejected trials. The same training rows,
+development origins, strategy costs and baselines are used throughout. The final
+latest forecast comes from the selected fitted model, even when an intermediate round
+wins; it is not refitted or silently replaced with the last trial.
+
+The UI reuses the feedback/revision/prediction nodes on each round and exposes every
+stage in its selector. Decision cards show fit usage and the incumbent. The final
+UI/HTML/Markdown report includes a round table and an explicit `round_limit`,
+`fit_budget_exhausted` or `no_progress_limit` stopping reason. `result.json` retains
+all attempts under `iterations`; `trace.jsonl` retains incremental stage outputs.
+Provider/model failure stops the study and retains completed stages plus `failure.json`;
+it does not retry, dispatch another fit or produce a successful final report. Failed
+attempts are visible in runtime started/completed counts. Study directories are not
+resumable, and historical directories are never migrated.
+
+The fit limit is not a currency, token or whole-run wall-clock budget. Active-news
+research retains its separate bounded search/read behavior; LLM requests retain their
+per-call timeout. This is repeated **development** selection, not independent terminal
+evaluation, production promotion or modification of the researcher's own program (#3).
+Independent terminal evaluation is the next integration step in #39.
 The default live path is currently configured for KO only; other symbols do not
 automatically gain relationship profiles or registered news feeds.
 

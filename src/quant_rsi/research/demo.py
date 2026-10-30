@@ -183,12 +183,20 @@ def run_demo(
     price_context=None,
     on_stage=None,
     on_start=None,
+    rounds=2,
+    fit_budget=None,
+    patience=None,
+    select=None,
 ):
     """One factor revision, no network, fits, workspace or persistence by default.
 
     Inputs/outputs are plain dictionaries. Inject a callable to replace one stage;
     keep the rest simulated. Providers identify themselves in their output.
     """
+    from quant_rsi.research.study_iterations import iterate, validate_limits
+
+    fit_budget = rounds if fit_budget is None else fit_budget
+    validate_limits(rounds, fit_budget, patience)
     symbol = TypeAdapter(InstrumentId).validate_python(symbol.strip().upper())
     context = {"symbol": symbol, "reference_price": 100.0}
     if price_context is not None:
@@ -210,44 +218,30 @@ def run_demo(
     context["related"] = call("related_stocks", related, symbol)
     context["news"] = call("news", news, deepcopy(context))
     library = call("factor_library", catalog)
-    initial = call("initial_hypothesis", hypothesize, deepcopy(context), deepcopy(library))
-    if context.get("allow_factor_proposals"):
-        from quant_rsi.research.demo_proposals import extend_library
-
-        library = call("initial_factor_library", extend_library, library, initial)
-    factors = call("initial_factors", select_factors, library, initial)
-    first = call("first_prediction", predict, deepcopy(context), factors, deepcopy(initial))
-    if on_start is not None:
-        on_start("feedback")
-    observed = observe(deepcopy(context), deepcopy(first))
-    feedback = record(
-        "feedback",
-        {
-            **observed,
-            "predicted_price": first["predicted_price"],
-            "error": round(first["predicted_price"] - observed["observed_price"], 4),
-            "error_definition": "predicted_price_minus_observed_price",
-        },
+    iterations = iterate(
+        context,
+        library,
+        hypothesize=hypothesize,
+        predict=predict,
+        observe=observe,
+        resolve_factors=select_factors,
+        call=call,
+        rounds=rounds,
+        fit_budget=fit_budget,
+        patience=patience,
+        select=select,
     )
-    revised = call(
-        "revised_hypothesis",
-        hypothesize,
-        deepcopy(context),
-        deepcopy(library),
-        previous=deepcopy(initial),
-        feedback=deepcopy(feedback),
-    )
-    if context.get("allow_factor_proposals"):
-        library = call("revised_factor_library", extend_library, library, revised)
-    factors = call("revised_factors", select_factors, library, revised)
-    second = call("second_prediction", predict, deepcopy(context), factors, deepcopy(revised))
+    attempts = iterations["attempts"]
+    initial, revised = attempts[0]["hypothesis"], attempts[-1]["hypothesis"]
+    first, second = attempts[0]["prediction"], attempts[-1]["prediction"]
     summary = call(
         "summary",
         summarize,
         deepcopy(context),
         deepcopy(first),
         deepcopy(second),
-        deepcopy(feedback),
+        deepcopy(iterations["feedback"]),
+        **({"iterations": deepcopy(iterations)} if select is not None else {}),
     )
     live_llm = any(
         hypothesis.get("provider") in {"codex_cli", "openai_api"}
@@ -296,7 +290,8 @@ def run_demo(
         else "simulation",
         "notice": notice,
         "target": symbol,
-        "factor_revisions": 1,
+        "factor_revisions": len(attempts) - 1,
+        "iterations": iterations,
         "trace": trace,
         "summary": summary,
     }

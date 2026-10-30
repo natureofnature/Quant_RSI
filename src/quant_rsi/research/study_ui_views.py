@@ -1,6 +1,7 @@
 """Small visual projections of retained study outputs; never used by research selection."""
 
 import math
+import re
 
 
 def _pick(value, *keys):
@@ -127,7 +128,7 @@ def prediction_rows(current, initial=None):
     return rows
 
 
-def _accounts(previous):
+def _accounts(previous, selected_round=None):
     first = previous.get("first_prediction", {}).get("strategy", {})
     second = previous.get("second_prediction", {}).get("strategy", {})
     accounts = [
@@ -135,6 +136,9 @@ def _accounts(previous):
         ("Revised", second.get("strategy", {})),
         ("Buy & hold", first.get("buy_and_hold", {})),
     ]
+    if selected_round is not None and selected_round > 2:
+        selected = previous.get(f"round_{selected_round}_prediction", {}).get("strategy", {})
+        accounts.insert(2, ("Selected", selected.get("strategy", {})))
     metrics = [
         {
             "label": label,
@@ -157,6 +161,32 @@ def _accounts(previous):
 
 
 def visual_output(stage, output, previous, symbol):
+    match = re.fullmatch(
+        r"round_(\d+)_(hypothesis|factor_library|factors|prediction|feedback|decision)", stage
+    )
+    if match:
+        number, suffix = int(match[1]), match[2]
+        if suffix == "decision":
+            return {"kind": "iteration", **output}
+        previous = dict(previous)
+        feedback = previous.get(f"round_{number}_feedback", {})
+        incumbent = feedback.get(
+            "incumbent_round", output.get("incumbent_round", 1) if isinstance(output, dict) else 1
+        )
+        prefix = {1: "initial", 2: "revised"}.get(incumbent, f"round_{incumbent}")
+        prediction_stage = {1: "first_prediction", 2: "second_prediction"}.get(
+            incumbent, f"round_{incumbent}_prediction"
+        )
+        previous["initial_factors"] = previous.get(f"{prefix}_factors", [])
+        previous["revised_hypothesis"] = previous.get(f"round_{number}_hypothesis", {})
+        if suffix == "feedback":
+            previous["first_prediction"] = previous.get(prediction_stage, {})
+        mapped = {"prediction": "second_prediction", "feedback": "feedback"}.get(
+            suffix, f"revised_{suffix}"
+        )
+        view = visual_output(mapped, output, previous, symbol)
+        view["attempt"] = f"round_{number}"
+        return view
     if stage == "load_prices":
         return {"kind": "facts", "facts": _pick(output, "symbol", "provider", "sessions")}
     if stage in {"collect_news_context", "load_related_prices"}:
@@ -262,12 +292,14 @@ def visual_output(stage, output, previous, symbol):
             "note": output.get("development", {}).get("evaluation_note"),
         }
     if stage == "summary":
-        accounts, nav = _accounts(previous)
+        accounts, nav = _accounts(previous, (output.get("selection") or {}).get("selected_round"))
         return {
             "kind": "summary",
             "text": output.get("text"),
             "selection": output.get("selection"),
             "accounts": accounts,
             "nav": nav,
+            "rounds": output.get("research_rounds", []),
+            "stop_reason": output.get("stop_reason"),
         }
     return {"kind": "unknown"}

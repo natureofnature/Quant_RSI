@@ -53,6 +53,10 @@ const definitions = [
  ['Final evidence','Compare & report results','M5 21V3h14l-3 4 3 4H5']
 ];
 function group(name){
+ if(name==='round_1_decision')return 5;
+ if(/^round_\d+_feedback$/.test(name))return 6;
+ if(/^round_\d+_(hypothesis|factor_library|factors)$/.test(name))return 7;
+ if(/^round_\d+_(prediction|decision)$/.test(name))return 8;
  if(name==='load_prices')return 0;
  if(['collect_news_context','load_related_prices','target','related_stocks'].includes(name))return 1;
  if(name==='news'||/^(news_search_|article_reads_|news_review_)/.test(name))return 2;
@@ -120,19 +124,19 @@ function renderOutput(statuses){
 }
 function render(){
  const runtime=state.runtime,statuses=nodeStates();document.title=`${state.symbol} · Quant RSI research`;
- $('symbol').textContent=state.symbol;$('model').textContent=`${state.config.model||'Model'} · two research rounds`;
+ $('symbol').textContent=state.symbol;$('model').textContent=`${state.config.model||'Model'} · ${state.iterations?.completed_fits??Math.min(state.config.research_rounds??2,state.config.fit_budget??2)} research rounds`;
  const simulated=state.config.prices==='synthetic'||state.config.llm==='simulated'||state.config.news==='simulated';
  $('input-badge').textContent=simulated?'CONTAINS SIMULATED INPUTS':'LIVE SERVICES · DEVELOPMENT';
  $('status').className=`status-pill ${runtime.status}`;$('status-text').textContent=runtime.status==='completed'?'RESEARCH COMPLETE':runtime.status==='failed'?'RESEARCH STOPPED':'RESEARCH IN PROGRESS';
  nodes.forEach((node,i)=>{node.className=`node ${statuses[i]}`;node.setAttribute('aria-label',`${definitions[i][0]}: ${statuses[i]}`);node.querySelector('.node-index').textContent=statuses[i]==='completed'?'✓':statuses[i]==='failed'?'!':String(i+1).padStart(2,'0');});
  $('completed').textContent=statuses.filter(x=>x==='completed').length;
- const counts=runtime.counts||{},usage=runtime.token_usage||{};$('fits').textContent=`${counts.model_stages_completed||0} / 2`;$('searches').textContent=counts.search_requests_started||0;$('calls').textContent=counts.llm_requests_started||0;
+ const counts=runtime.counts||{},usage=runtime.token_usage||{};$('fits').textContent=`${counts.model_stages_completed||0} / ${state.config.fit_budget??2}`;$('searches').textContent=counts.search_requests_started||0;$('calls').textContent=counts.llm_requests_started||0;
  $('tokens').textContent=usage.input_tokens==null||usage.output_tokens==null?'—':(usage.input_tokens+usage.output_tokens).toLocaleString();$('usage-note').textContent=`Token coverage: ${usage.status||'unavailable'}. Missing usage is unknown, not zero.`;$('provider').textContent=state.config.llm||'—';
  const failed=runtime.status==='failed';$('notice').hidden=!failed;if(failed)$('notice').textContent=`${state.failure?.error_type||'Research failed'}: ${state.failure?.error||'The run stopped. Completed outputs have been retained.'}`;
  if(runtime.status==='completed'&&state.conclusion){
   $('results').hidden=false;$('conclusion').textContent=state.conclusion;const s=state.selection||{},label=s.metric==='sharpe'?'NET STRATEGY SHARPE':'PRICE MAE';
-  $('initial-label').textContent=`INITIAL · ${label}`;$('revised-label').textContent=`REVISED · ${label}`;
-  $('initial-score').textContent=s.initial_score==null?'—':s.initial_score.toFixed(4);$('revised-score').textContent=s.revised_score==null?'—':s.revised_score.toFixed(4);$('chosen').textContent=s.selected_attempt?s.revision_accepted?'Revised adopted':'Initial retained':'See report';
+  $('initial-label').textContent=`INITIAL · ${label}`;$('revised-label').textContent=`${s.selected_score!==undefined?'SELECTED':'REVISED'} · ${label}`;
+  $('initial-score').textContent=s.initial_score==null?'—':s.initial_score.toFixed(4);const selectedScore=s.selected_score!==undefined?s.selected_score:s.revised_score;$('revised-score').textContent=selectedScore==null?'—':selectedScore.toFixed(4);$('chosen').textContent=s.selected_round?`Round ${s.selected_round} selected`:s.selected_attempt?s.revision_accepted?'Revised adopted':'Initial retained':'See report';
   if(state.report&&!reportURL){reportURL=URL.createObjectURL(new Blob([state.report],{type:'text/html'}));$('report-link').href=reportURL;$('report').srcdoc=state.report;}
  }
  renderOutput(statuses);drawLines(statuses);tick();

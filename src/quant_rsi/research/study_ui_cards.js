@@ -196,11 +196,15 @@ const StudyCards = (() => {
   }
   function summary(view) {
     const wrap=el('div'), s=view.selection;
-    if(s){wrap.append(metrics([['Initial selection score',fmt(s.initial_score)],['Revised selection score',fmt(s.revised_score)],['Selected attempt',s.selected_attempt||'Unavailable',s.metric==='sharpe'?'Net strategy Sharpe':'Price MAE']]));wrap.append(note(s.reason));}
+    if(s){wrap.append(metrics([['Initial selection score',fmt(s.initial_score)],[s.selected_score!==undefined?'Selected score':'Revised selection score',fmt(s.selected_score!==undefined?s.selected_score:s.revised_score)],['Selected attempt',s.selected_attempt||'Unavailable',s.metric==='sharpe'?'Net strategy Sharpe':'Price MAE']]));wrap.append(note(s.reason));}
     if(view.text)wrap.append(el('p','hypothesis-text',view.text));
+    if(view.rounds?.length){
+      wrap.append(note(`Stopped: ${view.stop_reason}`),table(['Round','Factors','Price MAE','Net return','Sharpe','Accepted'],view.rounds.map(r=>[r.round,r.factor_ids.join(', '),fmt(r.mae_price),pct(r.net_return),fmt(r.sharpe_ratio),r.accepted?'Yes':'No'])));
+    }
     if(view.accounts?.length){
       wrap.append(table(['Account','Net return','Sharpe','Max drawdown'],view.accounts.map(a=>[a.label,pct(a.net_return),number(a.sharpe_ratio)===null?`N/A · ${title(a.risk_statistics?.status||'unavailable')}`:fmt(a.sharpe_ratio),pct(a.max_drawdown)])));
-      wrap.append(chart(view.nav||[],[{key:'Initial',label:'Initial',color:'#83b5ff'},{key:'Revised',label:'Revised',color:'#62efc5'},{key:'Buy & hold',label:'Buy & hold',color:'#d4b97d'}],'Hypothetical account NAV','Account currency units'));
+      const colors=['#83b5ff','#62efc5','#cba6ff','#d4b97d'];
+      wrap.append(chart(view.nav||[],view.accounts.map((a,i)=>({key:a.label,label:a.label,color:colors[i]})),'Hypothetical account NAV','Account currency units'));
     }
     wrap.append(note('Costs are included in account results. Development feedback and selection reuse these observations; this is not an independent improvement claim.'));return wrap;
   }
@@ -230,6 +234,9 @@ const StudyCards = (() => {
     } else if(view.kind==='prediction')content=prediction(view);
     else if(view.kind==='feedback')content=feedback(view);
     else if(view.kind==='summary')content=summary(view);
+    else if(view.kind==='iteration'){
+      content.append(metrics([['Round',view.round],['Selected round',view.incumbent_round],['Fits',`${view.completed_fits} / ${view.fit_budget}`]]),note(view.decision?.reason||'Initial baseline retained.'),table(['Metric','Value'],[['Price MAE',fmt(view.development_metrics?.mae_price)],['Net return',pct(view.strategy_metrics?.net_return)],['Sharpe',fmt(view.strategy_metrics?.sharpe_ratio)]]),pills([view.accepted?'Accepted':'Retained incumbent',...(view.factor_changes?.activated||[]).map(f=>`+ ${f}`),...(view.factor_changes?.deactivated||[]).map(f=>`− ${f}`)]));
+    }
     else if(view.kind==='facts'){content.append(table(['Field','Value'],Object.entries(view.facts).map(([k,v])=>[title(k),valueText(v)])));if(view.note)content.append(note(view.note));}
     else content.append(note('A visual summary is not available for this stage. Inspect its raw data below.'));
     host.replaceChildren(content);

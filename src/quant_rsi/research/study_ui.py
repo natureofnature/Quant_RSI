@@ -66,7 +66,20 @@ def read_state(root):
     return {
         "symbol": config.get("symbol", "…"),
         "config": {
-            key: config.get(key) for key in ("llm", "model", "prices", "news", "news_research")
+            key: config.get(key)
+            for key in (
+                "llm",
+                "model",
+                "prices",
+                "news",
+                "news_research",
+                "research_rounds",
+                "fit_budget",
+            )
+        },
+        "iterations": {
+            key: result.get("iterations", {}).get(key)
+            for key in ("completed_fits", "selected_round", "stop_reason")
         },
         "runtime": runtime,
         "updated_at": updated,
