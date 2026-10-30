@@ -13,6 +13,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write
+from quant_rsi.research.study_ui_views import visual_output
 
 
 def _read_json(path, default):
@@ -26,6 +27,17 @@ def read_state(root):
     config = _read_json(root / "config.json", {})
     runtime = _read_json(root / "runtime.json", {"status": "starting", "stages": []})
     events = []
+    previous = {}
+
+    def present(stage, output):
+        text = json.dumps(output, indent=2, ensure_ascii=False)
+        return {
+            "stage": stage,
+            "text": text[:18000],
+            "truncated": len(text) > 18000,
+            "view": visual_output(stage, output, previous, config.get("symbol", "…")),
+        }
+
     try:
         lines = (root / "trace.jsonl").read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
@@ -35,15 +47,11 @@ def read_state(root):
             event = json.loads(line)
         except json.JSONDecodeError:
             continue  # a writer may still be appending the last line
-        text = json.dumps(event["output"], indent=2, ensure_ascii=False)
-        events.append(
-            {"stage": event["stage"], "text": text[:18000], "truncated": len(text) > 18000}
-        )
+        events.append(present(event["stage"], event["output"]))
+        previous[event["stage"]] = event["output"]
     for stage in runtime.get("stages", []):
         if "output" in stage:
-            events.insert(
-                0, {"stage": stage["stage"], "text": json.dumps(stage["output"], indent=2)}
-            )
+            events.insert(0, present(stage["stage"], stage["output"]))
     result = _read_json(root / "result.json", {}) if runtime["status"] == "completed" else {}
     report = ""
     if result:
@@ -76,6 +84,8 @@ def page(state, *, live=False):
         "<", "\\u003c"
     )
     template = files("quant_rsi.research").joinpath("study_ui.html").read_text(encoding="utf-8")
+    cards = files("quant_rsi.research").joinpath("study_ui_cards.js").read_text(encoding="utf-8")
+    template = template.replace("__STUDY_CARDS__", cards)
     return template.replace("__STUDY_BOOTSTRAP__", bootstrap)
 
 
