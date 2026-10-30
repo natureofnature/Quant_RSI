@@ -146,6 +146,7 @@ at a time.
 | News and financial evidence | Retained KO title indicators can enter opt-in comparisons/discovery; other evidence remains sidecar-only |
 | News collection and extraction | [Bounded KO official RSS observations](docs/news_collection.md), retained-title extraction and revision tracking; the study adds current search/page text for hypotheses. The [first news-factor slice](docs/news_factor_slice.md) is implemented; general historical text-feature extraction remains under #8/#39 B |
 | Statistical confirmation and promotion | Incomplete; protected evaluation is engineering-only and retains the incumbent |
+| Intraday bars, model and IBKR paper trading | Standalone, offline-tested: IBKR adapter with a paper-only guard, intraday snapshots, fixed LightGBM development evaluation, replay simulator and paper-account episodes. Not yet wired into the C2/C4/C5 controller or `quant-rsi`; see the [intraday guide](docs/intraday_ibkr.md) |
 | Live trading and general self-modification | Not implemented |
 
 Older guides use project-local labels: **M0** is fixed-model execution, **C2** is
@@ -287,6 +288,7 @@ it is not a declaration that every capability is implemented.
 | Run bounded recursive market research | [Recursive market exploration](docs/recursive_market_exploration.md) |
 | Import local data or observe a sealed model | [Local data and observation](docs/local_observer.md) |
 | Register a published forecast and settle its observed outcome | [Forecast observations](docs/forecast_observations.md) |
+| Collect IBKR intraday bars or run an IBKR paper episode | [Intraday and IBKR guide](docs/intraday_ibkr.md), [design](docs/intraday_ibkr_design.md) |
 | Understand protected engineering evaluation | [Evaluation protocol](docs/c5_protocol.md) |
 | Preserve versions and old experiment environments | [Version control](docs/version_control.md) |
 
