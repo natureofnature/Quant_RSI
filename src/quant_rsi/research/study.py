@@ -27,6 +27,7 @@ from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.study_estimators import model_configuration
+from quant_rsi.research.study_iterations import validate_limits
 from quant_rsi.research.study_news import (
     NewsHistory,
     load_archive,
@@ -46,6 +47,8 @@ def run_study(args):
     """Keep a completed stage log even when a later provider fails; never overwrite a run."""
     symbol = TypeAdapter(InstrumentId).validate_python(args.symbol.strip().upper())
     estimator_configuration = model_configuration(args.model, args.ridge_alpha)
+    fit_budget = args.rounds if args.max_fits is None else args.max_fits
+    validate_limits(args.rounds, fit_budget, args.patience)
     if args.prices == "synthetic" and args.prices_dir is not None:
         raise ValueError("--prices-dir requires --prices daily")
     if args.related_prices_dir and (args.prices != "daily" or not args.related_prices):
@@ -65,7 +68,8 @@ def run_study(args):
     configuration.update(
         symbol=symbol,
         model_configuration=estimator_configuration,
-        research_rounds=2,
+        research_rounds=args.rounds,
+        fit_budget=fit_budget,
         generated_recipes="bounded_price_operators_and_retained_headline_counts",
     )
     _write(root / "config.json", configuration)
@@ -241,7 +245,8 @@ def _run(args, symbol, root, configuration, record, progress):
             "allow_factor_proposals": True,
             "selection_policy": {
                 "metric": args.selection_metric,
-                "rule": "strict_improvement_else_retain_initial; missing metrics retain initial",
+                "rule": "strict_improvement_else_retain_incumbent; "
+                "missing metrics retain incumbent",
                 "scope": "development_only",
             },
         }
@@ -266,17 +271,46 @@ def _run(args, symbol, root, configuration, record, progress):
             },
         }
 
-    def summarize(context, first, second, feedback):
+    def summarize(context, first, second, feedback, *, iterations):
         summary = model.summarize(context, first, second, feedback)
-        selection = select_attempt(first, second, args.selection_metric)
-        selected = second if selection["revision_accepted"] else first
+        chosen = iterations["selected_round"]
+        selected = iterations["attempts"][chosen - 1]["prediction"]
+        selection = select_attempt(
+            first, selected if chosen != 1 else second, args.selection_metric
+        )
+        selection["selected_round"] = chosen
+        selection["selected_score"] = select_attempt(selected, selected, args.selection_metric)[
+            "initial_score"
+        ]
+        if len(iterations["attempts"]) > 2:
+            selection["selected_attempt"] = f"round_{chosen}"
+            selection["reason"] = (
+                f"Selected round {chosen} by strict {args.selection_metric} improvement on the "
+                "same development window; ties and missing metrics retain the incumbent."
+            )
+        selection["forecast_note"] = "Latest forecast uses the selected fitted model; no refit."
         for key in ("latest_forecast", "latest_forecast_unavailable"):
             summary.pop(key, None)
             if key in selected:
                 summary[key] = deepcopy(selected[key])
         summary["selection"] = selection
+        summary["research_rounds"] = [
+            {
+                "round": item["round"],
+                "factor_ids": item["factor_ids"],
+                "accepted": item["accepted"],
+                "mae_price": item["development_metrics"]["mae_price"],
+                "net_return": item["prediction"]["strategy"]["strategy"]["metrics"]["net_return"],
+                "sharpe_ratio": item["prediction"]["strategy"]["strategy"]["metrics"][
+                    "sharpe_ratio"
+                ],
+            }
+            for item in iterations["attempts"]
+        ]
+        summary["stop_reason"] = iterations["stop_reason"]
         summary["text"] = (
-            f"{symbol}: two real fits and one exploratory factor revision. "
+            f"{symbol}: {iterations['completed_fits']} real fits. "
+            f"Stopped: {iterations['stop_reason']}. "
             f"{selection['reason']} The latest forecast, when available, follows the "
             f"{selection['selected_attempt']} attempt and has no observed outcome. "
             "Selection reuses development feedback; it does not establish independent gain."
@@ -295,11 +329,17 @@ def _run(args, symbol, root, configuration, record, progress):
         summarize=summarize,
         on_stage=record,
         on_start=progress.start,
+        rounds=args.rounds,
+        fit_budget=configuration["fit_budget"],
+        patience=args.patience,
+        select=lambda incumbent, trial: select_attempt(incumbent, trial, args.selection_metric),
     )
     result["trace"] = prelude + result["trace"]
     steps = {event["stage"]: event["output"] for event in result["trace"]}
-    first, second = (steps[key] for key in ("first_prediction", "second_prediction"))
+    attempts = result["iterations"]["attempts"]
+    first, second = attempts[0]["prediction"], attempts[-1]["prediction"]
     selection = result["summary"]["selection"]
+    selected_metrics = result["summary"]["research_rounds"][selection["selected_round"] - 1]
     first_ids, second_ids = set(first["factor_ids"]), set(second["factor_ids"])
     metrics = second["development"]["metrics"]
     baseline = second["development"]["baselines"]["unchanged_price"]["metrics"]
@@ -337,17 +377,18 @@ def _run(args, symbol, root, configuration, record, progress):
         f"Hypotheses: {steps['initial_hypothesis']['provider']}; "
         f"news: {steps['news']['provider']}; "
         f"relationships: {steps['related_stocks']['provider']}. "
-        "Both attempts use the same retrospective development window; no independent gain "
+        "All attempts use the same retrospective development window; no independent gain "
         "is established. Inspect source coverage and the separate unobserved latest forecast."
     )
     result["configuration"] = configuration
+    final_prefix = "revised" if len(attempts) == 2 else f"round_{len(attempts)}"
     news_definitions = [
-        item for item in steps["revised_factor_library"]["definitions"] if item["kind"] == "news"
+        item
+        for item in steps[f"{final_prefix}_factor_library"]["definitions"]
+        if item["kind"] == "news"
     ]
     news_used = any(
-        item["kind"] == "news"
-        for key in ("initial_factors", "revised_factors")
-        for item in steps[key]
+        item["kind"] == "news" for key in steps if key.endswith("_factors") for item in steps[key]
     )
     result["study"] = {
         "engine": f"local_{args.model}_and_existing_finite_account",
@@ -356,7 +397,8 @@ def _run(args, symbol, root, configuration, record, progress):
             "activated": sorted(second_ids - first_ids),
             "deactivated": sorted(first_ids - second_ids),
             "retained": sorted(first_ids & second_ids),
-            "meaning": "Run-local selection changes; definitions and evidence remain in the trace.",
+            "meaning": "Initial-to-final trial changes, not the adopted factor set. "
+            "See selection and round decisions; definitions remain in the trace.",
         },
         "news_use": (
             "Selected retained-headline counts entered the fitted feature matrix. "
@@ -373,20 +415,27 @@ def _run(args, symbol, root, configuration, record, progress):
                 x["factor_id"] for x in steps["initial_factors"] if x["kind"] == "news"
             ],
             "executed_revised": [
-                x["factor_id"] for x in steps["revised_factors"] if x["kind"] == "news"
+                x["factor_id"] for x in steps[f"{final_prefix}_factors"] if x["kind"] == "news"
             ],
             "timing_note": "Original receipt times are preserved source records, not independently "
             "authenticated clocks. Real price cutoffs use the retained exchange calendar.",
         },
         "external_engine": "Qlib-style local price adapters; no Qlib or QuantDinger execution.",
         "conclusion": (
-            discovery_summary + f"{symbol}: completed two fits and one factor revision over "
+            discovery_summary + f"{symbol}: completed {len(attempts)} fits and "
+            f"{len(attempts) - 1} revision attempts; "
+            f"stopped: {result['iterations']['stop_reason']}. "
+            f"Final trial evaluated over "
             f"{metrics['sample_count']} development observations. Price MAE: initial "
             f"{first_mae:.4f}, revised {metrics['mae_price']:.4f}, "
             f"unchanged-price baseline {baseline['mae_price']:.4f}. "
             f"The revision {'increased' if change > 0 else 'decreased' if change < 0 else 'kept'} "
             f"MAE by {abs(change):.4f}. "
             f"{selection['reason']} "
+            f"Selected round {selection['selected_round']}: "
+            f"price MAE {selected_metrics['mae_price']:.4f}, "
+            f"net return {float(selected_metrics['net_return']):.2%}, "
+            f"Sharpe {selected_metrics['sharpe_ratio']}. "
             f"Net strategy return: initial {first_return:.2%}, revised {revised_return:.2%}, "
             f"buy-and-hold {buy_hold_return:.2%}. "
             f"Annualized Sharpe: {sharpe_summary} "

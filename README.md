@@ -33,12 +33,25 @@ connects retrieved article IDs to findings, company suggestions and factor choic
 Current articles guide hypotheses; they are never backdated into historical features.
 
 The study adopts a revision only when its **development MAE strictly improves**;
-otherwise it retains the initial attempt for the latest forecast. To choose strategy
+otherwise it retains the incumbent for the latest forecast. To choose strategy
 Sharpe instead, set `--selection-metric sharpe` before the run. Ties and unavailable
-comparisons retain the initial attempt. Both attempts remain in the report; this is
+comparisons retain the incumbent. All attempts remain in the report; this is
 development selection, not independent validation. Stage progress goes to stderr
 (`--quiet` hides it); `runtime.json` records elapsed time, call counts and reported
 token usage without estimating a monetary cost.
+
+For a bounded multi-round study, keep the same entry point:
+
+```bash
+quant-rsi research-study KO --rounds 5 --max-fits 4 --patience 2 \
+  --news-research --output /tmp/ko-multi-round-study
+```
+
+This permits at most four fits, stopping earlier after two consecutive trials fail to
+improve the incumbent. The UI/report shows each round, its factors, MAE, net return,
+Sharpe, adoption decision and the stopping reason. Later hypotheses receive the
+incumbent's feedback and the complete development trial history. This does not add
+independent validation; the default remains two fits. See [iteration limits](docs/connected_research_study.md#bounded-research-iterations).
 
 To try the same report offline, with real model fits on synthetic inputs:
 

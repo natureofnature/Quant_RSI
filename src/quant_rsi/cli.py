@@ -98,6 +98,25 @@ def main(argv: list[str] | None = None) -> int:
                 help="retain/reuse issuer RSS snapshots with original receipt times",
             )
             demo.add_argument("--evaluation-sessions", type=int, default=20, choices=range(2, 21))
+            demo.add_argument(
+                "--rounds",
+                type=int,
+                default=2,
+                choices=range(2, 11),
+                help="maximum research fits, including the initial fit (default: 2)",
+            )
+            demo.add_argument(
+                "--max-fits",
+                type=int,
+                choices=range(2, 11),
+                help="fit allowance; defaults to --rounds",
+            )
+            demo.add_argument(
+                "--patience",
+                type=int,
+                choices=range(1, 11),
+                help="stop after this many consecutive non-improving trials",
+            )
             demo.add_argument("--initial-cash", default="10000")
             demo.add_argument("--commission-bps", default="5")
             demo.add_argument("--slippage-bps", default="5")

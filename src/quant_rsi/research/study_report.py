@@ -17,6 +17,9 @@ def _number(value, percent=False):
 def render_study(result):
     steps = {event["stage"]: event["output"] for event in result["trace"]}
     first, second = (steps[key] for key in ("first_prediction", "second_prediction"))
+    iterations = result.get("iterations")
+    if iterations:
+        second = iterations["attempts"][-1]["prediction"]
     md, html = [], []
 
     def section(title, text):
@@ -54,12 +57,18 @@ def render_study(result):
         "This is development selection after feedback, not independent validation.",
     )
     table(
-        ["Preselected metric", "Initial", "Revised", "Selected attempt", "Selected factors"],
+        [
+            "Preselected metric",
+            "Initial",
+            "Selected score" if iterations else "Revised",
+            "Selected attempt",
+            "Selected factors",
+        ],
         [
             [
                 selection["metric"] + " (" + selection["direction"] + " is better)",
                 _number(selection["initial_score"]),
-                _number(selection["revised_score"]),
+                _number(selection["selected_score"] if iterations else selection["revised_score"]),
                 selection["selected_attempt"],
                 ", ".join(selection["selected_factor_ids"]),
             ]
@@ -67,9 +76,32 @@ def render_study(result):
     )
     section(
         "What ran",
-        "Two model fits, one feedback-driven revision, and a fixed development "
+        f"{iterations['completed_fits'] if iterations else 2} model fits and a fixed development "
         "window. Results include failed or missing source coverage. No orders were sent.",
     )
+    if iterations:
+        section(
+            "Research rounds",
+            f"Stopped: {iterations['stop_reason']}. "
+            f"Fit allowance: {iterations['fit_budget']}; selected round: "
+            f"{iterations['selected_round']}. Every trial uses development data only.",
+        )
+        table(
+            ["Round", "Factors", "Price MAE", "Net return", "Sharpe", "Accepted"],
+            [
+                [
+                    item["round"],
+                    ", ".join(item["factor_ids"]),
+                    _number(item["development_metrics"].get("mae_price")),
+                    _number(
+                        item["prediction"]["strategy"]["strategy"]["metrics"]["net_return"], True
+                    ),
+                    _number(item["prediction"]["strategy"]["strategy"]["metrics"]["sharpe_ratio"]),
+                    item["accepted"],
+                ]
+                for item in iterations["attempts"]
+            ],
+        )
     table(
         ["Component", "Provider"],
         [
@@ -369,6 +401,8 @@ def render_study(result):
     table(["Account", "Commission", "Slippage", "Turnover", "Risk statistic status"], cost_rows)
     html.append(_equity_chart(accounts))
     selected = first if selection["selected_attempt"] == "initial" else second
+    if iterations:
+        selected = iterations["attempts"][iterations["selected_round"] - 1]["prediction"]
     section(
         "Latest forecast",
         f"This forecast reuses the selected {selection['selected_attempt']} fitted model with its "

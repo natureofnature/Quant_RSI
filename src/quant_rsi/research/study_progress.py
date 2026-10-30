@@ -57,11 +57,15 @@ class StudyProgress:
                 self.llm_mode != "simulated"
                 and (
                     name in {"initial_hypothesis", "revised_hypothesis"}
+                    or (name.startswith("round_") and name.endswith("_hypothesis"))
                     or name.startswith(("news_search_", "news_review_"))
                 )
             ),
             "search_requests": lambda name: name.startswith("news_search_"),
-            "model_stages": lambda name: name in {"first_prediction", "second_prediction"},
+            "model_stages": lambda name: (
+                name in {"first_prediction", "second_prediction"}
+                or (name.startswith("round_") and name.endswith("_prediction"))
+            ),
         }
         for group, matches in groups.items():
             selected = [item for item in stages if matches(item["stage"])]
