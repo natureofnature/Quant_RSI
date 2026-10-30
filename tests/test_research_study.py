@@ -84,15 +84,20 @@ def test_offline_entry_saves_report_and_complete_account_loop(tmp_path):
 
 
 @pytest.mark.parametrize("use_news", [True, False])
+@pytest.mark.parametrize("model", ["lightgbm", "ridge"])
 def test_codex_proposals_execute_and_feedback_includes_predictions_and_strategy(
     tmp_path,
     monkeypatch,
     use_news,
+    model,
 ):
     calls = []
 
     def codex(self, prompt, schema):
         data = json.loads(prompt.split("\nINPUT_JSON:\n")[1])
+        assert "lightgbm and ridge modes fit real models" in prompt
+        assert data["context"]["model_mode"] == model
+        assert data["context"]["model_configuration"]["name"] == model
         calls.append(data)
         assert "proposed_factors" in schema["required"]
         revision = data["feedback"] is not None
@@ -127,7 +132,7 @@ def test_codex_proposals_execute_and_feedback_includes_predictions_and_strategy(
 
     monkeypatch.setattr(llm.LLMHypothesizer, "_codex", codex)
     root = tmp_path / "connected"
-    assert main(command(root, "--llm", "codex")) == 0
+    assert main(command(root, "--llm", "codex", "--model", model)) == 0
     assert len(calls) == 2 and calls[0]["context"]["news"] == calls[1]["context"]["news"]
     result = json.loads((root / "result.json").read_text())
     assert result["study"]["factor_changes"]["activated"] == ["research.qlib_roc_v1_13"]

@@ -81,6 +81,16 @@ def render_study(result):
             ["Execution", first["strategy"]["evidence_mode"]],
         ],
     )
+    model_config = first.get("model_configuration")
+    if model_config is not None:
+        section(
+            "Model configuration",
+            "Chosen before research and shared by both attempts. Preprocessing is fitted only "
+            "on training rows; neither model choice nor hyperparameters are searched in this run.",
+        )
+        table(
+            ["Setting", "Value"], [[key, json.dumps(value)] for key, value in model_config.items()]
+        )
     section("News and relationships", result["study"]["news_use"])
     related = steps["related_stocks"]
     if related.get("relationships"):

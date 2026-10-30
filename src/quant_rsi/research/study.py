@@ -25,6 +25,7 @@ from quant_rsi.research.demo_proposals import FactorProposal
 from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer
+from quant_rsi.research.study_estimators import model_configuration
 from quant_rsi.research.study_news import (
     NewsHistory,
     load_archive,
@@ -42,6 +43,7 @@ def _write(path, value):
 def run_study(args):
     """Keep a completed stage log even when a later provider fails; never overwrite a run."""
     symbol = TypeAdapter(InstrumentId).validate_python(args.symbol.strip().upper())
+    estimator_configuration = model_configuration(args.model, args.ridge_alpha)
     if args.prices == "synthetic" and args.prices_dir is not None:
         raise ValueError("--prices-dir requires --prices daily")
     root = args.output.resolve()
@@ -56,7 +58,7 @@ def run_study(args):
     }
     configuration.update(
         symbol=symbol,
-        model="lightgbm",
+        model_configuration=estimator_configuration,
         research_rounds=2,
         generated_recipes="bounded_price_operators_and_retained_headline_counts",
     )
@@ -117,7 +119,13 @@ def _run(args, symbol, root, configuration, record, progress):
         if args.prices == "daily"
         else None
     )
-    model = LightGBMDemo(library, prices=prices, evaluation_sessions=args.evaluation_sessions)
+    model = LightGBMDemo(
+        library,
+        prices=prices,
+        evaluation_sessions=args.evaluation_sessions,
+        estimator=args.model,
+        ridge_alpha=args.ridge_alpha,
+    )
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
     progress.finish("load_prices")
@@ -276,7 +284,8 @@ def _run(args, symbol, root, configuration, record, progress):
             f"({discovery['provider']}). "
         )
     result["notice"] = (
-        f"Connected research study with {model.price_provider} prices. "
+        f"Connected research study with {model.price_provider} prices and "
+        f"real {model.model_label} training. "
         f"Hypotheses: {steps['initial_hypothesis']['provider']}; "
         f"news: {steps['news']['provider']}; "
         f"relationships: {steps['related_stocks']['provider']}. "
@@ -293,7 +302,7 @@ def _run(args, symbol, root, configuration, record, progress):
         for item in steps[key]
     )
     result["study"] = {
-        "engine": "local_lightgbm_and_existing_finite_account",
+        "engine": f"local_{args.model}_and_existing_finite_account",
         "selection": selection,
         "factor_changes": {
             "activated": sorted(second_ids - first_ids),
