@@ -11,7 +11,9 @@ quant-rsi research-study KO --output /tmp/ko-study
 In an interactive terminal, this opens a local live UI: an animated research graph,
 clickable stage outputs, and the final comparison report. Use `--no-ui` for terminal-only
 runs, or `--ui` to open it explicitly. Completed views are saved as `live.html` alongside
-the report; no frontend install is needed. See the [live UI guide](docs/connected_research_study.md#live-research-ui).
+the report; no frontend install is needed. Node outputs include news cards, factor changes,
+interactive prediction/NAV charts and metric tables, with raw JSON available on demand.
+See the [live UI guide](docs/connected_research_study.md#live-research-ui).
 
 This connects configured company relationships, issuer news, daily prices, two
 Codex hypothesis calls and two real LightGBM fits. Open `/tmp/ko-study/report.html`

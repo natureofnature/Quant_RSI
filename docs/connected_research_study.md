@@ -33,6 +33,23 @@ artifacts are saved, then the page shows the development selection, conclusion a
 prediction/strategy report. Failures remain failures: the page retains previous outputs and
 shows the failed stage. Simulated inputs and development-only evidence are labelled.
 
+Node outputs use visual views rather than a raw JSON wall:
+
+- Company context shows a relationship diagram; discovered suggestions stay marked unverified.
+- News cards show sources, publication/receipt times and evidence IDs. Hypotheses link to
+  retained evidence; no confidence scores or relationship weights are invented.
+- Factor cards show executable recipes. Revision views distinguish additions, removals,
+  parameter changes and recipe replacements with different IDs.
+- Prediction charts compare observed prices, both attempts and the unchanged-price baseline,
+  aligned by origin and target session. A keyboard slider inspects each observation;
+  an expandable table gives exact values. Feedback ranks the largest absolute errors.
+- Final views compare net return, Sharpe, drawdown and account NAV against buy-and-hold.
+  Missing values stay unavailable or appear as chart gaps; higher MAE is labelled higher error.
+
+Each output retains a collapsed **Inspect raw JSON** section. News excerpts and large
+catalogs are bounded for readability; the original artifacts retain full detail. Visuals
+only project retained outputs and do not change factor execution or research selection.
+
 - `--no-ui` keeps the command terminal-only.
 - `--ui` explicitly enables the view, including when output is redirected.
 - Noninteractive commands and `--json` default to no UI. `--quiet` only hides terminal stage
