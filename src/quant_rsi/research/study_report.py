@@ -102,6 +102,39 @@ def render_study(result):
                 for item in iterations["attempts"]
             ],
         )
+    profile = result["study"].get("factor_profile", [])
+    if profile:
+        section(
+            "Instrument factor profile",
+            "Ownership and exact source bindings are retained. "
+            "Availability is fixed on training/development rows; inclusion is not selection. "
+            "Unsupported business/text sources remain pending, never target-price substitutes.",
+        )
+        table(
+            ["Factor", "Definition", "Scope / owner", "Source / inputs", "Availability"],
+            [
+                [
+                    item["factor_id"],
+                    item["definition_id"],
+                    f"{item['definition_scope']} / {item['definition_owner']}",
+                    " / ".join(item["source"][key] for key in ("source_id", "entity", "field"))
+                    if item.get("source")
+                    else ", ".join(item["input_factor_ids"]),
+                    item["availability_reason"],
+                ]
+                for item in profile
+            ],
+        )
+        for item in profile:
+            if item.get("recipe", {}).get("op") == "factor_expression":
+                section(item["factor_id"], item["description"])
+                table(
+                    ["Node", "Operation", "Inputs"],
+                    [
+                        [node["name"], node["op"], node.get("leaf") or ", ".join(node["inputs"])]
+                        for node in item["recipe"]["expression"]["nodes"]
+                    ],
+                )
     terminal = result.get("terminal_evaluation")
     if terminal:
         section("Reserved terminal evaluation", terminal["limitation"])

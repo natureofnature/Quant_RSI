@@ -13,7 +13,6 @@ from quant_rsi.factors.contracts import InstrumentId
 from quant_rsi.market.market_contracts import SideCosts, decimal_text
 from quant_rsi.research.active_news import attach_research, research_news
 from quant_rsi.research.demo import (
-    load_catalog,
     run_demo,
     simulated_hypothesis,
     simulated_news,
@@ -27,6 +26,7 @@ from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.study_estimators import model_configuration
+from quant_rsi.research.study_factor_profiles import load_study_catalog
 from quant_rsi.research.study_iterations import validate_limits
 from quant_rsi.research.study_news import (
     NewsHistory,
@@ -157,7 +157,7 @@ def _run(args, symbol, root, configuration, record, progress):
     decimal_text(args.initial_cash, positive=True)
     if not math.isfinite(args.threshold):
         raise ValueError("Strategy threshold must be finite")
-    library = load_catalog(args.catalog)
+    library = load_study_catalog(symbol, args.catalog, args.factor_root)
     for op in ("qlib_roc_v1", "qlib_ma_v1", "log_return_volatility"):
         definition = FactorProposal(
             op=op,
@@ -269,6 +269,15 @@ def _run(args, symbol, root, configuration, record, progress):
                 )
                 support["alignment_scope"] = "training_and_development_only"
     model.configure_peers(peers)
+    if "instrument_profile" in library:
+        model.configure_profile(library["instrument_profile"])
+        _write(
+            root / "factor_profile.json",
+            {
+                "specification": library["instrument_profile"],
+                "execution": model.profile_features["definitions"],
+            },
+        )
     related["price_features"] = peers["support"]
     _write(
         root / "related_prices.json",
@@ -471,6 +480,9 @@ def _run(args, symbol, root, configuration, record, progress):
     )
     result["study"] = {
         "engine": f"local_{args.model}_and_existing_finite_account",
+        "factor_profile": deepcopy(model.profile_features["definitions"])
+        if model.profile_features is not None
+        else [],
         "selection": selection,
         "factor_changes": {
             "activated": sorted(second_ids - first_ids),

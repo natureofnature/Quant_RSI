@@ -35,6 +35,13 @@ This adds at most one follow-up search request before the two model fits. The re
 connects retrieved article IDs to findings, company suggestions and factor choices.
 Current articles guide hypotheses; they are never backdated into historical features.
 
+The study also resolves the stock's factor profile: shared definitions, local definitions
+and bounded compositions retain their source bindings and ownership. KO can reuse the
+shared momentum recipe for KO and KOF and combine them in its own configured factor.
+Unavailable business sources remain pending. Factor cards and the report show what can
+run and what was selected. Explicit `--catalog` keeps the standalone catalog path;
+see [factor layers and execution](docs/factor_layers.md#execution-in-the-connected-study).
+
 The study adopts a revision only when its **development MAE strictly improves**;
 otherwise it retains the incumbent for the latest forecast. To choose strategy
 Sharpe instead, set `--selection-metric sharpe` before the run. Ties and unavailable

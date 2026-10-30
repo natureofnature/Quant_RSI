@@ -46,7 +46,12 @@ def main(argv: list[str] | None = None) -> int:
             else "simulate one complete stock research loop",
         )
         demo.add_argument("symbol", nargs="?", default="KO")
-        demo.add_argument("--catalog", type=Path, default=Path("instruments/shared/equities.json"))
+        demo.add_argument(
+            "--catalog",
+            type=Path,
+            default=None if study else Path("instruments/shared/equities.json"),
+            help="explicit standalone catalog; bypasses study instrument bindings",
+        )
         demo.add_argument("--json", action="store_true", help="emit the complete trace as JSON")
         demo.add_argument(
             "--llm",
@@ -71,6 +76,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         demo.add_argument("--prices-dir", type=Path, help="retained daily collection directory")
         if study:
+            demo.add_argument(
+                "--factor-root",
+                type=Path,
+                default=Path("instruments"),
+                help="root of shared and instrument factor profiles (default: instruments)",
+            )
             demo.add_argument(
                 "--related-prices",
                 action=argparse.BooleanOptionalAction,
