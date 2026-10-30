@@ -54,7 +54,14 @@ def test_all_rounds_run_and_forecast_selection_retains_best_not_last(
         report = path.read_text()
         assert "Research rounds" in report and f"selected round: {chosen}" in report
         assert f"selected round_{chosen} fitted model" in report
-    views = {event["stage"]: event["view"] for event in read_state(root)["events"]}
+    state = read_state(root)
+    assert state["config"]["research_rounds"] == state["config"]["fit_budget"] == 4
+    assert state["iterations"] == {
+        "completed_fits": 4,
+        "selected_round": chosen,
+        "stop_reason": "round_limit",
+    }
+    views = {event["stage"]: event["view"] for event in state["events"]}
     assert views["round_3_prediction"]["kind"] == "prediction"
     assert views["round_4_decision"]["incumbent_round"] == chosen
     assert len(views["summary"]["rounds"]) == 4
@@ -86,6 +93,10 @@ def test_stop_before_dispatching_extra_fit(tmp_path, monkeypatch, extra, count, 
     assert len(fitted) == result["iterations"]["completed_fits"] == count
     assert result["iterations"]["stop_reason"] == reason
     assert result["iterations"]["selected_round"] == 1
+    state = read_state(root)
+    assert state["iterations"]["completed_fits"] == count
+    assert state["config"]["research_rounds"] == 5
+    assert state["config"]["fit_budget"] == (3 if reason == "fit_budget_exhausted" else 5)
 
 
 def test_failure_keeps_completed_rounds_and_stops(tmp_path, monkeypatch):
