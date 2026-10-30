@@ -3,28 +3,44 @@
 from copy import deepcopy
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.factors.contracts import NumericFactorDefinition
+
+
+class StudyVolatilityRecipe(StrictModel):
+    """Unannualized sample deviation of N daily log returns, requiring N+1 closes."""
+
+    op: Literal["log_return_volatility"]
+    window: int = Field(ge=2, le=30)
 
 
 class FactorProposal(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
 
-    op: Literal["momentum", "mean_return", "qlib_roc_v1", "qlib_ma_v1"]
+    op: Literal["momentum", "mean_return", "qlib_roc_v1", "qlib_ma_v1", "log_return_volatility"]
     window: int = Field(ge=1, le=30)
     description: str = Field(min_length=1, max_length=1000)
 
+    @model_validator(mode="after")
+    def validate_volatility_window(self):
+        if self.op == "log_return_volatility" and self.window < 2:
+            raise ValueError("Log-return volatility needs at least two daily returns")
+        return self
+
     def definition(self):
-        return NumericFactorDefinition.model_validate(
-            {
-                "factor_id": f"research.{self.op}_{self.window}",
-                "kind": "numeric",
-                "input_kind": "positive_price_series",
-                "description": self.description,
-                "recipe": {"op": self.op, "window": self.window},
-            }
-        ).model_dump(mode="json")
+        definition = {
+            "factor_id": f"research.{self.op}_{self.window}",
+            "kind": "numeric",
+            "input_kind": "positive_price_series",
+            "description": self.description,
+            "recipe": {"op": self.op, "window": self.window},
+        }
+        if self.op == "log_return_volatility":
+            # Run-local study recipe; the protected worker/catalog contract is unchanged.
+            return definition
+        return NumericFactorDefinition.model_validate(definition).model_dump(mode="json")
 
 
 class NewsFactorProposal(BaseModel):

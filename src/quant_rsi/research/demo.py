@@ -47,6 +47,9 @@ def simulated_news(context):
 def simulated_hypothesis(context, library, *, previous=None, feedback=None):
     """A stand-in for an LLM reading news, the catalog and the previous error."""
     item = context["news"]["items"][0]
+    research_ids = context["news"].get("research_evidence_ids", [])
+    if research_ids:
+        item = next(item for item in context["news"]["items"] if item["id"] == research_ids[0])
     event_signal = -1.0 if "weaker" in item["text"].lower() else 1.0
     if feedback is None:
         factors = ["equity.price_momentum_5"]
@@ -64,8 +67,15 @@ def simulated_hypothesis(context, library, *, previous=None, feedback=None):
     proposal = {}
     if context.get("allow_factor_proposals"):
         op = "qlib_ma_v1" if previous else "momentum"
+        if previous and research_ids:
+            op = "log_return_volatility"
         factors = [f"research.{op}_10"]
         reason = "Simulated researcher proposes a bounded recipe, then revises after feedback."
+        if research_ids:
+            reason = (
+                "SIMULATED article demand uncertainty motivates a momentum hypothesis, "
+                "then a volatility recipe after feedback; not real market evidence."
+            )
         proposal = {"proposed_factors": [{"op": op, "window": 10, "description": reason}]}
         if "news_feature_support" in context:
             name, window = ("demand", 3) if previous else ("earnings", 7)

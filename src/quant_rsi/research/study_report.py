@@ -82,10 +82,10 @@ def render_study(result):
             [[item["symbol"], item["status"], item["selected_items"]] for item in news["coverage"]],
         )
     table(
-        ["Issuer", "News", "Published", "Source"],
+        ["Symbol / scope", "News", "Published", "Source"],
         [
             [
-                item["symbol"],
+                item["symbol"] + (" research context" if item.get("scope") else ""),
                 item.get("title", item["text"]),
                 item.get("published_at") or item.get("published_date") or "unknown / simulated",
                 item.get("url", "simulated"),
@@ -93,6 +93,78 @@ def render_study(result):
             for item in news["items"]
         ],
     )
+    research = news.get("research")
+    if research:
+        section("Active news research", research["provider"] + ". " + research["notice"])
+        table(
+            ["Search request", "Proposed query", "Reason", "Recorded tool actions"],
+            [
+                [index, item["query"], item["rationale"], json.dumps(item["search_actions"])]
+                for index, item in enumerate(research["searches"], 1)
+            ],
+        )
+        table(
+            ["Article ID", "Title", "Read status", "Received at", "Text extent"],
+            [
+                [
+                    item["id"],
+                    item["title"],
+                    item["status"] + (": " + item["reason"] if item.get("reason") else ""),
+                    item["received_at"],
+                    item["content_extent"] + (" (truncated)" if item["text_truncated"] else ""),
+                ]
+                for item in research["articles"]
+            ],
+        )
+        for article in research["articles"]:
+            if article["status"] == "available":
+                url, identity = article["final_url"], article["id"]
+                md.extend([f"[{identity}](<{url}>)", ""])
+                html.append(
+                    f"<p><a href='{escape(url, quote=True)}' rel='noreferrer'>"
+                    f"{escape(identity)}: {escape(article['title'])}</a></p>"
+                )
+        table(
+            ["Research finding (LLM interpretation)", "Article IDs"],
+            [[item["text"], ", ".join(item["evidence_ids"])] for item in research["findings"]],
+        )
+        section(
+            "Suggested related companies",
+            "Source-cited LLM candidates only. Business claims and ticker mappings are not "
+            "independently verified; they do not replace the profile or add peer price features.",
+        )
+        table(
+            ["Symbol / name", "Suggested relationship", "Article IDs"],
+            [
+                [
+                    item["symbol"] + " / " + item["name"],
+                    item["relationship"],
+                    ", ".join(item["evidence_ids"]),
+                ]
+                for item in research["related_candidates"]
+            ],
+        )
+        table(
+            ["Research round", "Chosen factors", "Cited news / article IDs"],
+            [
+                [
+                    label,
+                    ", ".join(steps[key]["factor_ids"]),
+                    ", ".join(steps[key]["evidence_news_ids"]),
+                ]
+                for label, key in (
+                    ("Initial", "initial_hypothesis"),
+                    ("Revised", "revised_hypothesis"),
+                )
+            ],
+        )
+        section(
+            "Article evidence file",
+            "news_research.json retains bounded extracted page text, hashes, receipt times and "
+            "final findings. trace.jsonl retains every search/read/review stage, including "
+            "the intermediate follow-up decision. Publication time is unknown unless separately "
+            "established; search snippets do not establish that an article was read.",
+        )
     section("Initial hypothesis", steps["initial_hypothesis"]["hypothesis"])
     section("Revision after feedback", steps["revised_hypothesis"]["hypothesis"])
     changes = result["study"]["factor_changes"]
@@ -291,6 +363,9 @@ def render_study(result):
         "<a href='inputs.json'>Retained inputs</a> · <a href='config.json'>Configuration</a> · "
         "<a href='report.md'>Markdown report</a></p>"
     )
+    if research:
+        md.extend(["[Active news evidence](news_research.json)", ""])
+        html.append("<p><a href='news_research.json'>Active news evidence</a></p>")
     return "\n".join(md), (
         "<!doctype html><html lang='en'><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"

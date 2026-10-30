@@ -14,6 +14,17 @@ for prediction baselines, initial/revised strategies versus buy-and-hold, costs,
 Sharpe, volatility, maximum drawdown and the latest forecast. Use a new output path
 for each study. Risk statistics use short development samples, not independent validation.
 
+To let the LLM search current news, read selected public pages and suggest related
+companies with source citations, use the same entry point:
+
+```bash
+quant-rsi research-study KO --news-research --output /tmp/ko-active-study
+```
+
+This adds at most one follow-up search request before the two model fits. The report
+connects retrieved article IDs to findings, company suggestions and factor choices.
+Current articles guide hypotheses; they are never backdated into historical features.
+
 To try the same report offline, with real model fits on synthetic inputs:
 
 ```bash
@@ -108,10 +119,11 @@ at a time.
 | Connected research study | One command produces a trace and HTML/Markdown report with bounded recipe proposals, two model fits, prediction baselines and costed strategy comparisons; development feedback is reused |
 | Simulated product loop | One stock-symbol command shows context, catalog-based factor selection, prediction, feedback, revised selection and a second prediction; each simulated service can be replaced independently |
 | Live LLM hypotheses | Optional Codex CLI or OpenAI Responses API makes two independent calls with explicit feedback; current news is research context, not historical training data |
-| Company relationships | Optional KO profile lists source-backed CCEP bottling and MNST distribution links; configured relationships, not automatic discovery or statistical correlations |
-| Live news in the product loop | Routes target and configured related issuers to registered RSS feeds; KO is available, CCEP/MNST are explicitly `not_configured`; no general search or article fetching |
+| Company relationships | KO profile supplies configured CCEP/MNST links; `research-study --news-research` also proposes source-cited related companies as unverified candidates, without changing profiles or fetching peer price features |
+| Live news in the product loop | Registered RSS remains the default; optional active research uses Codex/API web search, bounded public-page reads and one optional follow-up request, with receipts, citations and failures in the report |
 | News features in the connected study | Literal keyword counts over retained target headlines, gated by original receipt time and freshness; insufficient history leaves proposals pending, while the offline synthetic demo can exercise actual news columns |
 | LightGBM in the product loop | Numeric feature calculation and two fits on synthetic or collected daily prices; feedback informs a development reestimate at the same origin, with no independent improvement claim |
+| Study factor proposals | Momentum, mean return, local Qlib-style ROC/MA, trailing log-return volatility and eligible archived headline counts can enter the study's actual feature matrix; no arbitrary generated code |
 | Daily prices in the product loop | Collect once or reuse verified daily evidence; report development errors separately from the latest-bar five-session forecast, whose outcome is unobserved |
 | Bounded research workflow | One profile runs bounded discovery, costed per-fold strategy/buy-and-hold reports and linked forecast/paper observation; feedback uses development forecast MAE only |
 | Five-session price forecasting | Available for explicitly supported sources/markets; includes collection, fixed-model research, model sealing and replay |
@@ -124,7 +136,7 @@ at a time.
 | Dynamic event factors | Registered title instances, observed lifecycle transitions, decay and archival; KO RSS observations can enter this path |
 | Multi-branch factor discovery | CALM is a worked specification; its factor tree is not executable |
 | News and financial evidence | Retained KO title indicators can enter opt-in comparisons/discovery; other evidence remains sidecar-only |
-| News collection and extraction | [Bounded KO official RSS observations](docs/news_collection.md), retained-title extraction and revision tracking; provider-side search/full-text extraction remain open in [RFC #28](https://github.com/natureofnature/Quant_RSI/issues/28) |
+| News collection and extraction | [Bounded KO official RSS observations](docs/news_collection.md), retained-title extraction and revision tracking; the study adds current search/page text for hypotheses, while general historical text-feature extraction remains open in [RFC #28](https://github.com/natureofnature/Quant_RSI/issues/28) |
 | Statistical confirmation and promotion | Incomplete; protected evaluation is engineering-only and retains the incumbent |
 | Live trading and general self-modification | Not implemented |
 

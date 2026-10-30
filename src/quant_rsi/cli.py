@@ -73,6 +73,11 @@ def main(argv: list[str] | None = None) -> int:
         if study:
             demo.add_argument("--output", type=Path, required=True, help="new report directory")
             demo.add_argument(
+                "--news-research",
+                action="store_true",
+                help="search/read current articles and suggest sourced company relationships",
+            )
+            demo.add_argument(
                 "--news-archive",
                 type=Path,
                 help="retain/reuse issuer RSS snapshots with original receipt times",
