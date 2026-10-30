@@ -41,6 +41,8 @@ company suggestions. RSS news limits apply per issuer; see
 | --- | --- |
 | `--llm` | `codex`; also `api` or `simulated` |
 | `--llm-model`, `--llm-timeout` | Optional Codex model; API model required; timeout 180 seconds per call |
+| `--model` | `lightgbm` by default; `ridge` uses a reviewed regularized linear model on the same rows and features |
+| `--ridge-alpha` | Positive finite penalty for Ridge, default 1.0; rejected when supplied with LightGBM |
 | `--related`, `--news`, `--prices` | `profile`, `issuer-rss`, `daily`; each also accepts `simulated`, except prices use `synthetic` |
 | `--news-limit` | 5 items per issuer, range 1–20 |
 | `--news-research` | Off by default; enable LLM-led current search, article reading and source-cited related company candidates |
@@ -55,6 +57,43 @@ company suggestions. RSS news limits apply per issuer; see
 API mode requires `OPENAI_API_KEY` and `--llm-model MODEL_ID`; see
 [LLM prerequisites](simulated_research_loop.md#use-a-real-llm-for-hypotheses).
 Service errors stop the study; no silent fallback or automatic resume is claimed.
+
+## Choose the model before research
+
+The default remains LightGBM. To use the simple linear alternative with the same
+news, factor revision, strategy evaluation and selection stages:
+
+```bash
+quant-rsi research-study KO --model ridge --ridge-alpha 1.0 \
+  --output /tmp/ko-ridge-study
+```
+
+For an offline check, append `--llm simulated --related simulated --news simulated
+--prices synthetic`. Both attempts then perform real Ridge fits on synthetic prices
+and retained synthetic news; the report identifies those sources.
+
+The version-1 model configuration is saved before collection and passed to both
+hypothesis calls. It records the model name, parameters, preprocessing, target and
+fixed mature-label training policy. Neither model type nor penalty changes after
+feedback. `--ridge-alpha` must be finite and positive, and is rejected with LightGBM
+instead of being silently ignored.
+
+Ridge centers each input using its training mean and scales by its training
+population standard deviation; constant columns use scale one. It minimizes
+`sum((y - intercept - Z @ coefficients)^2) + alpha * sum(coefficients^2)` for
+five-session log returns, with an unpenalized intercept. A NumPy augmented
+least-squares solve supports duplicate/constant columns without adding a dependency.
+The trace records means, scales, coefficients and intercept in `factor_ids` order.
+Evaluation rows and latest forecast inputs never fit the scaler. The selected
+attempt's model and scaler produce its latest forecast without a third fit.
+
+LightGBM retains its existing deterministic parameters and 24 boosting rounds,
+without scaling. Both model choices retain the same maturity rules, common news
+mask and unchanged-price/training-mean controls. Separate CLI runs can receive
+different LLM factors: merely running each model once is not a controlled model
+comparison. Freeze data, factor columns, origins and information budgets before
+making that claim. This completes the alternative-model interface in #39 B; it
+does not complete multi-profile, external-engine or independent validation work.
 
 ## Active news research
 
@@ -178,7 +217,7 @@ the feature path; it does not establish news prediction value on market data.
    or `log_return_volatility` with windows 2–30.
    Recipes receive IDs such as `research.momentum_5`. News recipes follow the
    availability rules above and are recorded even when pending.
-2. Fit LightGBM once. All training labels mature strictly before the first
+2. Fit the configured model once. All training labels mature strictly before the first
    evaluation origin. Predict the same set of matured five-session outcomes for
    the initial and revised attempts.
 3. Report prediction errors against unchanged-price and training-label-mean

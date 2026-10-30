@@ -130,7 +130,7 @@ at a time.
 | Company relationships | KO profile supplies configured CCEP/MNST links; `research-study --news-research` also proposes source-cited related companies as unverified candidates, without changing profiles or fetching peer price features |
 | Live news in the product loop | Registered RSS remains the default; optional active research uses Codex/API web search, bounded public-page reads and one optional follow-up request, with receipts, citations and failures in the report |
 | News features in the connected study | Literal keyword counts over retained target headlines, gated by original receipt time and freshness; insufficient history leaves proposals pending, while the offline synthetic demo can exercise actual news columns |
-| LightGBM in the product loop | Numeric feature calculation and two fits on synthetic or collected daily prices; feedback informs a development reestimate at the same origin, with no independent improvement claim |
+| Models in the product loop | LightGBM by default; `research-study --model ridge` uses a regularized linear alternative with training-only scaling on the same feature/maturity path. Two actual fits reuse development feedback; neither choice implies independent improvement |
 | Study factor proposals | Momentum, mean return, local Qlib-style ROC/MA, trailing log-return volatility and eligible archived headline counts can enter the study's actual feature matrix; no arbitrary generated code |
 | Daily prices in the product loop | Collect once or reuse verified daily evidence; report development errors separately from the latest-bar five-session forecast, whose outcome is unobserved |
 | Bounded research workflow | One profile runs bounded discovery, costed per-fold strategy/buy-and-hold reports and linked forecast/paper observation; feedback uses development forecast MAE only |
@@ -144,7 +144,7 @@ at a time.
 | Dynamic event factors | Registered title instances, observed lifecycle transitions, decay and archival; KO RSS observations can enter this path |
 | Multi-branch factor discovery | CALM is a worked specification; its factor tree is not executable |
 | News and financial evidence | Retained KO title indicators can enter opt-in comparisons/discovery; other evidence remains sidecar-only |
-| News collection and extraction | [Bounded KO official RSS observations](docs/news_collection.md), retained-title extraction and revision tracking; the study adds current search/page text for hypotheses, while general historical text-feature extraction remains open in [RFC #28](https://github.com/natureofnature/Quant_RSI/issues/28) |
+| News collection and extraction | [Bounded KO official RSS observations](docs/news_collection.md), retained-title extraction and revision tracking; the study adds current search/page text for hypotheses. The [first news-factor slice](docs/news_factor_slice.md) is implemented; general historical text-feature extraction remains under #8/#39 B |
 | Statistical confirmation and promotion | Incomplete; protected evaluation is engineering-only and retains the incumbent |
 | Live trading and general self-modification | Not implemented |
 
@@ -261,12 +261,12 @@ arbitrary generated code. Detailed contracts are in the
    the native engine alongside compatible mature engines; measure useful results
    and the effort required to test a hypothesis.
 
-Track the [architecture RFC #24](https://github.com/natureofnature/Quant_RSI/issues/24),
-[factor-tree issue #8](https://github.com/natureofnature/Quant_RSI/issues/8),
-[news RFC #28](https://github.com/natureofnature/Quant_RSI/issues/28),
-[factor discovery RFC #31](https://github.com/natureofnature/Quant_RSI/issues/31),
-[minimal-loop RFC #39](https://github.com/natureofnature/Quant_RSI/issues/39) and
-[broader roadmap #1](https://github.com/natureofnature/Quant_RSI/issues/1).
+The [issue audit and ownership map](docs/issue_status.md) separates delivered
+specifications and bounded slices from remaining implementation and research work.
+Track ongoing delivery in [#39](https://github.com/natureofnature/Quant_RSI/issues/39),
+the [broader roadmap #1](https://github.com/natureofnature/Quant_RSI/issues/1) and
+the specific gaps linked in that map. Historical architecture, news and competitive
+RFCs remain useful design records; their closure does not establish scientific results.
 The [architecture specification](docs/architecture.md) describes the target design;
 it is not a declaration that every capability is implemented.
 

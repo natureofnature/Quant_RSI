@@ -60,7 +60,7 @@ def simulated_hypothesis(context, library, *, previous=None, feedback=None):
     else:
         factors = ["equity.price_momentum_5", "equity.price_mean_return_5"]
         reason = "The first prediction was not too high; add a second price factor."
-    if context.get("model_mode") == "lightgbm":
+    if context.get("model_mode") in {"lightgbm", "ridge"}:
         available = [item["factor_id"] for item in library["definitions"]]
         factors = available[:1] if previous is None else available[1:]
         reason = "Try a numeric recipe, then change the numeric selection after model feedback."
@@ -244,7 +244,8 @@ def run_demo(
     )
     live_news = context["news"].get("provider") == "issuer_rss"
     configured_related = context["related"].get("provider") == "instrument_relationship_profile"
-    trained_model = first.get("provider") == "lightgbm"
+    trained_model = first.get("provider") in {"lightgbm", "ridge"}
+    model_label = "Ridge" if first.get("provider") == "ridge" else "LightGBM"
     notice = "Product wiring demo. News, LLM, prices and predictions are simulated by default."
     if live_llm or live_news:
         notice = (
@@ -255,14 +256,15 @@ def run_demo(
         )
     if trained_model:
         notice = (
-            f"Real LightGBM training with {'real' if live_llm else 'simulated'} LLM hypotheses "
+            f"Real {model_label} training with "
+            f"{'real' if live_llm else 'simulated'} LLM hypotheses "
             f"and {'real issuer RSS' if live_news else 'simulated'} news. Prices "
             "and observed outcomes are synthetic. Both estimates use the same development origin; "
             "the revision reuses disclosed feedback. No independent improvement or market forecast."
         )
         if first.get("price_provider") == "public_daily_prices":
             notice = (
-                "Real daily prices and LightGBM training with "
+                f"Real daily prices and {model_label} training with "
                 f"{'real' if live_llm else 'simulated'} LLM hypotheses "
                 f"and {'real issuer RSS' if live_news else 'simulated'} news. "
                 "Historical estimates reuse development feedback; "

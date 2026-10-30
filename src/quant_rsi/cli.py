@@ -71,6 +71,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         demo.add_argument("--prices-dir", type=Path, help="retained daily collection directory")
         if study:
+            demo.add_argument("--model", choices=("lightgbm", "ridge"), default="lightgbm")
+            demo.add_argument(
+                "--ridge-alpha", type=float, help="positive ridge penalty (default: 1; ridge only)"
+            )
             demo.add_argument("--output", type=Path, required=True, help="new report directory")
             demo.add_argument(
                 "--news-research",

@@ -1,4 +1,4 @@
-"""Numerical features and LightGBM fits on synthetic or retained public daily prices."""
+"""Shared numerical study path with LightGBM or standardized ridge fits."""
 
 from copy import deepcopy
 from datetime import datetime
@@ -15,6 +15,7 @@ from quant_rsi.research.demo_features import (
     price_feature,
     price_metrics,
 )
+from quant_rsi.research.study_estimators import StandardizedRidge, model_configuration
 
 
 class LightGBMDemo:
@@ -29,7 +30,12 @@ class LightGBMDemo:
         news_history=None,
         news_cutoffs=None,
         news_symbol=None,
+        estimator="lightgbm",
+        ridge_alpha=None,
     ):
+        self.model_configuration = model_configuration(estimator, ridge_alpha)
+        self.estimator = estimator
+        self.model_label = "LightGBM" if estimator == "lightgbm" else "Ridge"
         if type(evaluation_sessions) is not int or not 1 <= evaluation_sessions <= 20:
             raise ValueError("evaluation_sessions must be an integer from 1 through 20")
         self.evaluation_sessions = evaluation_sessions
@@ -175,7 +181,8 @@ class LightGBMDemo:
             "provider": self.price_provider,
             "reference_price": float(self.data.closes[self.origin, 0]),
             "origin_session": self.data.dates[self.origin],
-            "model_mode": "lightgbm",
+            "model_mode": self.estimator,
+            "model_configuration": deepcopy(self.model_configuration),
             "price_evidence": deepcopy(self.price_info),
             "model_note": (
                 (
@@ -246,16 +253,27 @@ class LightGBMDemo:
             raise ValueError("Non-finite numerical training inputs")
         if not np.isfinite(matrix[self.origins]).all():
             raise ValueError("Non-finite numerical evaluation inputs")
-        model = lgb.train(
-            MODEL_PARAMETERS | {"seed": 7}, lgb.Dataset(x, label=y), num_boost_round=BOOST_ROUNDS
-        )
-        predicted_returns = np.asarray(model.predict(matrix[self.origins], num_threads=1))
+        if self.estimator == "ridge":
+            model = StandardizedRidge(x, y, self.model_configuration["parameters"]["alpha"])
+            predict = model.predict
+        else:
+            model = lgb.train(
+                MODEL_PARAMETERS | {"seed": 7},
+                lgb.Dataset(x, label=y),
+                num_boost_round=BOOST_ROUNDS,
+            )
+
+            def predict(rows):
+                return model.predict(rows, num_threads=1)
+
+        predicted_returns = np.asarray(predict(matrix[self.origins]))
         value = float(predicted_returns[-1])
         price = float(self.data.closes[self.origin, 0] * np.exp(value))
         if not np.isfinite(price) or price <= 0:
-            raise ValueError("LightGBM demo produced an invalid price")
+            raise ValueError("Study model produced an invalid price")
         result = {
-            "provider": "lightgbm",
+            "provider": self.estimator,
+            "model_configuration": deepcopy(self.model_configuration),
             "price_provider": self.price_provider,
             "predicted_price": price,
             "predicted_log_return": value,
@@ -270,8 +288,11 @@ class LightGBMDemo:
             "training_feature_columns": x.shape[1],
             "last_training_label_session": self.data.dates[self.train[-1] + self.horizon],
             "training_target": "five_session_close_log_return",
-            "boost_rounds": BOOST_ROUNDS,
         }
+        if self.estimator == "ridge":
+            result["fitted_model"] = model.state()
+        else:
+            result["boost_rounds"] = BOOST_ROUNDS
         if self.evaluation_sessions > 1:
             result["development"] = self._development(predicted_returns, float(y.mean()))
         if self.news_feature_support is not None:
@@ -293,10 +314,10 @@ class LightGBMDemo:
                     },
                 }
                 return result
-            latest_return = float(model.predict(matrix[-1:], num_threads=1)[0])
+            latest_return = float(predict(matrix[-1:])[0])
             latest_price = float(self.data.closes[-1, 0] * np.exp(latest_return))
             if not np.isfinite(latest_price) or latest_price <= 0:
-                raise ValueError("LightGBM produced an invalid latest forecast")
+                raise ValueError("Study model produced an invalid latest forecast")
             result["latest_forecast"] = {
                 "origin_session": self.data.dates[-1],
                 "reference_price": float(self.data.closes[-1, 0]),
@@ -327,7 +348,7 @@ class LightGBMDemo:
                 reference = float(self.data.closes[origin, 0])
                 predicted = float(reference * np.exp(value))
                 if not np.isfinite(predicted) or predicted <= 0:
-                    raise ValueError("LightGBM study produced an invalid development price")
+                    raise ValueError("Study model produced an invalid development price")
                 result.append(
                     {
                         "origin_session": self.data.dates[origin],
@@ -388,7 +409,7 @@ class LightGBMDemo:
         result = {
             "provider": "development_model_summary",
             "text": (
-                f"{context['symbol']}: two real LightGBM fits on {source} prices. "
+                f"{context['symbol']}: two real {self.model_label} fits on {source} prices. "
                 f"Initial price error {feedback['error']:+.4f}; revised price error "
                 f"{second_error:+.4f} against the same disclosed {source} observation. "
                 "The revised estimate has used this feedback; it is not independent validation "
