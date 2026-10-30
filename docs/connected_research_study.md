@@ -13,6 +13,11 @@ KO's configured relationship profile, registered issuer RSS and public daily
 prices. Install/login to Codex first; the existing LightGBM dependency performs
 two actual fits by default. The smaller `research-demo` command retains its defaults.
 
+The default factor library resolves the stock's shared/local bindings and bounded
+compositions. `--factor-root` changes the factor configuration root; explicit `--catalog`
+bypasses profile resolution. Source availability is checked on the common research
+sample, and unsupported inputs stay pending. See [factor execution and provenance](factor_layers.md#execution-in-the-connected-study).
+
 ## Bounded research iterations
 
 Use `--rounds 5 --max-fits 4 --patience 2` to request up to five rounds with a four-fit

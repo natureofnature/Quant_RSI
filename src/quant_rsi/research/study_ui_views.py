@@ -66,6 +66,12 @@ def _factors(items):
             "recipe",
             "runnable",
             "availability_reason",
+            "definition_id",
+            "definition_scope",
+            "definition_owner",
+            "binding_id",
+            "source",
+            "input_factor_ids",
         )
         for item in items[:64]
     ]

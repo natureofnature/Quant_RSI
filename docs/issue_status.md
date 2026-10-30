@@ -1,12 +1,13 @@
 # Open-issue audit and delivery ownership
 
-The latest audit reviewed all 12 open issues against `main@c897c8d` on 2026-10-30,
-including the merged related-price study in #61. The current change resolves the
-schema-1 C2 exploration gap in #5. The other 11 open issues retain their unfulfilled
-acceptance criteria; nearby product features are not substitutes for those criteria.
+The latest audit reviewed all 11 open issues against `main@60970af` on 2026-10-30,
+including merged bounded study iterations (#63) and reserved terminal evaluation
+(#64). The accompanying factor-profile implementation adds executable shared/local
+bindings and finite compositions to the same study. These 11 issues retain their
+unfulfilled acceptance criteria; nearby product features are not substitutes for them.
 Rows for previously closed issues are retained below as historical ownership context.
 
-The implementation adds an explicitly selected frozen policy, not a new state system.
+The earlier #62 implementation added an explicitly selected frozen policy.
 It preserves the old policy and schema-3 recursive-cap semantics, production promotion
 restrictions, and historical run identities. See [exploration rules and verification](research_exploration.md).
 
@@ -23,17 +24,17 @@ The closure recommendations take effect only after review, required CI and merge
 | [#2](https://github.com/natureofnature/Quant_RSI/issues/2) | Keep open | Production registry promotion remains blocked. Study-level development selection in #56 is not protected production promotion. Requires #4 first. |
 | [#3](https://github.com/natureofnature/Quant_RSI/issues/3) | Keep open; first bounded proposer delivered | The registered schema-4 proposer reads authenticated development frontier feedback and emits a versioned `policy.window_max` patch; #17 records one executed selected-descendant advance. The issue's first-version evidence-to-policy mechanism exists, but its linked #1 R2 acceptance of two consecutive executed advances remains unaccepted. Retain this owner with #39 D rather than closing broader program evolution on one advance. |
 | [#4](https://github.com/natureofnature/Quant_RSI/issues/4) | Keep open | Confirmatory mode is still blocked as uncalibrated. Development MAE/Sharpe selection supplies no dependence-aware inference or repeated-comparison error budget. |
-| [#5](https://github.com/natureofnature/Quant_RSI/issues/5) | Resolved by this implementation | Registered `neighbor_exploration_v1` leaves a plateau/exhausted local neighborhood via a deterministic unvisited frontier. Existing checkpoint fields and the attempt/worker budget govern it; real-worker interrupted recovery and read-only replay are tested. Legacy and schema-3 cap policies remain unchanged. |
+| [#5](https://github.com/natureofnature/Quant_RSI/issues/5) | Closed after #62 | Registered `neighbor_exploration_v1` leaves a plateau/exhausted local neighborhood via a deterministic unvisited frontier. Existing checkpoint fields and the attempt/worker budget govern it; real-worker interrupted recovery and read-only replay are tested. Legacy and schema-3 cap policies remain unchanged. |
 | [#6](https://github.com/natureofnature/Quant_RSI/issues/6) | Close the real-data objective connection | Explicit market preparation feeds retained public daily inputs into the original recursive forecast worker and cumulative authority; #17 records a completed market execution, selected model and replay. Historical availability remains an assumption, its forecast was late, and no alpha or independent validation was established. |
 | [#7](https://github.com/natureofnature/Quant_RSI/issues/7) | Keep open | Five-session horizons remain fixed. A weighted multi-horizon task and maturity/mask/allowance rules are not implemented. |
-| [#8](https://github.com/natureofnature/Quant_RSI/issues/8) | Keep open | Bounded expressions and #61 related-stock return columns are executable. Learned intermediate predictors, general causal hierarchies and their evidence/training contracts remain missing. |
+| [#8](https://github.com/natureofnature/Quant_RSI/issues/8) | Keep open | Bounded expressions and #61 related-stock return columns are executable. The accompanying study implementation connects shared/local definitions, exact source bindings and instrument-owned compositions to model inputs. Learned intermediate predictors, general causal hierarchies and their evidence/training contracts remain missing. |
 | [#9](https://github.com/natureofnature/Quant_RSI/issues/9) | Keep open | Connected reports include costed target buy-and-hold. The older registered research utility still uses its cash comparator; a predeclared investable-index primary utility is a distinct change. |
 | [#10](https://github.com/natureofnature/Quant_RSI/issues/10) | Keep open | Study reports include daily-return Sharpe and #56 permits preselected Sharpe adoption. The requested C2/C5 risk-adjusted utility and explicit risk eligibility gates remain unimplemented. |
-| [#11](https://github.com/natureofnature/Quant_RSI/issues/11) | Keep open | Forecast comparison/discovery uses common chronological folds. The older C2/C5 split contracts and separate final holdout are not replaced by those interfaces. |
+| [#11](https://github.com/natureofnature/Quant_RSI/issues/11) | Keep open | Forecast comparison/discovery uses common chronological folds. #64 reserves a terminal window for the selected connected-study model without refitting. The older C2/C5 walk-forward split contracts are not replaced by those interfaces; current-news/LLM studies remain retrospective. |
 | [#12](https://github.com/natureofnature/Quant_RSI/issues/12) | Keep open | Complete trial histories and descriptive risk metrics exist. Applicable overfitting diagnostics, dependence-aware uncertainty and predefined cost stress still need a scoped protocol; ordinary Sharpe alone is not a correction for multiple trials. |
 | [#24](https://github.com/natureofnature/Quant_RSI/issues/24) | Close as architecture/integration specification | README diagrams, terminology, capability matrix, current AGENTS instructions and executable bounded source/factor slices are maintained. Implementation/scientific residuals remain in #1, #2, #3, #4, #5, #8 and #39, rather than being marked completed by a diagram. |
 | [#28](https://github.com/natureofnature/Quant_RSI/issues/28) | Close its selected first A/B/C slice | KO retained-corpus search → versioned evidence-backed title extraction → seven-day count → paired B0/N1 worker, with common masks, allowance/recovery and explicit missingness, is implemented. Current web search is a separate study-context path. General quantity/full-text historical features remain in #8/#39 B, and confirmation in #4. |
-| [#39](https://github.com/natureofnature/Quant_RSI/issues/39) | Keep open | V0, real services, Ridge, live visual outputs (#59/#60), and related-price factors (#61) are delivered. Two full real instrument configurations, remaining usage/cost acceptance, compatible Qlib comparisons, prospective outcomes and research-policy studies remain. |
+| [#39](https://github.com/natureofnature/Quant_RSI/issues/39) | Keep open | V0, real services, Ridge, live visual outputs (#59/#60), related-price factors (#61), bounded iterations (#63) and reserved terminal evaluation (#64) are delivered. Shared/local factor execution is the accompanying slice. Two full real instrument configurations, remaining usage/cost acceptance, compatible Qlib comparisons, prospective outcomes and research-policy studies remain. |
 | [#40](https://github.com/natureofnature/Quant_RSI/issues/40) | Close as planning artifact | Positioning, G0–G4 order, comparison requirements and build/integrate/defer boundaries are specified. Delivery and investment decisions remain tracked by #1/#39 and the specific open gaps above; no competitive advantage or completed G1–G4 is claimed. |
 
 ## Evidence for completed and partially delivered slices
@@ -57,8 +58,10 @@ The closure recommendations take effect only after review, required CI and merge
   [paired worker tests](../tests/test_news_comparison.py). A boolean headline task
   neither extracts earnings quantities nor supplies missing historical coverage.
 - **Connected study (#39):** [one-entry-point guide](connected_research_study.md)
-  and merged #46–#61. Model choice, factor revision and selected forecasts share
-  the existing training masks and accounts; they do not migrate old campaign contracts.
+  and merged #46–#64. Model choice, factor revision and selected forecasts share
+  the existing training masks and accounts; terminal evaluation reuses the selected
+  fitted model once. Neither migrates old campaign contracts. See also
+  [bound factor execution and examples](factor_layers.md#execution-in-the-connected-study).
 
 ## Next implementation boundary
 

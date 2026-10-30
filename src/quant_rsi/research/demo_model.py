@@ -16,6 +16,7 @@ from quant_rsi.research.demo_features import (
     price_metrics,
 )
 from quant_rsi.research.study_estimators import StandardizedRidge, model_configuration
+from quant_rsi.research.study_factor_profiles import prepare_bound_features
 
 
 class LightGBMDemo:
@@ -51,6 +52,7 @@ class LightGBMDemo:
         self._news_columns = {}
         self.news_feature_support = None
         self.peer_features = None
+        self.profile_features = None
         self._has_predicted = False
         self.library = deepcopy(library)
         self.library["definitions"] = [
@@ -199,6 +201,28 @@ class LightGBMDemo:
             "Current company suggestions inform retrospective selection, not causal evidence."
         )
 
+    def configure_profile(self, profile):
+        if self._has_predicted or self.profile_features is not None:
+            raise ValueError("Factor profile must be configured once before prediction")
+        bundle = prepare_bound_features(
+            profile, self.data, self.peer_features or {}, np.concatenate((self.train, self.origins))
+        )
+        existing = {item["factor_id"] for item in self.library["definitions"]}
+        if existing.intersection(item["factor_id"] for item in bundle["definitions"]):
+            raise ValueError("Bound factor conflicts with an existing study definition")
+        self.profile_features = bundle
+        self.library["definitions"].extend(deepcopy(bundle["definitions"]))
+        self.library.pop("instrument_profile", None)
+        self.library["profile_resolution"] = {
+            "market": profile["market"],
+            "instrument": profile["instrument"],
+            "status": "runtime_resolved_on_training_and_development_rows",
+        }
+        self.library["execution_note"] += (
+            " Bound factors retain exact source and ownership metadata; composites use explicit "
+            "binding leaves. Pending sources cannot be replaced with target share prices."
+        )
+
     def context(self, symbol):
         self._news_configuration_open = False
         if self._news_history is not None and symbol != self._news_symbol:
@@ -242,6 +266,8 @@ class LightGBMDemo:
             )
         if self.peer_features is not None:
             result["related_price_support"] = deepcopy(self.peer_features["support"])
+        if self.profile_features is not None:
+            result["factor_profile"] = deepcopy(self.library["profile_resolution"])
         return result
 
     def predict(self, context, factors, hypothesis):
@@ -259,7 +285,35 @@ class LightGBMDemo:
         if news_factors and not (self.news_feature_support or {}).get("runnable"):
             raise ValueError("News factor execution is unavailable for this study")
         columns, news_inputs, news_evidence = [], [], {}
+        bound = {
+            item["factor_id"]: item for item in (self.profile_features or {}).get("definitions", [])
+        }
+        effective = {item["factor_id"]: item for item in factors}
+        bound_inputs = []
         for item in factors:
+            if item["factor_id"] in bound:
+                retained = bound[item["factor_id"]]
+                if (
+                    not retained["runnable"]
+                    or retained["recipe"] != item.get("recipe")
+                    or retained.get("source") != item.get("source")
+                ):
+                    raise ValueError("Bound factor lacks its exact usable retained source/recipe")
+                columns.append(self.profile_features["columns"][item["factor_id"]])
+                dependencies = [bound[key] for key in retained["input_factor_ids"]]
+                bound_inputs.append(
+                    {"factor_id": item["factor_id"], "inputs": deepcopy(dependencies)}
+                )
+                for dependency in dependencies:
+                    effective[dependency["factor_id"]] = dependency
+                    peer_id = dependency.get("runtime_dependency_id")
+                    if peer_id:
+                        effective[peer_id] = next(
+                            d
+                            for d in self.peer_features["definitions"]
+                            if d["factor_id"] == peer_id
+                        )
+                continue
             if item["kind"] == "numeric":
                 if item["recipe"].get("op") in {"peer_return", "relative_return"}:
                     definitions = {
@@ -351,7 +405,9 @@ class LightGBMDemo:
             result["news_feature_inputs"] = news_inputs
             result["news_feature_evidence"] = news_evidence
         if self.peer_features is not None:
-            result["input_usage"] = self._input_usage(factors)
+            result["input_usage"] = self._input_usage(list(effective.values()))
+        if bound_inputs:
+            result["bound_factor_inputs"] = bound_inputs
         if self.price_info:
             if not np.isfinite(matrix[-1:]).all():
                 peer_factors = [
@@ -359,12 +415,12 @@ class LightGBMDemo:
                     for item in factors
                     if item["recipe"].get("op") in {"peer_return", "relative_return"}
                 ]
-                if not news_factors and not peer_factors:
+                if not news_factors and not peer_factors and not bound_inputs:
                     raise ValueError("Non-finite numerical latest-forecast inputs")
                 result["latest_forecast_unavailable"] = {
                     "origin_session": self.data.dates[-1],
                     "reasons": ["latest_news_features_unavailable"]
-                    if not peer_factors
+                    if not peer_factors and not bound_inputs
                     else ["latest_selected_features_unavailable"],
                     "missing_factor_ids": [
                         item["factor_id"]
