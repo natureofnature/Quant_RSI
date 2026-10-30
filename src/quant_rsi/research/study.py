@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 from quant_rsi.factors.contracts import InstrumentId
 from quant_rsi.market.market_contracts import SideCosts, decimal_text
+from quant_rsi.research.active_news import attach_research, research_news
 from quant_rsi.research.demo import (
     load_catalog,
     run_demo,
@@ -93,9 +94,13 @@ def _run(args, symbol, root, configuration, record):
     if not math.isfinite(args.threshold):
         raise ValueError("Strategy threshold must be finite")
     library = load_catalog(args.catalog)
-    for op in ("qlib_roc_v1", "qlib_ma_v1"):
+    for op in ("qlib_roc_v1", "qlib_ma_v1", "log_return_volatility"):
         definition = FactorProposal(
-            op=op, window=10, description="Source-pinned local Qlib-style price adapter."
+            op=op,
+            window=10,
+            description="Sample standard deviation of 10 daily log returns (ddof=1), unannualized."
+            if op == "log_return_volatility"
+            else "Source-pinned local Qlib-style price adapter.",
         ).definition()
         if definition["factor_id"] not in {x["factor_id"] for x in library["definitions"]}:
             library["definitions"].append(definition)
@@ -147,6 +152,21 @@ def _run(args, symbol, root, configuration, record):
             "news_snapshot_count": len(snapshots),
         },
     )
+    prelude = []
+    if args.news_research:
+
+        def record_research(event):
+            prelude.append(event)
+            record(event)
+
+        discovery = research_news(
+            symbol,
+            related,
+            None if args.llm == "simulated" else hypothesis,
+            on_stage=record_research,
+        )
+        _write(root / "news_research.json", discovery)
+        current_news, related = attach_research(current_news, related, discovery, symbol)
 
     def context(target):
         return model.context(target) | {"allow_factor_proposals": True}
@@ -183,6 +203,7 @@ def _run(args, symbol, root, configuration, record):
         summarize=model.summarize,
         on_stage=record,
     )
+    result["trace"] = prelude + result["trace"]
     steps = {event["stage"]: event["output"] for event in result["trace"]}
     first, second = (steps[key] for key in ("first_prediction", "second_prediction"))
     first_ids, second_ids = set(first["factor_ids"]), set(second["factor_ids"])
@@ -208,6 +229,14 @@ def _run(args, symbol, root, configuration, record):
         for label, account_metrics in risk_accounts
     )
     risk_info = risk_accounts[0][1]["risk_statistics"]
+    discovery_summary = ""
+    if args.news_research:
+        discovery_summary = (
+            f"Active news research: {len(discovery['searches'])} search requests, "
+            f"{len(discovery['evidence_news_ids'])}/{len(discovery['articles'])} articles read, "
+            f"{len(discovery['related_candidates'])} suggested related companies "
+            f"({discovery['provider']}). "
+        )
     result["notice"] = (
         f"Connected research study with {model.price_provider} prices. "
         f"Hypotheses: {steps['initial_hypothesis']['provider']}; "
@@ -255,7 +284,7 @@ def _run(args, symbol, root, configuration, record):
         },
         "external_engine": "Qlib-style local price adapters; no Qlib or QuantDinger execution.",
         "conclusion": (
-            f"{symbol}: completed two fits and one factor revision over "
+            discovery_summary + f"{symbol}: completed two fits and one factor revision over "
             f"{metrics['sample_count']} development observations. Price MAE: initial "
             f"{first_mae:.4f}, revised {metrics['mae_price']:.4f}, "
             f"unchanged-price baseline {baseline['mae_price']:.4f}. "
