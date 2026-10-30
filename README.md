@@ -144,7 +144,7 @@ at a time.
 | Five-session price forecasting | Available for explicitly supported sources/markets; includes collection, fixed-model research, model sealing and replay |
 | Prospective forecast observation | Offline registration and append-only outcome settlement from observed market receipts; real prospective accumulation and outcome-driven policy updates remain outstanding |
 | Enhanced forecast comparison | Available: three predefined price/context recipes, frozen folds, naive controls and a separate publication fit |
-| Bounded factor research | Available: momentum/mean-return neighbor search and limited, registered research-program changes |
+| Bounded factor research | Momentum/mean-return neighbor search, opt-in [plateau exploration](docs/research_exploration.md) under the same budget/checkpoint path, and limited registered research-program changes |
 | Shared and instrument-specific factors | Numeric bindings can enter bounded discovery; general text definitions remain specifications |
 | Automatic factor discovery | Finite multi-leaf compositions, feedback-dependent exploration and common multi-fold comparisons; no general proposer-program evolution |
 | Candidate factor execution | Opt-in [Qlib ROC and MA close-price adapters](docs/candidate_factor_runtime.md) feed bounded discovery; the remaining survey candidates are not executable |
