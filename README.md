@@ -25,6 +25,14 @@ This adds at most one follow-up search request before the two model fits. The re
 connects retrieved article IDs to findings, company suggestions and factor choices.
 Current articles guide hypotheses; they are never backdated into historical features.
 
+The study adopts a revision only when its **development MAE strictly improves**;
+otherwise it retains the initial attempt for the latest forecast. To choose strategy
+Sharpe instead, set `--selection-metric sharpe` before the run. Ties and unavailable
+comparisons retain the initial attempt. Both attempts remain in the report; this is
+development selection, not independent validation. Stage progress goes to stderr
+(`--quiet` hides it); `runtime.json` records elapsed time, call counts and reported
+token usage without estimating a monetary cost.
+
 To try the same report offline, with real model fits on synthetic inputs:
 
 ```bash

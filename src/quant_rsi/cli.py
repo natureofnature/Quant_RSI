@@ -87,6 +87,13 @@ def main(argv: list[str] | None = None) -> int:
             demo.add_argument("--commission-bps", default="5")
             demo.add_argument("--slippage-bps", default="5")
             demo.add_argument("--threshold", type=float, default=0.0)
+            demo.add_argument(
+                "--selection-metric",
+                choices=("mae", "sharpe"),
+                default="mae",
+                help="preselect the development metric for adopting a revision (default: mae)",
+            )
+            demo.add_argument("--quiet", action="store_true", help="hide stderr stage progress")
         else:
             demo.add_argument("--model", choices=("simulated", "lightgbm"), default="simulated")
     workflow = commands.add_parser("research-workflow", help="one frozen research/account profile")

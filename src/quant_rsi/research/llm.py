@@ -5,8 +5,9 @@ import math
 import os
 import subprocess
 import tempfile
+from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -41,6 +42,7 @@ class LLMHypothesizer:
     mode: str
     model: str | None = None
     timeout: float = 180
+    on_usage: Callable[[dict], None] | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         if self.mode not in {"codex", "api"}:
@@ -95,6 +97,10 @@ class LLMHypothesizer:
             "not independent validation. "
             "A separate latest_forecast, if supplied, is unobserved; do not confuse it with "
             "the historical prediction error. "
+            "When context.selection_policy is supplied, use its preselected development metric "
+            "to guide the exploratory revision; a revision is only adopted if that metric "
+            "improves, not because another diagnostic happens to improve. This remains "
+            "development selection, not independent validation. "
             "Otherwise predictions use fixed simulated contributions. "
             + (
                 "Propose one to three executable numeric price recipes using only the allowed "
@@ -180,6 +186,7 @@ class LLMHypothesizer:
         return response
 
     def _codex_response(self, prompt, schema, *, search):
+        json_events = search or self.on_usage is not None
         with tempfile.TemporaryDirectory(prefix="quant-rsi-llm-") as directory:
             root = Path(directory)
             schema_path, output_path = root / "schema.json", root / "response.json"
@@ -208,7 +215,7 @@ class LLMHypothesizer:
                 "--output-last-message",
                 str(output_path),
             ]
-            if search:
+            if json_events:
                 command.append("--json")
             if self.model:
                 command.extend(["--model", self.model])
@@ -225,7 +232,7 @@ class LLMHypothesizer:
                         text=True,
                         cwd=root,
                         timeout=self.timeout,
-                        stdout=events if search else diagnostics,
+                        stdout=events if json_events else diagnostics,
                         stderr=diagnostics,
                         check=False,
                     )
@@ -241,15 +248,19 @@ class LLMHypothesizer:
             if not output_path.is_file():
                 raise ValueError("Codex completed without a structured response")
             actions = []
-            if search:
+            usage = None
+            if json_events:
                 path = root / "events.jsonl"
                 if path.stat().st_size > 4 * 1024 * 1024:
-                    raise ValueError("Codex search trace exceeded the bounded response size")
+                    raise ValueError("Codex event trace exceeded the bounded response size")
                 for line in path.read_text(encoding="utf-8").splitlines():
                     event = json.loads(line)
+                    if event.get("type") == "turn.completed":
+                        usage = event.get("usage")
                     item = event.get("item", {})
                     if event.get("type") == "item.completed" and item.get("type") == "web_search":
                         actions.append(_search_action(item))
+            self._report_usage(usage)
             return {"text": output_path.read_text(encoding="utf-8"), "search_actions": actions}
 
     def _api(self, prompt, schema):
@@ -294,6 +305,8 @@ class LLMHypothesizer:
             raise ValueError("OpenAI API connection failed or timed out") from None
         except ValueError:
             raise ValueError("OpenAI API returned invalid JSON") from None
+        if isinstance(payload, dict):
+            self._report_usage(payload.get("usage"))
         if not isinstance(payload, dict) or payload.get("status") != "completed":
             raise ValueError("OpenAI API response did not complete")
         texts = [
@@ -311,6 +324,25 @@ class LLMHypothesizer:
             if item.get("type") == "web_search_call" and item.get("status") == "completed"
         ]
         return {"text": "".join(texts), "search_actions": actions}
+
+    def _report_usage(self, usage):
+        if self.on_usage is None:
+            return
+        usage = usage if isinstance(usage, dict) else {}
+        details = usage.get("input_tokens_details")
+        cached = details.get("cached_tokens") if isinstance(details, dict) else None
+        values = {
+            "input_tokens": usage.get("input_tokens"),
+            "cached_input_tokens": usage.get("cached_input_tokens", cached),
+            "output_tokens": usage.get("output_tokens"),
+        }
+        self.on_usage(
+            {"mode": self.mode}
+            | {
+                key: value if type(value) is int and value >= 0 else None
+                for key, value in values.items()
+            }
+        )
 
 
 def _search_action(item):

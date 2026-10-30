@@ -49,6 +49,8 @@ company suggestions. RSS news limits apply per issuer; see
 | `--initial-cash` | 10000 USD per strategy/baseline account |
 | `--commission-bps`, `--slippage-bps` | 5 basis points each, on each executed side |
 | `--threshold` | 0: a predicted five-session log return above this threshold chooses long, otherwise cash |
+| `--selection-metric` | `mae` by default (lower is better); optionally `sharpe` (higher is better) for development-only adoption |
+| `--quiet` | Hide stderr progress; timing and usage artifacts are still saved |
 
 API mode requires `OPENAI_API_KEY` and `--llm-model MODEL_ID`; see
 [LLM prerequisites](simulated_research_loop.md#use-a-real-llm-for-hypotheses).
@@ -77,6 +79,14 @@ The prompts request one native search per request; Codex controls internal tool
 calls, so this is not an exact provider-call or billing budget. API searches also
 set `max_tool_calls=2`. The actual search-tool metadata is retained; a response
 without a recorded search is rejected.
+
+Read failures guide the follow-up query. HTTP 401, 403 and 429 add that exact
+normalized hostname to this run's `avoid_hosts`, asking the LLM for alternative
+accessible official/primary sources. If a result still uses a denied host, the
+application records `skipped_denied_host` without making another page request;
+its receipt time, text and hash remain absent. A 404 or timeout does not suppress
+the entire hostname. This is a run-scoped exclusion/cooldown, not a permanent
+blocklist or an attempt to bypass access restrictions.
 
 Only discovery requests enable web search. Hypothesis and review requests keep
 tools disabled; shell, apps and multi-agent tools remain disabled for all Codex
@@ -176,9 +186,15 @@ the feature path; it does not establish news prediction value on market data.
 4. Give development feedback to the second LLM call. Retain the proposed,
    activated, deactivated and retained factors in the trace, fit the revised recipe set and
    compare both attempts over the same training/evaluation windows.
+   Adopt the revision only on strict improvement of the metric chosen before the run:
+   lower price MAE by default, or higher net strategy Sharpe with `--selection-metric sharpe`.
+   Ties and unavailable/nonfinite comparisons retain the initial attempt; another
+   diagnostic cannot override the chosen metric.
 5. In daily-price mode, report a separate latest-bar forecast with an unobserved five-session outcome.
-   It uses the already fitted model, not a refit including newer matured labels;
+   It uses the **selected** attempt's already fitted model, not a refit including newer matured labels;
    inspect its explicit training cutoff and retained price date.
+   If that attempt lacks usable latest inputs, report it unavailable; do not silently
+   switch to the other attempt. Both forecasts remain in their original stage records.
 
 Recipes execute bounded operators. The study does not generate Python or execute
 arbitrary code. Current news can inform recipe selection; archived headline counts
@@ -231,14 +247,40 @@ make Sharpe `null` in JSON and `N/A` in reports, with an explicit status; flat
 accounts still have zero volatility. Missing valuations are not silently skipped.
 Short-sample annualization is descriptive and does not establish a stable long-term
 Sharpe or independent improvement. These metrics also reach the second LLM call
-through `feedback.strategy_diagnostics`; no new automatic selection objective or
-Sharpe-based acceptance rule is introduced.
+through `feedback.strategy_diagnostics`; they do not establish independent
+performance. The explicit
+`--selection-metric` option now controls development adoption: it is saved in
+`config.json` before collection/fitting and supplied to both hypotheses. The report
+and `summary.selection` identify the chosen attempt, scores, factors and decision.
+Trying a revised recipe is distinct from accepting it. Selection on these reused
+development observations is not independent confirmation, even when the score improves.
+
+## Progress and research cost
+
+The CLI prints each running/completed stage and its elapsed seconds to **stderr**;
+`--json` stdout stays machine-readable. `--quiet` suppresses only that display.
+`runtime.json` is updated at stage boundaries and when usage arrives, so it also
+records the active or failed stage when a run does not finish. It is observational
+metadata, not a resume or recovery protocol.
+
+The report lists preparation/research stage durations, total measured research
+wall time, started/completed LLM/search/model-stage counts and token usage. Counts
+refer to application stages; they do not claim an exact count of provider-internal
+tool calls or billing events. Simulated searches remain labeled by the simulation
+mode and do not count as real LLM requests. Timing ends before report serialization.
+
+Codex `turn.completed` events and API response usage supply only allowlisted numeric
+input, cached-input and output token counts. Cached input is already included in
+input totals. Missing fields remain unknown; partial totals are explicitly labeled.
+No token estimates, authentication logs, private reasoning or currency costs are
+inferred or saved. See the official [Codex JSON event example](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 ## Saved output
 
 | File | Contents |
 | --- | --- |
 | `config.json` | Requested run settings |
+| `runtime.json` | Live/final stage timings, attempt counts and reported/unknown token usage; retained on failures |
 | `inputs.json` | Price inputs and their provider/evidence metadata |
 | `news_history.json` | Original retained news snapshot bundle used by this run |
 | `news_research.json` | Optional current discovery: search metadata/results, bounded page text/receipts, final findings and related-company candidates |
@@ -295,3 +337,14 @@ from unreadable pages. A separate Codex review of a successfully retrieved offic
 CCEP relationship page proposed CCEP with that article's ID; it was a review
 interface check, not a discovery result from the full study. API discovery was
 validated offline, not with a live API key. None of these runs establish predictive gain.
+
+A subsequent live Codex study on 2026-10-30 exercised explicit adoption and usage
+reporting. It completed six LLM stages, two searches and two fits in about 165 seconds
+of measured research time. MAE changed from `2.219264` to `2.516885`, so the default
+rule retained the initial attempt and its latest forecast rather than the revision.
+Three pages were attempted (one readable, two HTTP 403); the follow-up returned no
+additional sources instead of repeating those denied hosts. All six LLM stages
+reported usage: 150,191 input tokens, including 26,112 cached inputs, and 2,513 output
+tokens. These are provider-reported counts, not a monetary-cost estimate or evidence
+of predictive advantage. A final offline regression also checks that rendering
+failure never announces a completed run.

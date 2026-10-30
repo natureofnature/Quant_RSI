@@ -171,6 +171,7 @@ def run_demo(
     summarize=simulated_summary,
     price_context=None,
     on_stage=None,
+    on_start=None,
 ):
     """One factor revision, no network, fits, workspace or persistence by default.
 
@@ -189,17 +190,24 @@ def run_demo(
             on_stage(deepcopy(trace[-1]))
         return value
 
-    record("target", {"provider": "simulated_price_context", **context})
-    context["related"] = record("related_stocks", related(symbol))
-    context["news"] = record("news", news(deepcopy(context)))
-    library = record("factor_library", catalog())
-    initial = record("initial_hypothesis", hypothesize(deepcopy(context), deepcopy(library)))
+    def call(stage, function, *args, **kwargs):
+        if on_start is not None:
+            on_start(stage)
+        return record(stage, function(*args, **kwargs))
+
+    call("target", lambda: {"provider": "simulated_price_context", **context})
+    context["related"] = call("related_stocks", related, symbol)
+    context["news"] = call("news", news, deepcopy(context))
+    library = call("factor_library", catalog)
+    initial = call("initial_hypothesis", hypothesize, deepcopy(context), deepcopy(library))
     if context.get("allow_factor_proposals"):
         from quant_rsi.research.demo_proposals import extend_library
 
-        library = record("initial_factor_library", extend_library(library, initial))
-    factors = record("initial_factors", select_factors(library, initial))
-    first = record("first_prediction", predict(deepcopy(context), factors, deepcopy(initial)))
+        library = call("initial_factor_library", extend_library, library, initial)
+    factors = call("initial_factors", select_factors, library, initial)
+    first = call("first_prediction", predict, deepcopy(context), factors, deepcopy(initial))
+    if on_start is not None:
+        on_start("feedback")
     observed = observe(deepcopy(context), deepcopy(first))
     feedback = record(
         "feedback",
@@ -210,22 +218,25 @@ def run_demo(
             "error_definition": "predicted_price_minus_observed_price",
         },
     )
-    revised = record(
+    revised = call(
         "revised_hypothesis",
-        hypothesize(
-            deepcopy(context),
-            deepcopy(library),
-            previous=deepcopy(initial),
-            feedback=deepcopy(feedback),
-        ),
+        hypothesize,
+        deepcopy(context),
+        deepcopy(library),
+        previous=deepcopy(initial),
+        feedback=deepcopy(feedback),
     )
     if context.get("allow_factor_proposals"):
-        library = record("revised_factor_library", extend_library(library, revised))
-    factors = record("revised_factors", select_factors(library, revised))
-    second = record("second_prediction", predict(deepcopy(context), factors, deepcopy(revised)))
-    summary = record(
+        library = call("revised_factor_library", extend_library, library, revised)
+    factors = call("revised_factors", select_factors, library, revised)
+    second = call("second_prediction", predict, deepcopy(context), factors, deepcopy(revised))
+    summary = call(
         "summary",
-        summarize(deepcopy(context), deepcopy(first), deepcopy(second), deepcopy(feedback)),
+        summarize,
+        deepcopy(context),
+        deepcopy(first),
+        deepcopy(second),
+        deepcopy(feedback),
     )
     live_llm = any(
         hypothesis.get("provider") in {"codex_cli", "openai_api"}
