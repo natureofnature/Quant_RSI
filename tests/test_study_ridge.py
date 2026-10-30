@@ -55,6 +55,14 @@ def test_duplicate_and_constant_columns_have_finite_stable_solution():
     assert model.scale[2] == 1
 
 
+def test_decimal_constant_column_cannot_gain_slope_from_roundoff():
+    model = StandardizedRidge(np.full((46, 1), 0.1), np.arange(46), 1.0)
+    assert model.mean[0] == 0.1
+    assert model.scale[0] == 1
+    assert model.coefficients[0] == 0
+    np.testing.assert_array_equal(model.predict([[0.1], [0.2], [1000]]), [22.5] * 3)
+
+
 @pytest.mark.parametrize("alpha", [0, -1, float("nan"), float("inf"), True])
 def test_invalid_penalty_is_rejected(alpha):
     with pytest.raises(ValueError, match="finite and positive"):

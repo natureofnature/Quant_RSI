@@ -48,7 +48,11 @@ class StandardizedRidge:
             raise ValueError("Ridge requires finite nonempty training rows and aligned targets")
         self.mean = x.mean(axis=0)
         self.scale = x.std(axis=0, ddof=0)
-        self.scale[self.scale == 0] = 1.0
+        # Decimal constants can have a tiny nonzero std from mean rounding.
+        # Center them exactly so roundoff cannot become a spurious predictor.
+        constant = np.all(x == x[0], axis=0)
+        self.mean[constant] = x[0, constant]
+        self.scale[constant | (self.scale == 0)] = 1.0
         self.intercept = float(y.mean())
         standardized = (x - self.mean) / self.scale
         design = np.vstack((standardized, np.sqrt(alpha) * np.eye(x.shape[1])))
