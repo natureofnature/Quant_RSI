@@ -126,7 +126,7 @@ def test_profile_peer_news_reaches_both_llm_calls_with_coverage(transport, monke
     target = news_feed.source_for("KO")
 
     def source_for(symbol):
-        if symbol == "MNST":
+        if symbol in {"MNST", "KOF"}:
             raise FileNotFoundError(symbol)
         return target.model_copy(update={"instrument": symbol, "provider_id": symbol.lower()})
 
@@ -137,13 +137,14 @@ def test_profile_peer_news_reaches_both_llm_calls_with_coverage(transport, monke
         data = json.loads(prompt.split("\nINPUT_JSON:\n")[1])
         calls.append(data)
         related = data["context"]["related"]
-        assert related["stocks"] == ["CCEP", "MNST"]
+        assert related["stocks"] == ["CCEP", "MNST", "KOF"]
         assert all(item["source_urls"] for item in related["relationships"])
         news = data["context"]["news"]
         assert [item["symbol"] for item in news["items"]] == ["KO", "CCEP"]
         assert [item["status"] for item in news["coverage"]] == [
             "available",
             "available",
+            "not_configured",
             "not_configured",
         ]
         return json.dumps(
@@ -225,6 +226,7 @@ def test_unregistered_peer_feeds_are_explicit_without_network_attempts(transport
     assert transport == [("KO", 262144)]
     assert [entry["status"] for entry in news["coverage"]] == [
         "available",
+        "not_configured",
         "not_configured",
         "not_configured",
     ]

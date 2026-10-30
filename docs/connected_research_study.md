@@ -81,8 +81,8 @@ not refreshed or overwritten. Freshness is bounded by their receipt. These are
 raw USD prices, not dividend-adjusted total returns; unsupported corporate actions
 reject the input. See [price details](simulated_research_loop.md#use-collected-daily-prices).
 
-KO's profile supplies CCEP bottling and MNST distribution relationships. Only KO
-has a configured RSS feed: related coverage is explicitly partial, with CCEP/MNST
+KO's profile supplies CCEP/KOF bottling and MNST distribution relationships. Only KO
+has a configured RSS feed: related coverage is explicitly partial, with CCEP/MNST/KOF
 `not_configured`. The default remains configured relationships and RSS; opt-in
 [active news research](#active-news-research) adds search, page reads and related
 company suggestions. RSS news limits apply per issuer; see
@@ -95,6 +95,8 @@ company suggestions. RSS news limits apply per issuer; see
 | `--model` | `lightgbm` by default; `ridge` uses a reviewed regularized linear model on the same rows and features |
 | `--ridge-alpha` | Positive finite penalty for Ridge, default 1.0; rejected when supplied with LightGBM |
 | `--related`, `--news`, `--prices` | `profile`, `issuer-rss`, `daily`; each also accepts `simulated`, except prices use `synthetic` |
+| `--related-prices` / `--no-related-prices` | Enabled by default; collect at most three distinct related symbols once, with no silent replacement of unavailable data |
+| `--related-prices-dir` | Optional root of retained daily collections, one subdirectory per peer symbol; otherwise `OUTPUT/related_prices`. Requires daily prices and enabled related prices |
 | `--news-limit` | 5 items per issuer, range 1–20 |
 | `--news-research` | Off by default; enable LLM-led current search, article reading and source-cited related company candidates |
 | `--news-archive` | Optional shared snapshot directory; otherwise `OUTPUT/news_archive` |
@@ -108,6 +110,49 @@ company suggestions. RSS news limits apply per issuer; see
 API mode requires `OPENAI_API_KEY` and `--llm-model MODEL_ID`; see
 [LLM prerequisites](simulated_research_loop.md#use-a-real-llm-for-hypotheses).
 Service errors stop the study; no silent fallback or automatic resume is claimed.
+Optional related-price collection failures are recorded per symbol and leave those peers
+unavailable; they do not stop an otherwise usable target-price study.
+
+### Related stocks as executable inputs
+
+After optional news discovery, the study tries configured related symbols first, then
+unique suggested symbols, with a maximum of three collection attempts. Successful market
+data access does not verify a suggested corporate relationship. Simulated relationships
+and simulated discovered symbols are never sent to a live market-data service. In synthetic
+mode, peer prices are deterministic invented series, explicitly labelled as such.
+
+The run-local catalog offers two recipes for each usable peer, at 5, 10 and 20 sessions:
+
+- `peer.SYMBOL.peer_return_N`: peer close at the decision session divided by its close
+  N target sessions earlier, minus one.
+- `peer.SYMBOL.relative_return_N`: target simple return minus that peer simple return.
+
+The LLM may select these alongside its proposed target-price recipe and change the chosen
+peer, operator or supplied window after feedback. Catalog availability alone does not mean
+a feature was selected or trained. The simulated hypothesis exercises a peer return first,
+then a relative return after feedback.
+
+Prices align by exact session date and an aware peer close timestamp no later than the
+target decision close. Every close in the trailing window must be present and positive.
+There is no forward fill, zero substitution, or peer-dependent sample removal. A recipe is
+selectable only when it is finite on every already-frozen training and development row;
+both attempts and their baselines retain the same rows. A missing latest peer window makes
+the selected attempt's latest forecast unavailable without discarding its historical result
+or switching to another model.
+
+The daily adapter's existing market scope still applies: NYSE, NYSE Arca and NYSE American
+USD listings. KO's configured CCEP/MNST peers are Nasdaq listings and currently produce
+explicit unsupported-market records. The profile also includes KOF, the NYSE-listed ADS
+of Coca-Cola FEMSA, with official business/listing sources retained in its configuration.
+KOF or a compatible discovered peer can be used when its retained collection is usable;
+otherwise the study continues with its other executable factors. This change does not add a Nasdaq
+calendar adapter or certify historical point-in-time data availability.
+
+`related_prices.json` retains aligned closes, source metadata/hashes, availability and
+recipe definitions. Daily collection directories preserve their original receipts and are
+reused without refreshing populated directories. UI prediction nodes and HTML/Markdown
+reports show each input as **used**, **not selected**, **unavailable**, or **context only**.
+Current news remains hypothesis context; only eligible archived headlines enter news columns.
 
 ## Choose the model before research
 
@@ -373,6 +418,7 @@ inferred or saved. See the official [Codex JSON event example](https://learn.cha
 | `runtime.json` | Live/final stage timings, attempt counts and reported/unknown token usage; retained on failures |
 | `inputs.json` | Price inputs and their provider/evidence metadata |
 | `news_history.json` | Original retained news snapshot bundle used by this run |
+| `related_prices.json` | Aligned peer closes, source evidence, availability and bounded factor definitions |
 | `news_research.json` | Optional current discovery: search metadata/results, bounded page text/receipts, final findings and related-company candidates |
 | `trace.jsonl` | Completed stage outputs, including proposals and feedback |
 | `result.json` | Full structured results and account records |
@@ -440,3 +486,21 @@ reported usage: 150,191 input tokens, including 26,112 cached inputs, and 2,513 
 tokens. These are provider-reported counts, not a monetary-cost estimate or evidence
 of predictive advantage. A final offline regression also checks that rendering
 failure never announces a completed run.
+
+Related-price integration was exercised on 2026-10-30 with retained public KO/KOF
+daily collections. CCEP/MNST failed the existing exchange-scope check; their receipts
+and reasons remained visible. With simulated news/hypotheses and real LightGBM fits,
+the first attempt used `peer.KOF.peer_return_5`, and the revision used
+`peer.KOF.relative_return_10`. MAE worsened from `2.3691` to `2.5643`, so the initial
+attempt was retained.
+
+A separate real Codex/RSS study reused those daily collections. Codex selected
+`peer.KOF.relative_return_5` alongside momentum and volatility in its first fit,
+then removed the peer input and selected `research.qlib_ma_v1_10` after feedback.
+Both fits used 60 training rows and 20 common development observations. MAE changed
+from `2.6801` to `2.5094`, still worse than the unchanged-price baseline (`2.5015`).
+Net strategy return fell from `0.31%` to `-0.21%`; Sharpe fell from `0.2667` to
+`-0.1911`. The preselected MAE rule adopted the revision despite those worse strategy
+diagnostics. Historical news remained unavailable, and the latest forecast remained
+unobserved. This demonstrates executable peer selection and deactivation by Codex,
+not independent predictive improvement or a benefit from the peer factor.

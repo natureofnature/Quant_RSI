@@ -89,6 +89,19 @@ def simulated_hypothesis(context, library, *, previous=None, feedback=None):
             ]
             if context["news_feature_support"]["runnable"]:
                 factors.append(f"news.{name}_{window}")
+        peers = [
+            item
+            for item in library["definitions"]
+            if item.get("runnable")
+            and item.get("recipe", {}).get("op")
+            == ("relative_return" if previous else "peer_return")
+            and item["recipe"]["window"] == (10 if previous else 5)
+        ]
+        if peers:
+            factors.append(peers[0]["factor_id"])
+            reason += (
+                " The simulated researcher includes a peer return, then tests a relative return."
+            )
     return {
         **proposal,
         "provider": "simulated_llm",
@@ -112,9 +125,7 @@ def select_factors(library, hypothesis):
     if unknown:
         raise ValueError(f"hypothesis selected unknown factors: {sorted(unknown)}")
     if any(definitions[key].get("runnable") is False for key in ids):
-        raise ValueError(
-            "Selected news factor is pending: insufficient usable historical snapshots"
-        )
+        raise ValueError("Selected factor is pending: insufficient usable historical inputs")
     return [deepcopy(definitions[key]) for key in ids]
 
 

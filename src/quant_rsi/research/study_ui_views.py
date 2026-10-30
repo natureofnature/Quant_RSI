@@ -56,7 +56,16 @@ def _evidence(ids, previous):
 
 def _factors(items):
     return [
-        _pick(item, "factor_id", "kind", "description", "input_kind", "recipe", "runnable")
+        _pick(
+            item,
+            "factor_id",
+            "kind",
+            "description",
+            "input_kind",
+            "recipe",
+            "runnable",
+            "availability_reason",
+        )
         for item in items[:64]
     ]
 
@@ -150,7 +159,7 @@ def _accounts(previous):
 def visual_output(stage, output, previous, symbol):
     if stage == "load_prices":
         return {"kind": "facts", "facts": _pick(output, "symbol", "provider", "sessions")}
-    if stage == "collect_news_context":
+    if stage in {"collect_news_context", "load_related_prices"}:
         return {"kind": "relationships", "target": symbol, **output["related"]}
     if stage == "target":
         return {
@@ -234,6 +243,7 @@ def visual_output(stage, output, previous, symbol):
             "currency": development.get("currency"),
             "horizon": output.get("horizon_sessions"),
             "note": development.get("evaluation_note"),
+            "input_usage": output.get("input_usage", []),
         }
     if stage == "feedback":
         rows = prediction_rows(previous.get("first_prediction", {}))

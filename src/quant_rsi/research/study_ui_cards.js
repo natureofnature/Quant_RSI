@@ -89,6 +89,7 @@ const StudyCards = (() => {
     });
     if (!entries.length) peers.append(note('No related companies were supplied.'));
     map.append(peers); wrap.append(map);
+    if(view.price_features?.length)wrap.append(el('h3','view-section-title','Related price availability'),table(['Symbol','Status','Reason'],view.price_features.map(p=>[p.symbol,title(p.status),p.reason])));
     if (entries.length > 8) wrap.append(note(`Showing 8 of ${entries.length} relationships; see raw data for all entries.`));
     wrap.append(note(view.reason), note(`Source · ${view.provider || 'not provided'}. Suggestions are not verified business relationships.`));
     return wrap;
@@ -102,6 +103,7 @@ const StudyCards = (() => {
     if (parameters.length) card.append(table(['Parameter', 'Value'], parameters.map(([key, value]) => [title(key), key === 'window_days' ? `${value} calendar days` : key === 'window' ? `${value} sessions` : valueText(value)])));
     if (item.input_kind) card.append(note(`Input · ${title(item.input_kind)}`));
     if (item.runnable === false) card.append(badge('Not executable in this path', 'caution'));
+    if (item.availability_reason) card.append(note(title(item.availability_reason)));
     return card;
   }
   function changes(items) {
@@ -173,6 +175,7 @@ const StudyCards = (() => {
     const tiles=revised ? [['Initial MAE',fmt(initial)],['Revised MAE',fmt(current)]] : [['Price MAE',fmt(current)]];
     tiles.push(['Unchanged-price MAE',fmt(view.baseline_metrics?.mae_price)],['Observations',valueText(view.metrics?.sample_count)]);
     wrap.append(metrics(tiles));
+    if(view.input_usage?.length){wrap.append(el('h3','view-section-title','Inputs actually used'),table(['Source','Status','Executed factors / reason'],view.input_usage.map(u=>[u.source,title(u.status),u.factor_ids?.length?u.factor_ids.join(', '):title(u.reason)])));}
     if(revised && number(initial)!==null && number(current)!==null){const delta=number(current)-number(initial);wrap.append(el('p',`metric-delta ${delta>0?'worse':delta<0?'better':''}`,`MAE change ${delta>0?'+':''}${fmt(delta)} · ${delta>0?'higher error':delta<0?'lower error':'unchanged error'} in reported development metrics`));}
     const series=[{key:'observed',label:'Observed',color:'#e7eff4'}];
     if(revised)series.push({key:'initial',label:'Initial',color:'#83b5ff'});

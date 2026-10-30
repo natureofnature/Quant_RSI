@@ -129,7 +129,7 @@ def test_connected_ridge_study_uses_two_fits_news_selection_accounts_and_report(
         prediction = steps[key]
         assert prediction["provider"] == "ridge" and "boost_rounds" not in prediction
         assert prediction["model_configuration"] == configuration
-        assert prediction["training_feature_columns"] == 2
+        assert prediction["training_feature_columns"] == 3
         assert prediction["news_feature_inputs"]
         assert prediction["development"]["metrics"]["sample_count"] == 20
         assert prediction["strategy"]["buy_and_hold"]["fills"]
