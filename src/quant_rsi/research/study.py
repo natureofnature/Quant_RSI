@@ -340,6 +340,8 @@ def _run(args, symbol, root, configuration, record, progress):
     first, second = attempts[0]["prediction"], attempts[-1]["prediction"]
     selection = result["summary"]["selection"]
     selected_metrics = result["summary"]["research_rounds"][selection["selected_round"] - 1]
+    selected_sharpe = selected_metrics["sharpe_ratio"]
+    selected_sharpe_text = f"{selected_sharpe:.4f}" if selected_sharpe is not None else "N/A"
     first_ids, second_ids = set(first["factor_ids"]), set(second["factor_ids"])
     metrics = second["development"]["metrics"]
     baseline = second["development"]["baselines"]["unchanged_price"]["metrics"]
@@ -435,7 +437,7 @@ def _run(args, symbol, root, configuration, record, progress):
             f"Selected round {selection['selected_round']}: "
             f"price MAE {selected_metrics['mae_price']:.4f}, "
             f"net return {float(selected_metrics['net_return']):.2%}, "
-            f"Sharpe {selected_metrics['sharpe_ratio']}. "
+            f"Sharpe {selected_sharpe_text}. "
             f"Net strategy return: initial {first_return:.2%}, revised {revised_return:.2%}, "
             f"buy-and-hold {buy_hold_return:.2%}. "
             f"Annualized Sharpe: {sharpe_summary} "

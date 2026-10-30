@@ -161,8 +161,13 @@ def test_active_offline_study_executes_volatility_and_keeps_articles_out_of_trai
     result = json.loads((root / "result.json").read_text())
     steps = {event["stage"]: event["output"] for event in result["trace"]}
     discovery = json.loads((root / "news_research.json").read_text())
-    assert len(result["trace"]) == 20
-    assert len((root / "trace.jsonl").read_text().splitlines()) == 20
+    decisions = [event for event in result["trace"] if event["stage"].endswith("_decision")]
+    assert [event["stage"] for event in decisions] == ["round_1_decision", "round_2_decision"]
+    assert [event["output"]["completed_fits"] for event in decisions] == [1, 2]
+    assert len(result["trace"]) - len(decisions) == 20
+    assert [json.loads(line) for line in (root / "trace.jsonl").read_text().splitlines()] == result[
+        "trace"
+    ]
     assert "research.log_return_volatility_10" in steps["second_prediction"]["factor_ids"]
     assert steps["second_prediction"]["training_feature_columns"] == 3
     for key in ("initial_hypothesis", "revised_hypothesis"):
@@ -176,6 +181,7 @@ def test_active_offline_study_executes_volatility_and_keeps_articles_out_of_trai
         assert discovery["evidence_news_ids"][0] in report
         assert "Active news research" in report and "Sharpe (ann.)" in report
     assert "2 search requests, 2/2 articles read" in result["study"]["conclusion"]
+    assert "Sharpe None" not in result["study"]["conclusion"]
 
 
 def test_codex_study_passes_read_evidence_and_relationships_into_both_hypotheses(
