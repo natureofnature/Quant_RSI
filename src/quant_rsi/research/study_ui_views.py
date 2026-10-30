@@ -139,6 +139,10 @@ def _accounts(previous, selected_round=None):
     if selected_round is not None and selected_round > 2:
         selected = previous.get(f"round_{selected_round}_prediction", {}).get("strategy", {})
         accounts.insert(2, ("Selected", selected.get("strategy", {})))
+    return _account_series(accounts)
+
+
+def _account_series(accounts):
     metrics = [
         {
             "label": label,
@@ -160,7 +164,29 @@ def _accounts(previous, selected_round=None):
     return metrics, [by_date[key] for key in sorted(by_date)]
 
 
+def _terminal_view(output):
+    evaluation = output.get("evaluation", {})
+    strategy = output.get("strategy", {})
+    accounts, nav = _account_series(
+        [
+            ("Selected", strategy.get("strategy", {})),
+            ("Buy & hold", strategy.get("buy_and_hold", {})),
+        ]
+    )
+    return {
+        "kind": "terminal",
+        **_pick(output, "status", "selected_round", "sample_count", "limitation", "missing_inputs"),
+        "metrics": evaluation.get("metrics", {}),
+        "baselines": {k: v["metrics"] for k, v in evaluation.get("baselines", {}).items()},
+        "rows": prediction_rows({"development": evaluation}),
+        "accounts": accounts,
+        "nav": nav,
+    }
+
+
 def visual_output(stage, output, previous, symbol):
+    if stage == "terminal_evaluation":
+        return _terminal_view(output)
     match = re.fullmatch(
         r"round_(\d+)_(hypothesis|factor_library|factors|prediction|feedback|decision)", stage
     )
@@ -301,5 +327,8 @@ def visual_output(stage, output, previous, symbol):
             "nav": nav,
             "rounds": output.get("research_rounds", []),
             "stop_reason": output.get("stop_reason"),
+            "terminal": _terminal_view(previous["terminal_evaluation"])
+            if "terminal_evaluation" in previous
+            else None,
         }
     return {"kind": "unknown"}

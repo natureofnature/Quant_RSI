@@ -19,7 +19,10 @@ This connects configured company relationships, issuer news, daily prices, two
 Codex hypothesis calls and two real LightGBM fits. Open `/tmp/ko-study/report.html`
 for prediction baselines, initial/revised strategies versus buy-and-hold, costs,
 Sharpe, volatility, maximum drawdown and the latest forecast. Use a new output path
-for each study. Risk statistics use short development samples, not independent validation.
+for each study. Before research, the study reserves 10 terminal observations. After
+development selection, it evaluates the chosen fitted model once on that interval,
+with separate forecast and costed strategy tables. Risk statistics remain short-sample
+descriptions; current-news/LLM knowledge prevents treating this as prospective validation.
 
 To let the LLM search current news, read selected public pages and suggest related
 companies with source citations, use the same entry point:
@@ -50,8 +53,11 @@ quant-rsi research-study KO --rounds 5 --max-fits 4 --patience 2 \
 This permits at most four fits, stopping earlier after two consecutive trials fail to
 improve the incumbent. The UI/report shows each round, its factors, MAE, net return,
 Sharpe, adoption decision and the stopping reason. Later hypotheses receive the
-incumbent's feedback and the complete development trial history. This does not add
-independent validation; the default remains two fits. See [iteration limits](docs/connected_research_study.md#bounded-research-iterations).
+incumbent's feedback and the complete development trial history. Terminal evaluation
+does not consume another fit or feed another revision. The defaults remain two fits
+and 10 reserved terminal observations. Use `--terminal-sessions 0` for the previous
+development-only window. See [iteration limits](docs/connected_research_study.md#bounded-research-iterations)
+and [terminal evaluation](docs/connected_research_study.md#reserved-terminal-evaluation).
 
 To try the same report offline, with real model fits on synthetic inputs:
 

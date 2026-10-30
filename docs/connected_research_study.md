@@ -41,11 +41,60 @@ resumable, and historical directories are never migrated.
 
 The fit limit is not a currency, token or whole-run wall-clock budget. Active-news
 research retains its separate bounded search/read behavior; LLM requests retain their
-per-call timeout. This is repeated **development** selection, not independent terminal
-evaluation, production promotion or modification of the researcher's own program (#3).
-Independent terminal evaluation is the next integration step in #39.
+per-call timeout. Candidate selection uses **development** observations only. Terminal
+evaluation follows the frozen selection; it does not influence another revision or
+perform production promotion or modification of the researcher's own program (#3).
 The default live path is currently configured for KO only; other symbols do not
 automatically gain relationship profiles or registered news feeds.
+
+## Reserved terminal evaluation
+
+`research-study` reserves `--terminal-sessions 10` by default (accepted range 0–20).
+`--terminal-sessions 0` explicitly restores the development-only interval and skips
+terminal evaluation. `research-demo` retains its original behavior. The development
+observation count still uses `--evaluation-sessions` (default 20); enabling reservation
+moves development and training earlier, so results differ from older default studies.
+
+The interval is written to `evaluation_plan.json` before news/LLM research. The last
+development label **and strategy account valuation** precede the first terminal origin;
+the five-session horizon is accounted for in the split. News/peer eligibility and
+research masks use training/development availability, not terminal availability.
+
+After the last research decision, `selected_attempt.json` records the chosen round,
+factor IDs and development score. The `terminal_evaluation` stage calls that round's
+already-fitted LightGBM or Ridge predictor once, without fitting another model or
+calling the LLM again. The terminal outcome cannot change the selection. Every
+candidate still uses the same development rows, and rejected candidates stay recorded.
+
+`terminal_evaluation.json`, `result.json`, the final UI node and HTML/Markdown report
+separate the following results:
+
+- Development metrics used for feedback and selection.
+- Reserved terminal predictions versus unchanged-price and training-label-mean baselines;
+  costed strategy versus same-period buy-and-hold, including net return, Sharpe and drawdown.
+- The selected model's latest forecast, when available, whose outcome is unobserved.
+
+Terminal accounts start with their own initial cash and the same configured costs and
+policy; do not concatenate development and terminal NAV curves. Missing selected news
+or peer features make terminal evaluation explicitly unavailable on the fixed reserved
+rows. The system neither drops rows nor switches to another model. Failure retains the
+selection receipt and completed trace but does not produce a successful final report.
+
+This is **retrospective evaluation reserved from feedback and selection**, not proof of
+independent predictive improvement. Current news and pretrained LLM knowledge are not
+historically isolated. Five-session outcomes overlap and these short-sample risk metrics
+are descriptive; no multiple-testing correction or prospective validation is claimed.
+
+For a complete offline example with real training and synthetic data:
+
+```bash
+quant-rsi research-study KO --llm simulated --news simulated --related simulated \
+  --prices synthetic --rounds 4 --terminal-sessions 10 --no-ui \
+  --output /tmp/ko-terminal-study
+```
+
+For Ridge, add `--model ridge` and use a new output directory. This illustrates the
+same connected path, not a controlled comparison of separately selected models.
 
 ## Live research UI
 
