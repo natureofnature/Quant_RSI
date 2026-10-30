@@ -212,6 +212,29 @@ def render_study(result):
         ],
     )
     dev = second["development"]
+    if first.get("input_usage"):
+        section(
+            "Model input usage",
+            "Used means an input entered this attempt's numerical path. "
+            "Available but unselected peers and context-only news are distinct from executed "
+            "features. Missing peer windows do not drop samples or become zero. Related "
+            "prices retain the source adapter's retrospective availability qualifications; "
+            "current relationship discovery is not historical or causal evidence.",
+        )
+        table(
+            ["Attempt", "Source", "Status", "Executed factors", "Reason"],
+            [
+                [
+                    label,
+                    item["source"],
+                    item["status"],
+                    ", ".join(item["factor_ids"]) or "none",
+                    item["reason"],
+                ]
+                for label, prediction in (("Initial", first), ("Revised", second))
+                for item in prediction["input_usage"]
+            ],
+        )
     news_factors = result["study"].get("news_factors")
     if news_factors:
         support = news_factors["support"]

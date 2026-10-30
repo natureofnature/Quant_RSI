@@ -96,3 +96,15 @@ def test_structured_views_survive_raw_preview_truncation_and_resolve_evidence(tm
 
 def test_unknown_stage_remains_available_as_raw_data():
     assert visual_output("future_stage", {}, {}, "KO") == {"kind": "unknown"}
+
+
+def test_peer_availability_is_distinct_from_executed_input_usage():
+    availability = [{"symbol": "PEER", "status": "available"}]
+    view = visual_output(
+        "load_related_prices", {"related": {"price_features": availability}}, {}, "KO"
+    )
+    assert view["kind"] == "relationships"
+    assert view["price_features"] == availability
+    usage = [{"source": "PEER", "status": "not_selected", "factor_ids": []}]
+    view = visual_output("first_prediction", {"input_usage": usage}, {}, "KO")
+    assert view["input_usage"] == usage

@@ -33,6 +33,7 @@ from quant_rsi.research.study_news import (
     retain_snapshot,
     simulated_history,
 )
+from quant_rsi.research.study_peers import prepare_related_prices
 from quant_rsi.research.study_progress import StudyProgress
 from quant_rsi.research.study_selection import select_attempt
 
@@ -47,12 +48,16 @@ def run_study(args):
     estimator_configuration = model_configuration(args.model, args.ridge_alpha)
     if args.prices == "synthetic" and args.prices_dir is not None:
         raise ValueError("--prices-dir requires --prices daily")
+    if args.related_prices_dir and (args.prices != "daily" or not args.related_prices):
+        raise ValueError("--related-prices-dir requires daily prices and enabled related prices")
     root = args.output.resolve()
     checkout = Path(__file__).resolve().parents[3]
     if root.is_relative_to(checkout):
         raise ValueError("Keep study artifacts outside the source checkout")
     if args.news_archive and args.news_archive.resolve().is_relative_to(checkout):
         raise ValueError("Keep news snapshots outside the source checkout")
+    if args.related_prices_dir and args.related_prices_dir.resolve().is_relative_to(checkout):
+        raise ValueError("Keep related price collections outside the source checkout")
     root.mkdir(parents=True, exist_ok=False)
     configuration = {
         key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()
@@ -184,6 +189,7 @@ def _run(args, symbol, root, configuration, record, progress):
             "price_evidence": model.price_info,
             "news_history_file": "news_history.json",
             "news_snapshot_count": len(snapshots),
+            "related_prices_file": "related_prices.json",
         },
     )
     progress.finish("collect_news_context", {"related": related, "news": current_news})
@@ -203,6 +209,32 @@ def _run(args, symbol, root, configuration, record, progress):
         )
         _write(root / "news_research.json", discovery)
         current_news, related = attach_research(current_news, related, discovery, symbol)
+
+    progress.start("load_related_prices")
+    peers = prepare_related_prices(
+        model.data,
+        cutoffs,
+        list(model.train) + list(model.origins),
+        related,
+        mode=args.prices,
+        directory=args.related_prices_dir or root / "related_prices",
+        enabled=args.related_prices,
+        simulated_suggestions=args.llm == "simulated",
+    )
+    model.configure_peers(peers)
+    related["price_features"] = peers["support"]
+    _write(
+        root / "related_prices.json",
+        {
+            "support": peers["support"],
+            "inputs": peers["inputs"],
+            "definitions": peers["definitions"],
+            "alignment": (
+                "exact_session_and_peer_close_at_or_before_target_close; no_fill_no_row_drop"
+            ),
+        },
+    )
+    progress.finish("load_related_prices", {"related": related})
 
     def context(target):
         return model.context(target) | {

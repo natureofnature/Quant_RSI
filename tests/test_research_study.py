@@ -41,7 +41,7 @@ def test_offline_entry_saves_report_and_complete_account_loop(tmp_path):
     steps = {event["stage"]: event["output"] for event in result["trace"]}
     for key in ("first_prediction", "second_prediction"):
         prediction = steps[key]
-        assert prediction["training_feature_columns"] == 2
+        assert prediction["training_feature_columns"] == 3
         assert prediction["news_feature_support"]["runnable"]
         assert {row["value"] for row in prediction["news_feature_inputs"]} == {0.0, 1.0}
         assert prediction["development"]["metrics"]["sample_count"] == 20
@@ -98,6 +98,7 @@ def test_codex_proposals_execute_and_feedback_includes_predictions_and_strategy(
         assert "lightgbm and ridge modes fit real models" in prompt
         assert data["context"]["model_mode"] == model
         assert data["context"]["model_configuration"]["name"] == model
+        assert data["context"]["related_price_support"][0]["status"] == "available"
         calls.append(data)
         assert "proposed_factors" in schema["required"]
         revision = data["feedback"] is not None
@@ -115,7 +116,8 @@ def test_codex_proposals_execute_and_feedback_includes_predictions_and_strategy(
         return json.dumps(
             {
                 "hypothesis": "<script>alert('untrusted')</script> test supplied news hypothesis",
-                "factor_ids": [f"research.{op}_{window}"] + (["news.events_7"] if use_news else []),
+                "factor_ids": [f"research.{op}_{window}", "peer.DEMO_PEER_A.peer_return_5"]
+                + (["news.events_7"] if use_news else []),
                 "evidence_news_ids": [data["context"]["news"]["items"][0]["id"]],
                 "event_signal": 0.2,
                 "proposed_factors": [{"op": op, "window": window, "description": "Bounded test"}],
@@ -136,6 +138,8 @@ def test_codex_proposals_execute_and_feedback_includes_predictions_and_strategy(
     assert len(calls) == 2 and calls[0]["context"]["news"] == calls[1]["context"]["news"]
     result = json.loads((root / "result.json").read_text())
     assert result["study"]["factor_changes"]["activated"] == ["research.qlib_roc_v1_13"]
+    predictions = [e["output"] for e in result["trace"] if e["stage"].endswith("_prediction")]
+    assert all("peer.DEMO_PEER_A.peer_return_5" in p["feature_values"] for p in predictions)
     assert result["study"]["news_factors"]["support"]["runnable"]
     assert result["study"]["news_factors"]["executed_initial"] == (
         ["news.events_7"] if use_news else []

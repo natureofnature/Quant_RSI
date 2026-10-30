@@ -43,6 +43,8 @@ class LightGBMDemo:
         self._news_history = None
         self._news_columns = {}
         self.news_feature_support = None
+        self.peer_features = None
+        self._has_predicted = False
         self.library = deepcopy(library)
         self.library["definitions"] = [
             item for item in self.library["definitions"] if item["kind"] == "numeric"
@@ -171,6 +173,16 @@ class LightGBMDemo:
             self._news_columns[key] = values, evidence
         return self._news_columns[key]
 
+    def configure_peers(self, bundle):
+        if self._has_predicted or self.peer_features is not None:
+            raise ValueError("Related prices must be configured once before prediction")
+        self.peer_features = deepcopy(bundle)
+        self.library["definitions"].extend(deepcopy(bundle["definitions"]))
+        self.library["execution_note"] += (
+            " Related-price recipes marked runnable share the fixed training/evaluation rows. "
+            "Current company suggestions inform retrospective selection, not causal evidence."
+        )
+
     def context(self, symbol):
         self._news_configuration_open = False
         if self._news_history is not None and symbol != self._news_symbol:
@@ -212,12 +224,15 @@ class LightGBMDemo:
                 " Retained issuer-headline features are optional and use only snapshots available "
                 "at each supplied session cutoff. Missing coverage is not a zero count."
             )
+        if self.peer_features is not None:
+            result["related_price_support"] = deepcopy(self.peer_features["support"])
         return result
 
     def predict(self, context, factors, hypothesis):
         import lightgbm as lgb
 
         self._news_configuration_open = False
+        self._has_predicted = True
         if not factors or any(item["kind"] not in {"numeric", "news"} for item in factors):
             raise ValueError(
                 "LightGBM demo accepts only selected numeric or supported news factors"
@@ -228,6 +243,21 @@ class LightGBMDemo:
         columns, news_inputs, news_evidence = [], [], {}
         for item in factors:
             if item["kind"] == "numeric":
+                if item["recipe"].get("op") in {"peer_return", "relative_return"}:
+                    definitions = {
+                        d["factor_id"]: d for d in (self.peer_features or {}).get("definitions", [])
+                    }
+                    retained = definitions.get(item["factor_id"])
+                    if (
+                        not retained
+                        or not retained["runnable"]
+                        or retained["recipe"] != item["recipe"]
+                    ):
+                        raise ValueError(
+                            "Related factor lacks a usable retained recipe on the fixed sample"
+                        )
+                    columns.append(self.peer_features["columns"][item["factor_id"]])
+                    continue
                 columns.append(price_feature(self.data, item["recipe"]))
                 continue
             values, evidence = self._news_column(item["recipe"])
@@ -300,13 +330,27 @@ class LightGBMDemo:
         if news_factors:
             result["news_feature_inputs"] = news_inputs
             result["news_feature_evidence"] = news_evidence
+        if self.peer_features is not None:
+            result["input_usage"] = self._input_usage(factors)
         if self.price_info:
             if not np.isfinite(matrix[-1:]).all():
-                if not news_factors:
+                peer_factors = [
+                    item
+                    for item in factors
+                    if item["recipe"].get("op") in {"peer_return", "relative_return"}
+                ]
+                if not news_factors and not peer_factors:
                     raise ValueError("Non-finite numerical latest-forecast inputs")
                 result["latest_forecast_unavailable"] = {
                     "origin_session": self.data.dates[-1],
-                    "reasons": ["latest_news_features_unavailable"],
+                    "reasons": ["latest_news_features_unavailable"]
+                    if not peer_factors
+                    else ["latest_selected_features_unavailable"],
+                    "missing_factor_ids": [
+                        item["factor_id"]
+                        for index, item in enumerate(factors)
+                        if not np.isfinite(matrix[-1, index])
+                    ],
                     "news_feature_evidence": {
                         item["factor_id"]: deepcopy(self._news_column(item["recipe"])[1][-1])
                         | {"cutoff": self._news_cutoffs[-1]}
@@ -329,17 +373,72 @@ class LightGBMDemo:
                 ],
                 "outcome": "not_observed",
             }
-            if news_factors:
+            if news_factors or self.peer_features is not None:
                 result["latest_forecast"]["feature_values"] = {
                     item["factor_id"]: float(matrix[-1, index])
                     for index, item in enumerate(factors)
                 }
+            if news_factors:
                 result["latest_forecast"]["news_feature_evidence"] = {
                     item["factor_id"]: deepcopy(self._news_column(item["recipe"])[1][-1])
                     | {"cutoff": self._news_cutoffs[-1]}
                     for item in news_factors
                 }
         return result
+
+    def _input_usage(self, factors):
+        selected = {item["factor_id"] for item in factors}
+        usage = [
+            {
+                "source": "target_prices",
+                "status": "used",
+                "factor_ids": [
+                    item["factor_id"]
+                    for item in factors
+                    if item["kind"] == "numeric" and item["recipe"].get("op") != "peer_return"
+                ],
+                "reason": "target_labels_and_reference_prices",
+            }
+        ]
+        for peer in self.peer_features["support"]:
+            used = sorted(selected.intersection(peer["factor_ids"]))
+            usage.append(
+                {
+                    "source": peer["symbol"],
+                    "status": "used"
+                    if used
+                    else "not_selected"
+                    if peer["status"] == "available"
+                    else peer["status"],
+                    "factor_ids": used,
+                    "reason": peer["reason"],
+                    "provider": peer.get("provider"),
+                    "relationship_status": peer["relationship_status"],
+                }
+            )
+        news_ids = [item["factor_id"] for item in factors if item["kind"] == "news"]
+        support = self.news_feature_support or {}
+        usage.append(
+            {
+                "source": "archived_headlines",
+                "status": "used"
+                if news_ids
+                else "not_selected"
+                if support.get("runnable")
+                else "unavailable",
+                "factor_ids": news_ids,
+                "reason": ", ".join(support.get("reasons", [])),
+            }
+        )
+        usage.append(
+            {
+                "source": "current_news",
+                "status": "context_only",
+                "factor_ids": [],
+                "reason": "hypothesis_context_not_backdated_training_data",
+            }
+        )
+        return usage
 
     def _development(self, predicted_returns, training_mean):
         def rows(returns):

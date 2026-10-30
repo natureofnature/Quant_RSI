@@ -164,7 +164,7 @@ def test_active_offline_study_executes_volatility_and_keeps_articles_out_of_trai
     assert len(result["trace"]) == 20
     assert len((root / "trace.jsonl").read_text().splitlines()) == 20
     assert "research.log_return_volatility_10" in steps["second_prediction"]["factor_ids"]
-    assert steps["second_prediction"]["training_feature_columns"] == 2
+    assert steps["second_prediction"]["training_feature_columns"] == 3
     for key in ("initial_hypothesis", "revised_hypothesis"):
         assert set(steps[key]["evidence_news_ids"]) <= set(discovery["evidence_news_ids"])
     history = (root / "news_history.json").read_text()

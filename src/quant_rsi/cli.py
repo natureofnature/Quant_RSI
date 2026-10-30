@@ -71,6 +71,17 @@ def main(argv: list[str] | None = None) -> int:
         )
         demo.add_argument("--prices-dir", type=Path, help="retained daily collection directory")
         if study:
+            demo.add_argument(
+                "--related-prices",
+                action=argparse.BooleanOptionalAction,
+                default=True,
+                help="collect up to three related symbols and offer aligned price factors",
+            )
+            demo.add_argument(
+                "--related-prices-dir",
+                type=Path,
+                help="root of retained daily peer collections, one subdirectory per symbol",
+            )
             demo.add_argument("--model", choices=("lightgbm", "ridge"), default="lightgbm")
             demo.add_argument(
                 "--ridge-alpha", type=float, help="positive ridge penalty (default: 1; ridge only)"

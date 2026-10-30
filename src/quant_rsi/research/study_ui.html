@@ -54,7 +54,7 @@ const definitions = [
 ];
 function group(name){
  if(name==='load_prices')return 0;
- if(['collect_news_context','target','related_stocks'].includes(name))return 1;
+ if(['collect_news_context','load_related_prices','target','related_stocks'].includes(name))return 1;
  if(name==='news'||/^(news_search_|article_reads_|news_review_)/.test(name))return 2;
  if(name==='initial_hypothesis')return 3;
  if(['factor_library','initial_factor_library','initial_factors'].includes(name))return 4;
