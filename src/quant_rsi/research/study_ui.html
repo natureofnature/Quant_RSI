@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quant RSI · Live research</title>
+<style>
+:root{color-scheme:dark;--bg:#080d14;--panel:#101923;--line:#243340;--text:#e8f0f4;--muted:#8195a5;--mint:#62efc5;--blue:#7bb7fa;--red:#ff8e91;--mono:ui-monospace,SFMono-Regular,Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background-image:radial-gradient(ellipse at 75% 0, #17302b55,transparent 48%)}
+button,a,select{font:inherit}button,select{color:inherit}button,a{touch-action:manipulation}button:focus-visible,a:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--mint);outline-offset:5px}button{cursor:pointer}a{color:var(--mint)}[hidden]{display:none!important}
+.shell{max-width:1400px;margin:auto;padding:0 44px 44px}header{height:85px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:750;letter-spacing:.9px}.brand svg{color:var(--mint)}.brand small{color:var(--muted);font:11px var(--mono);border-left:1px solid var(--line);padding-left:16px;margin-left:7px;letter-spacing:1px}.status-pill{display:flex;align-items:center;gap:9px;border:1px solid #335246;border-radius:25px;padding:5px 12px;font:10px var(--mono);color:var(--mint);letter-spacing:1px}.dot{width:6px;height:6px;background:currentColor;border-radius:50%;box-shadow:0 0 12px currentColor}.status-pill.running .dot{animation:breathe 1.8s infinite}.status-pill.failed{color:var(--red);border-color:#69434b}
+.hero{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:34px 0 28px}.eyebrow{font:10px var(--mono);letter-spacing:2px;color:var(--mint);text-transform:uppercase;margin:0 0 10px}h1{font-size:clamp(26px,3vw,40px);letter-spacing:-1.5px;font-weight:550;line-height:1.2;margin:0 0 10px}h1 span{color:var(--muted)}.subtitle{margin:0;color:var(--muted);font-size:13px}.instrument{display:flex;align-items:center;gap:16px}.ticker{border:1px solid #38534e;background:linear-gradient(135deg,#214038,#111d26);width:62px;height:62px;border-radius:16px;display:grid;place-items:center;font-size:20px;font-weight:650;letter-spacing:-.5px}.instrument-info{display:grid;gap:4px;text-align:left}.instrument-info span{font:11px var(--mono);color:var(--muted)}.badge{display:block;margin-top:7px;font:10px var(--mono);letter-spacing:.7px;color:#e3bf7c!important}
+.panel{border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,#141e29dd,#0d151edd);overflow:hidden}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid #22303b;font:10px var(--mono);letter-spacing:1.6px;color:#bccbd7}.progress-label{letter-spacing:0;color:var(--muted)}.progress-label b{font-weight:500;color:var(--mint)}.flow-wrap{position:relative;padding:28px 24px 30px;background-image:radial-gradient(#52647625 .8px,transparent .8px);background-size:16px 16px}.flow-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}.flow-lines path{fill:none;stroke:#304453;stroke-width:1.5}.flow-lines path.done{stroke:#427d6c}.flow-lines path.running{stroke:var(--mint);stroke-dasharray:5 6;animation:flow 1s linear infinite}.nodes{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:40px 20px}.node{position:relative;text-align:left;min-width:0;min-height:120px;background:#111b26;border:1px solid #2b3946;border-radius:11px;padding:14px 15px;transition:border-color .4s,background .4s,box-shadow .4s,transform .2s}.node:hover{transform:translateY(-2px);background:#192534}.node.running{border-color:var(--mint);background:linear-gradient(135deg,#153b32,#13232c);box-shadow:0 0 26px #62efc518,inset 0 0 24px #62efc508}.node.completed{border-color:#376455;background:#13251f}.node.failed{border-color:var(--red);background:#311d26}.node.selected{outline:1px solid var(--blue);outline-offset:3px}.node-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.node svg{width:20px;height:20px;color:#6e8598;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.node.running svg,.node.completed svg{color:var(--mint)}.node.failed svg{color:var(--red)}.node-index{font:10px var(--mono);color:#647b8c}.node.running .node-index{color:var(--mint)}.node.running .node-index:before{content:"";display:inline-block;width:6px;height:6px;background:var(--mint);border-radius:50%;margin-right:6px;animation:breathe 1.4s infinite}.node-label{display:block;font-size:12px;font-weight:600;white-space:nowrap}.node-desc{display:block;font-size:10px;line-height:1.5;color:var(--muted);margin-top:3px}.node.completed .node-index{color:var(--mint)}.legend{display:flex;gap:20px;align-items:center;padding:0 24px 18px;color:var(--muted);font:10px var(--mono)}.legend span{display:flex;align-items:center;gap:6px}.legend i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#617081}.legend .complete{background:var(--mint)}.legend .active{background:var(--mint);box-shadow:0 0 7px var(--mint)}.legend small{margin-left:auto;font-size:10px}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:20px;margin-top:20px}.task-head{display:flex;align-items:center;gap:10px}.terminal-dots{display:flex;gap:4px}.terminal-dots i{height:5px;width:5px;border-radius:50%;background:#496071}.plain-button{background:none;border:0;padding:2px 0;font:10px var(--mono);color:var(--mint);letter-spacing:0}.task-intro{padding:19px 22px 12px;display:flex;align-items:center;justify-content:space-between;gap:16px}.task-title{font-size:15px;font-weight:550;margin:0}.task-stage{color:var(--muted);font:10px var(--mono);margin-top:4px;overflow-wrap:anywhere}select{max-width:48%;background:#0b131d;border:1px solid var(--line);border-radius:6px;font:10px var(--mono);padding:7px}.output{margin:0 22px 22px;background:#090f17;border:1px solid #1e2c3b;border-radius:9px;min-height:230px;max-height:320px;overflow:auto;padding:17px;font:11px/1.8 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;color:#adc8d7}.output.waiting{color:#6f8d9f;display:flex;align-items:center;justify-content:center;text-align:center}.output-label{padding:0 22px 10px;color:var(--muted);font:10px var(--mono)}.output-truncated{color:#e3bf7c;font:10px var(--mono);padding:0 22px 12px}.telemetry{padding:20px}.telemetry h2{font:10px var(--mono);letter-spacing:1.6px;color:#b8cbd5;margin:0 0 18px}.timer{font:34px var(--mono);letter-spacing:-1px;line-height:1.2}.timer-label{font:10px var(--mono);color:var(--muted);margin:6px 0 23px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--line);padding-top:16px}.stat strong{font:21px var(--mono);display:block;color:#d9e7ee}.stat span{font-size:10px;color:var(--muted)}.provider{margin-top:22px;padding-top:15px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font:10px var(--mono);color:var(--muted)}.provider b{font-weight:500;color:var(--mint)}.scope{font-size:10px;color:var(--muted);margin:14px 0 0;line-height:1.7}
+.notice{padding:13px 17px;border:1px solid #69434b;background:#311d2670;border-radius:10px;margin:0 0 18px;color:#ffc1c0;overflow-wrap:anywhere}.results{margin-top:24px}.result-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:24px 24px 0}.result-heading h2{font-size:24px;font-weight:550;letter-spacing:-.6px;margin:0}.result-heading a{border:1px solid #3b695b;border-radius:7px;padding:8px 12px;text-decoration:none;font-size:11px}.result-cards{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px;margin:20px 24px}.result-card{border:1px solid var(--line);padding:15px;border-radius:10px}.result-card span{font:10px var(--mono);color:var(--muted);display:block}.result-card strong{font:25px var(--mono);display:block;margin-top:6px}.result-card.chosen{background:#142e25;border-color:#376455}.result-card.chosen strong{color:var(--mint);font-size:20px;text-transform:capitalize}.conclusion{padding:0 24px 20px;font-size:13px;color:#b4c9d3;line-height:1.9;margin:0}.report-wrap{margin:0 24px 24px;border-radius:10px;overflow:hidden;background:white}.report-wrap iframe{display:block;width:100%;height:650px;border:0}.report-wrap summary{padding:12px 18px;background:#1a2833;cursor:pointer;font-size:12px;color:#c2d6df}footer{display:flex;justify-content:space-between;gap:15px;margin-top:25px;font:10px/1.7 var(--mono);color:#637e90}.disconnected{color:#e3bf7c}.hidden-mobile{display:inline}
+@keyframes flow{to{stroke-dashoffset:-22}}@keyframes breathe{50%{opacity:.35;box-shadow:none}}@media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important}}
+@media(max-width:1000px){.shell{padding:0 22px 25px}.nodes{gap:36px 12px}.node{padding:12px 10px}.node-label{font-size:11px}.workspace{grid-template-columns:minmax(0,1fr) 230px}.hero{padding:26px 0}.instrument-info{display:none}.flow-wrap{padding:22px 18px}.brand small{display:none}}
+@media(max-width:680px){.shell{padding:0 16px 24px}header{height:67px}.hero{align-items:flex-start}.ticker{width:48px;height:48px;font-size:16px;border-radius:12px}.subtitle{font-size:11px;max-width:260px}.nodes{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}.node{grid-column:auto!important;grid-row:auto!important;min-height:108px}.node-label{font-size:12px}.workspace{grid-template-columns:1fr}.telemetry{display:none}.legend{gap:14px}.legend small{display:none}.panel-head{padding:15px 17px;font-size:9px}.output{margin:0 15px 15px;min-height:200px}.task-intro{padding:17px 15px}.result-cards{grid-template-columns:1fr 1fr;margin:18px 16px}.result-card.chosen{grid-column:1/-1}.result-heading{padding:20px 16px 0;align-items:flex-start}.result-heading h2{font-size:21px}.conclusion{padding:0 16px 18px}.report-wrap{margin:0 16px 16px}.hidden-mobile{display:none}footer{display:block}footer span{display:block}.result-heading a{white-space:nowrap}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header><div class="brand"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M3 17l6-10 6 12 8-14M3 23h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>QUANT RSI<small>RESEARCH OBSERVATORY</small></div><div id="status" class="status-pill running" role="status"><i class="dot"></i><span id="status-text">CONNECTING</span></div></header>
+<section class="hero"><div><p class="eyebrow">From hypothesis to evidence</p><h1>Research, <span>in motion.</span></h1><p class="subtitle">One stock. One research loop. Every step, in view.</p><span id="input-badge" class="badge">WAITING FOR INPUTS</span></div><div class="instrument"><div class="ticker" id="symbol">—</div><div class="instrument-info"><strong id="model">Research study</strong></div></div></section>
+<div id="notice" class="notice" role="alert" hidden></div>
+<section class="panel" aria-label="Research workflow"><div class="panel-head"><span>THE RESEARCH LOOP</span><span class="progress-label"><b id="completed">0</b> / 10 nodes complete</span></div><div class="flow-wrap" id="flow"><svg class="flow-lines" id="lines" aria-hidden="true"></svg><div class="nodes" id="nodes"></div></div><div class="legend"><span><i class="complete"></i>Completed</span><span><i class="active"></i>In progress</span><span><i></i>Waiting</span><small>Click a node to inspect its output ↗</small></div></section>
+<div class="workspace"><section class="panel" aria-label="Task output"><div class="panel-head"><span class="task-head"><span class="terminal-dots"><i></i><i></i><i></i></span> NODE OUTPUT</span><button id="follow" class="plain-button">Following live ↗</button></div><div class="task-intro"><div><h2 id="task-title" class="task-title">Preparing your research</h2><div id="task-stage" class="task-stage">Waiting for the first stage…</div></div><select id="event-select" aria-label="Choose stage output" hidden></select></div><div id="output-label" class="output-label" hidden></div><pre id="output" class="output waiting" tabindex="0">The research process will appear here.</pre><div id="truncated" class="output-truncated" hidden>Preview shortened. The full output is retained in trace.jsonl.</div></section>
+<aside class="panel telemetry"><h2>RUN TELEMETRY</h2><div class="timer" id="elapsed">00:00</div><div class="timer-label">ELAPSED TIME</div><div class="stats"><div class="stat"><strong id="fits">0 / 2</strong><span>Model fits completed</span></div><div class="stat"><strong id="searches">0</strong><span>News searches</span></div><div class="stat"><strong id="calls">0</strong><span>LLM requests</span></div><div class="stat"><strong id="tokens">—</strong><span>Reported input + output tokens</span></div></div><div class="provider"><span>RESEARCH ENGINE</span><b id="provider">—</b></div><p class="scope" id="usage-note">Unavailable token usage is unknown, not zero.</p><p class="scope">Development feedback is reused. Completion does not establish predictive improvement.</p></aside></div>
+<section id="results" class="panel results" hidden aria-label="Research results"><div class="result-heading"><div><p class="eyebrow">Loop complete</p><h2>The evidence is ready.</h2></div><a id="report-link" target="_blank" rel="noopener">Open full report ↗</a></div><div class="result-cards"><div class="result-card"><span id="initial-label">INITIAL SCORE</span><strong id="initial-score">—</strong></div><div class="result-card"><span id="revised-label">REVISED SCORE</span><strong id="revised-score">—</strong></div><div class="result-card chosen"><span>DEVELOPMENT SELECTION</span><strong id="chosen">—</strong></div></div><p class="conclusion" id="conclusion"></p><details class="report-wrap" open><summary>Prediction, strategy, Sharpe &amp; NAV report</summary><iframe id="report" title="Complete research report" sandbox=""></iframe></details></section>
+<footer><span>QUANT RSI <span class="hidden-mobile"> / </span> LOCAL RESEARCH · READ-ONLY VIEW</span><span id="connection">Live updates from your research process</span></footer>
+</div>
+<script>
+'use strict';
+const boot = __STUDY_BOOTSTRAP__;
+let state = boot.state, selected = null, selectedStage = null, reportURL = null, failures = 0;
+let finished = state.runtime.status === 'completed';
+const $ = id => document.getElementById(id);
+const definitions = [
+ ['Market data','Load price history','M4 19V9m5 10V5m5 14v-7m5 7V3'],
+ ['Company context','Map related companies','M12 12V4m0 8-7 7m7-7 7 7M9 2h6v4H9zM2 17h6v5H2zM16 17h6v5h-6z'],
+ ['News intelligence','Search, read & connect','M5 3h14v18H5zM8 7h8M8 11h8M8 15h5'],
+ ['Form a hypothesis','Find a possible signal','m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z'],
+ ['Select factors','Build model inputs','M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6'],
+ ['First prediction','Fit & evaluate the model','M3 3v18h18M6 16l4-5 4 3 6-8'],
+ ['Observe the error','Compare with outcomes','M12 4v4m0 8v4M4 12h4m8 0h4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0'],
+ ['Revise the factors','Learn from the feedback','M4 9a8 8 0 0 1 14-3l3 3M21 3v6h-6M20 15a8 8 0 0 1-14 3l-3-3M3 21v-6h6'],
+ ['Predict again','Test the revised inputs','M3 3v18h18M6 16l4-3 4 1 6-9M16 5h4v4'],
+ ['Final evidence','Compare & report results','M5 21V3h14l-3 4 3 4H5']
+];
+function group(name){
+ if(name==='load_prices')return 0;
+ if(['collect_news_context','target','related_stocks'].includes(name))return 1;
+ if(name==='news'||/^(news_search_|article_reads_|news_review_)/.test(name))return 2;
+ if(name==='initial_hypothesis')return 3;
+ if(['factor_library','initial_factor_library','initial_factors'].includes(name))return 4;
+ if(name==='first_prediction')return 5;
+ if(name==='feedback')return 6;
+ if(['revised_hypothesis','revised_factor_library','revised_factors'].includes(name))return 7;
+ if(name==='second_prediction')return 8;
+ return 9;
+}
+const nodes=definitions.map((d,i)=>{
+ const button=document.createElement('button');button.className='node';button.dataset.index=i;
+ button.style.gridColumn=i<5?i+1:10-i;button.style.gridRow=i<5?1:2;
+ button.innerHTML=`<div class="node-top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d[2]}"/></svg><span class="node-index">${String(i+1).padStart(2,'0')}</span></div><span class="node-label"></span><span class="node-desc"></span>`;
+ button.querySelector('.node-label').textContent=d[0];button.querySelector('.node-desc').textContent=d[1];
+ button.onclick=()=>{selected=i;selectedStage=null;render();};$('nodes').append(button);return button;
+});
+function nodeStates(){
+ const statuses=definitions.map(()=> 'waiting');
+ for(const step of state.runtime.stages||[])statuses[group(step.stage)]=step.status;
+ for(const [index,last] of [[4,'initial_factors'],[7,'revised_factors']]){if(statuses[index]==='completed'&&!(state.runtime.stages||[]).some(s=>s.stage===last&&s.status==='completed'))statuses[index]='waiting';}
+ if(state.runtime.status==='completed')statuses.fill('completed');
+ else if(statuses[9]==='completed')statuses[9]=state.runtime.status==='failed'?'failed':'running';
+ return statuses;
+}
+function drawLines(statuses){
+ const parent=$('flow').getBoundingClientRect();const svg=$('lines');svg.setAttribute('viewBox',`0 0 ${parent.width} ${parent.height}`);svg.innerHTML='<defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L5 3 L0 6" style="stroke:#527a70;fill:none"/></marker></defs>';
+ for(let i=0;i<nodes.length-1;i++){
+  const a=nodes[i].getBoundingClientRect(),b=nodes[i+1].getBoundingClientRect();let x1,y1,x2,y2,d;
+  if(Math.abs(a.top-b.top)<5){const forward=b.left>a.left;x1=(forward?a.right:a.left)-parent.left;x2=(forward?b.left:b.right)-parent.left;y1=a.top+a.height/2-parent.top;y2=y1;d=`M${x1},${y1} L${x2},${y2}`;}
+  else if(Math.abs(a.left-b.left)<5){x1=a.left+a.width/2-parent.left;x2=b.left+b.width/2-parent.left;y1=a.bottom-parent.top;y2=b.top-parent.top;d=`M${x1},${y1} L${x2},${y2}`;}
+  else{x1=a.left+a.width/2-parent.left;x2=b.left+b.width/2-parent.left;y1=a.bottom-parent.top;y2=b.top-parent.top;const mid=(y1+y2)/2;d=`M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`;}
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',d);path.setAttribute('marker-end','url(#arrow)');if(statuses[i+1]==='running')path.classList.add('running');else if(statuses[i]==='completed'&&statuses[i+1]==='completed')path.classList.add('done');svg.append(path);
+ }
+}
+function renderOutput(statuses){
+ let current=state.runtime.current_stage;let index=selected;
+ if(index===null){index=current?group(current):statuses.lastIndexOf('completed');if(state.runtime.status==='completed')index=9;if(state.runtime.status==='failed'&&statuses.includes('failed'))index=statuses.indexOf('failed');if(index<0)index=0;}
+ nodes.forEach((node,i)=>{node.classList.toggle('selected',selected===i);node.setAttribute('aria-pressed',String(selected===i));});
+ $('follow').textContent=selected===null?'Following live ↗':'Return to live ↗';
+ const options=state.events.filter(e=>group(e.stage)===index);
+ const select=$('event-select');const signature=options.map(e=>e.stage).join('|');
+ if(select.dataset.signature!==signature){select.replaceChildren(...options.map(e=>{const o=document.createElement('option');o.value=e.stage;o.textContent=e.stage.replaceAll('_',' ');return o;}));select.dataset.signature=signature;}
+ select.hidden=options.length<2;
+ let event=options.find(e=>e.stage===selectedStage)||options.at(-1);
+ const running=current&&group(current)===index&&selected===null;
+ if(running&&!options.some(e=>e.stage===current))event=state.events.at(-1);
+ if(statuses[index]==='failed'&&selected===null)event=null;
+ if(event)select.value=event.stage;
+ $('task-title').textContent=definitions[index][0];
+ $('task-stage').textContent=running?current:event?.stage||statuses[index];
+ $('truncated').hidden=!event?.truncated;const previous=running&&event&&event.stage!==current;$('output-label').hidden=!previous;$('output-label').textContent=previous?`Latest completed output · ${event.stage}`:'';
+ const output=$('output');output.classList.toggle('waiting',!event);
+ let text;
+ if(index===9&&state.conclusion){output.classList.remove('waiting');text=state.conclusion;}
+ else if(event)text=event.text;
+ else if(statuses[index]==='failed')text=state.failure?.error||'This stage failed. Completed outputs are retained.';
+ else text=statuses[index]==='running'?'Working on this step…\nIts output will appear when the stage finishes.':'Waiting for this step.\nSelect a completed node to explore its output.';
+ if(output.textContent!==text)output.textContent=text;
+}
+function render(){
+ const runtime=state.runtime,statuses=nodeStates();document.title=`${state.symbol} · Quant RSI research`;
+ $('symbol').textContent=state.symbol;$('model').textContent=`${state.config.model||'Model'} · two research rounds`;
+ const simulated=state.config.prices==='synthetic'||state.config.llm==='simulated'||state.config.news==='simulated';
+ $('input-badge').textContent=simulated?'CONTAINS SIMULATED INPUTS':'LIVE SERVICES · DEVELOPMENT';
+ $('status').className=`status-pill ${runtime.status}`;$('status-text').textContent=runtime.status==='completed'?'RESEARCH COMPLETE':runtime.status==='failed'?'RESEARCH STOPPED':'RESEARCH IN PROGRESS';
+ nodes.forEach((node,i)=>{node.className=`node ${statuses[i]}`;node.setAttribute('aria-label',`${definitions[i][0]}: ${statuses[i]}`);node.querySelector('.node-index').textContent=statuses[i]==='completed'?'✓':statuses[i]==='failed'?'!':String(i+1).padStart(2,'0');});
+ $('completed').textContent=statuses.filter(x=>x==='completed').length;
+ const counts=runtime.counts||{},usage=runtime.token_usage||{};$('fits').textContent=`${counts.model_stages_completed||0} / 2`;$('searches').textContent=counts.search_requests_started||0;$('calls').textContent=counts.llm_requests_started||0;
+ $('tokens').textContent=usage.input_tokens==null||usage.output_tokens==null?'—':(usage.input_tokens+usage.output_tokens).toLocaleString();$('usage-note').textContent=`Token coverage: ${usage.status||'unavailable'}. Missing usage is unknown, not zero.`;$('provider').textContent=state.config.llm||'—';
+ const failed=runtime.status==='failed';$('notice').hidden=!failed;if(failed)$('notice').textContent=`${state.failure?.error_type||'Research failed'}: ${state.failure?.error||'The run stopped. Completed outputs have been retained.'}`;
+ if(runtime.status==='completed'&&state.conclusion){
+  $('results').hidden=false;$('conclusion').textContent=state.conclusion;const s=state.selection||{},label=s.metric==='sharpe'?'NET STRATEGY SHARPE':'PRICE MAE';
+  $('initial-label').textContent=`INITIAL · ${label}`;$('revised-label').textContent=`REVISED · ${label}`;
+  $('initial-score').textContent=s.initial_score==null?'—':s.initial_score.toFixed(4);$('revised-score').textContent=s.revised_score==null?'—':s.revised_score.toFixed(4);$('chosen').textContent=s.selected_attempt?s.revision_accepted?'Revised adopted':'Initial retained':'See report';
+  if(state.report&&!reportURL){reportURL=URL.createObjectURL(new Blob([state.report],{type:'text/html'}));$('report-link').href=reportURL;$('report').srcdoc=state.report;}
+ }
+ renderOutput(statuses);drawLines(statuses);tick();
+}
+function tick(){let seconds=state.runtime.total_elapsed_seconds||0;if(state.runtime.status==='running')seconds+=Math.max(0,Date.now()/1000-state.updated_at);seconds=Math.floor(seconds);$('elapsed').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;}
+$('follow').onclick=()=>{selected=null;selectedStage=null;render();};$('event-select').onchange=e=>{selectedStage=e.target.value;if(selected===null)selected=group(selectedStage);render();};
+window.addEventListener('resize',()=>drawLines(nodeStates()));setInterval(tick,1000);
+async function poll(){
+ try{const response=await fetch('state',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error('unavailable');state=await response.json();failures=0;render();if(!finished&&state.runtime.status==='completed'){finished=true;if(selected===null)$('results').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});}$('connection').className='';$('connection').textContent='Live updates from your research process';}
+ catch(error){failures++;$('status').className='status-pill disconnected';$('status-text').textContent='CONNECTION INTERRUPTED';$('connection').className='disconnected';$('connection').textContent='Connection interrupted · retrying. The terminal remains authoritative.';}
+ if(state.runtime.status==='completed'||(state.runtime.status==='failed'&&state.failure)){ $('connection').textContent='Run saved · reopen live.html or report.html from your output directory';return;}
+ setTimeout(poll,failures?3000:900);
+}
+render();if(boot.live)poll();else $('connection').textContent='Saved research view · no server or external assets required';
+</script>
+</body></html>

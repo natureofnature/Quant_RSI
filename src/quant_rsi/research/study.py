@@ -2,6 +2,7 @@
 
 import json
 import math
+import sys
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -65,6 +66,10 @@ def run_study(args):
     _write(root / "config.json", configuration)
     last_stage = "initialization"
     progress = StudyProgress(root, args.llm, quiet=args.quiet)
+    if getattr(args, "ui", False):
+        from quant_rsi.research.study_ui import start_view
+
+        start_view(root)
 
     def record(event):
         nonlocal last_stage
@@ -75,7 +80,7 @@ def run_study(args):
 
     try:
         return _run(args, symbol, root, configuration, record, progress)
-    except Exception as exc:
+    except (Exception, KeyboardInterrupt) as exc:
         runtime = progress.fail()
         _write(
             root / "failure.json",
@@ -89,6 +94,14 @@ def run_study(args):
             },
         )
         raise
+    finally:
+        if getattr(args, "ui", False):
+            from quant_rsi.research.study_ui import save_view
+
+            try:
+                save_view(root)
+            except OSError as exc:
+                print(f"[quant-rsi] Could not save live.html: {exc}", file=sys.stderr)
 
 
 def _run(args, symbol, root, configuration, record, progress):
@@ -128,7 +141,10 @@ def _run(args, symbol, root, configuration, record, progress):
     )
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
-    progress.finish("load_prices")
+    progress.finish(
+        "load_prices",
+        {"provider": model.price_provider, "symbol": symbol, "sessions": len(model.data.dates)},
+    )
     progress.start("collect_news_context")
     related = (profile_related if args.related == "profile" else simulated_related)(symbol)
     news_context = {"symbol": symbol, "related": related}
@@ -170,7 +186,7 @@ def _run(args, symbol, root, configuration, record, progress):
             "news_snapshot_count": len(snapshots),
         },
     )
-    progress.finish("collect_news_context")
+    progress.finish("collect_news_context", {"related": related, "news": current_news})
     prelude = []
     if args.news_research:
 

@@ -7,12 +7,46 @@ run from the repository root with a new output directory outside the checkout:
 quant-rsi research-study KO --output /tmp/ko-study
 ```
 
-Open `/tmp/ko-study/report.html`. The default uses Codex CLI saved authentication,
+An interactive terminal opens the live research UI automatically; the saved report is
+also available at `/tmp/ko-study/report.html`. The default uses Codex CLI saved authentication,
 KO's configured relationship profile, registered issuer RSS and public daily
 prices. Install/login to Codex first; the existing LightGBM dependency performs
 two actual fits. The smaller `research-demo` command remains unchanged.
 The default live path is currently configured for KO only; other symbols do not
 automatically gain relationship profiles or registered news feeds.
+
+## Live research UI
+
+```bash
+quant-rsi research-study KO --news-research --output /tmp/ko-active-study-next
+```
+
+The command opens a read-only local browser view. Ten nodes connect market data, company
+context, news research, the first hypothesis and factor selection, prediction, feedback,
+factor revision, the second prediction and the final report. The active node glows; completed
+nodes remain lit. Click a node to inspect its stage outputs, or return to live following.
+Outputs appear when a stage finishes; this is not token streaming. Fast stages can complete
+between refreshes and remain available in the history.
+
+The task panel follows the current stage. The final node completes only after the research
+artifacts are saved, then the page shows the development selection, conclusion and full
+prediction/strategy report. Failures remain failures: the page retains previous outputs and
+shows the failed stage. Simulated inputs and development-only evidence are labelled.
+
+- `--no-ui` keeps the command terminal-only.
+- `--ui` explicitly enables the view, including when output is redirected.
+- Noninteractive commands and `--json` default to no UI. `--quiet` only hides terminal stage
+  messages; it does not override the UI setting.
+- The printed URL binds to `127.0.0.1` with a random per-run path. If a browser cannot open,
+  use that URL on the same machine (or forward its port over SSH). Nothing binds publicly.
+- The viewer uses existing `runtime.json` and `trace.jsonl` files and cannot submit research
+  or trading actions. Closing the browser does not cancel research. Its helper exits after
+  two minutes without requests; a completed page retains its results in the browser.
+- After completion or a handled failure, open `live.html` directly for the saved view,
+  without a server, network access, frontend build or additional dependencies. Long stage
+  outputs have a bounded preview; `trace.jsonl` retains the full output.
+
+## Offline example
 
 For a fully offline run after installation, keep real model fitting and replace
 the external context and prices:
@@ -326,6 +360,8 @@ inferred or saved. See the official [Codex JSON event example](https://learn.cha
 | `trace.jsonl` | Completed stage outputs, including proposals and feedback |
 | `result.json` | Full structured results and account records |
 | `report.md`, `report.html` | Human-readable comparisons; HTML includes NAV visualization |
+| `live.html` | Saved interactive workflow view, when UI is enabled; final state and embedded report |
+| `ui-server.log` | Local viewer diagnostics, when UI is enabled |
 | `failure.json` | Written for failures after run initialization, retaining the completed trace for diagnosis |
 
 Each study needs a fresh directory. Keep outputs and raw collections out of Git;

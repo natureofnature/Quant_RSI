@@ -5,6 +5,8 @@ import sys
 import time
 from copy import deepcopy
 
+from quant_rsi.core.artifacts import atomic_write
+
 
 class StudyProgress:
     def __init__(self, root, llm_mode, quiet=False):
@@ -24,12 +26,14 @@ class StudyProgress:
         self._print(f"running {stage}")
         self._save()
 
-    def finish(self, stage):
+    def finish(self, stage, output=None):
         if self.active is None:
             return
         if self.active[0] != stage:
             raise ValueError("Progress completion does not match the running stage")
         self._close("completed")
+        if output is not None:
+            self.stages[-1]["output"] = output
         self._save()
 
     def usage(self, event):
@@ -124,7 +128,5 @@ class StudyProgress:
 
     def _save(self, status="running", snapshot=None):
         result = self.snapshot(status) if snapshot is None else snapshot
-        (self.root / "runtime.json").write_text(
-            json.dumps(result, indent=2) + "\n", encoding="utf-8"
-        )
+        atomic_write(self.root / "runtime.json", (json.dumps(result, indent=2) + "\n").encode())
         return result
