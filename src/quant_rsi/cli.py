@@ -98,6 +98,12 @@ def main(argv: list[str] | None = None) -> int:
                 help="preselect the development metric for adopting a revision (default: mae)",
             )
             demo.add_argument("--quiet", action="store_true", help="hide stderr stage progress")
+            demo.add_argument(
+                "--ui",
+                action=argparse.BooleanOptionalAction,
+                default=None,
+                help="open the live research view (default: interactive terminal, except --json)",
+            )
         else:
             demo.add_argument("--model", choices=("simulated", "lightgbm"), default="simulated")
     workflow = commands.add_parser("research-workflow", help="one frozen research/account profile")
@@ -327,6 +333,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "research-study":
             from quant_rsi.research.study import run_study
 
+            if args.ui is None:
+                args.ui = sys.stderr.isatty() and not args.json
             result = run_study(args)
             print(
                 json.dumps(result, indent=2, allow_nan=False)
