@@ -2,6 +2,7 @@
 
 import json
 import math
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
@@ -30,6 +31,8 @@ from quant_rsi.research.study_news import (
     retain_snapshot,
     simulated_history,
 )
+from quant_rsi.research.study_progress import StudyProgress
+from quant_rsi.research.study_selection import select_attempt
 
 
 def _write(path, value):
@@ -59,16 +62,19 @@ def run_study(args):
     )
     _write(root / "config.json", configuration)
     last_stage = "initialization"
+    progress = StudyProgress(root, args.llm, quiet=args.quiet)
 
     def record(event):
         nonlocal last_stage
+        progress.finish(event["stage"])
         with (root / "trace.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(event, allow_nan=False) + "\n")
         last_stage = event["stage"]
 
     try:
-        return _run(args, symbol, root, configuration, record)
+        return _run(args, symbol, root, configuration, record, progress)
     except Exception as exc:
+        runtime = progress.fail()
         _write(
             root / "failure.json",
             {
@@ -76,18 +82,19 @@ def run_study(args):
                 "last_completed_stage": last_stage,
                 "error_type": type(exc).__name__,
                 "error": str(exc),
+                "runtime": runtime,
                 "note": "Completed trace stages are retained. This directory is not resumable.",
             },
         )
         raise
 
 
-def _run(args, symbol, root, configuration, record):
+def _run(args, symbol, root, configuration, record, progress):
     # Validate provider options before collection or fitting; no silent fallback.
     hypothesis = (
         simulated_hypothesis
         if args.llm == "simulated"
-        else LLMHypothesizer(args.llm, args.llm_model, args.llm_timeout)
+        else LLMHypothesizer(args.llm, args.llm_model, args.llm_timeout, on_usage=progress.usage)
     )
     SideCosts(commission_bps=args.commission_bps, slippage_bps=args.slippage_bps, tax_bps="0")
     decimal_text(args.initial_cash, positive=True)
@@ -104,6 +111,7 @@ def _run(args, symbol, root, configuration, record):
         ).definition()
         if definition["factor_id"] not in {x["factor_id"] for x in library["definitions"]}:
             library["definitions"].append(definition)
+    progress.start("load_prices")
     prices = (
         load_daily_prices(symbol, args.prices_dir or root / "prices")
         if args.prices == "daily"
@@ -112,6 +120,8 @@ def _run(args, symbol, root, configuration, record):
     model = LightGBMDemo(library, prices=prices, evaluation_sessions=args.evaluation_sessions)
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
+    progress.finish("load_prices")
+    progress.start("collect_news_context")
     related = (profile_related if args.related == "profile" else simulated_related)(symbol)
     news_context = {"symbol": symbol, "related": related}
     current_news = (
@@ -152,6 +162,7 @@ def _run(args, symbol, root, configuration, record):
             "news_snapshot_count": len(snapshots),
         },
     )
+    progress.finish("collect_news_context")
     prelude = []
     if args.news_research:
 
@@ -164,12 +175,20 @@ def _run(args, symbol, root, configuration, record):
             related,
             None if args.llm == "simulated" else hypothesis,
             on_stage=record_research,
+            on_start=progress.start,
         )
         _write(root / "news_research.json", discovery)
         current_news, related = attach_research(current_news, related, discovery, symbol)
 
     def context(target):
-        return model.context(target) | {"allow_factor_proposals": True}
+        return model.context(target) | {
+            "allow_factor_proposals": True,
+            "selection_policy": {
+                "metric": args.selection_metric,
+                "rule": "strict_improvement_else_retain_initial; missing metrics retain initial",
+                "scope": "development_only",
+            },
+        }
 
     def predict(context, factors, proposal):
         prediction = model.predict(context, factors, proposal)
@@ -191,6 +210,23 @@ def _run(args, symbol, root, configuration, record):
             },
         }
 
+    def summarize(context, first, second, feedback):
+        summary = model.summarize(context, first, second, feedback)
+        selection = select_attempt(first, second, args.selection_metric)
+        selected = second if selection["revision_accepted"] else first
+        for key in ("latest_forecast", "latest_forecast_unavailable"):
+            summary.pop(key, None)
+            if key in selected:
+                summary[key] = deepcopy(selected[key])
+        summary["selection"] = selection
+        summary["text"] = (
+            f"{symbol}: two real fits and one exploratory factor revision. "
+            f"{selection['reason']} The latest forecast, when available, follows the "
+            f"{selection['selected_attempt']} attempt and has no observed outcome. "
+            "Selection reuses development feedback; it does not establish independent gain."
+        )
+        return summary
+
     result = run_demo(
         symbol,
         catalog=lambda: model.library,
@@ -200,12 +236,14 @@ def _run(args, symbol, root, configuration, record):
         hypothesize=hypothesis,
         predict=predict,
         observe=observe,
-        summarize=model.summarize,
+        summarize=summarize,
         on_stage=record,
+        on_start=progress.start,
     )
     result["trace"] = prelude + result["trace"]
     steps = {event["stage"]: event["output"] for event in result["trace"]}
     first, second = (steps[key] for key in ("first_prediction", "second_prediction"))
+    selection = result["summary"]["selection"]
     first_ids, second_ids = set(first["factor_ids"]), set(second["factor_ids"])
     metrics = second["development"]["metrics"]
     baseline = second["development"]["baselines"]["unchanged_price"]["metrics"]
@@ -256,6 +294,7 @@ def _run(args, symbol, root, configuration, record):
     )
     result["study"] = {
         "engine": "local_lightgbm_and_existing_finite_account",
+        "selection": selection,
         "factor_changes": {
             "activated": sorted(second_ids - first_ids),
             "deactivated": sorted(first_ids - second_ids),
@@ -290,6 +329,7 @@ def _run(args, symbol, root, configuration, record):
             f"unchanged-price baseline {baseline['mae_price']:.4f}. "
             f"The revision {'increased' if change > 0 else 'decreased' if change < 0 else 'kept'} "
             f"MAE by {abs(change):.4f}. "
+            f"{selection['reason']} "
             f"Net strategy return: initial {first_return:.2%}, revised {revised_return:.2%}, "
             f"buy-and-hold {buy_hold_return:.2%}. "
             f"Annualized Sharpe: {sharpe_summary} "
@@ -304,8 +344,11 @@ def _run(args, symbol, root, configuration, record):
     }
     from quant_rsi.research.study_report import render_study
 
+    # Freeze measured research time for the reports, but do not announce success yet.
+    result["runtime"] = progress.snapshot("completed")
     markdown, html = render_study(result)
     (root / "report.md").write_text(markdown, encoding="utf-8")
     (root / "report.html").write_text(html, encoding="utf-8")
     _write(root / "result.json", result)
+    progress.complete(result["runtime"])
     return result

@@ -160,6 +160,12 @@ def test_failed_revision_keeps_first_fit_and_feedback_without_success_report(tmp
     assert main(command(root, "--llm", "simulated")) == 1
     failure = json.loads((root / "failure.json").read_text())
     assert failure["last_completed_stage"] == "feedback"
+    runtime = json.loads((root / "runtime.json").read_text())
+    assert failure["runtime"] == runtime
+    assert runtime["status"] == "failed"
+    assert runtime["stages"][-1]["stage"] == "revised_hypothesis"
+    assert runtime["stages"][-1]["status"] == "failed"
+    assert runtime["counts"]["model_stages_completed"] == 1
     stages = [json.loads(line)["stage"] for line in (root / "trace.jsonl").read_text().splitlines()]
     assert "first_prediction" in stages
     assert not (root / "result.json").exists() and not (root / "report.html").exists()

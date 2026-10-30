@@ -109,7 +109,10 @@ def test_unread_articles_remain_missing_without_fabricated_findings():
     )
     assert result["status"] == "unavailable" and not result["evidence_news_ids"]
     assert not result["findings"] and not result["related_candidates"]
-    assert all(a["reason"] == "http_403" for a in result["articles"])
+    assert result["articles"][0]["reason"] == "http_403"
+    assert result["articles"][1]["reason"] == "skipped_denied_host"
+    assert result["articles"][1]["host_failure"] == "http_403"
+    assert result["articles"][1]["fetch_attempted"] is False
 
 
 @pytest.mark.parametrize("failure", ["unknown_citation", "self_relation", "extra_followup"])

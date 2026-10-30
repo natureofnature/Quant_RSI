@@ -47,6 +47,24 @@ def render_study(result):
         f"<p>{escape(result['notice'])}</p></header>"
     )
     section("Conclusion", result["study"]["conclusion"])
+    selection = result["study"]["selection"]
+    section(
+        "Attempt selection",
+        selection["reason"] + " " + selection["forecast_note"] + " "
+        "This is development selection after feedback, not independent validation.",
+    )
+    table(
+        ["Preselected metric", "Initial", "Revised", "Selected attempt", "Selected factors"],
+        [
+            [
+                selection["metric"] + " (" + selection["direction"] + " is better)",
+                _number(selection["initial_score"]),
+                _number(selection["revised_score"]),
+                selection["selected_attempt"],
+                ", ".join(selection["selected_factor_ids"]),
+            ]
+        ],
+    )
     section(
         "What ran",
         "Two model fits, one feedback-driven revision, and a fixed development "
@@ -110,7 +128,7 @@ def render_study(result):
                     item["id"],
                     item["title"],
                     item["status"] + (": " + item["reason"] if item.get("reason") else ""),
-                    item["received_at"],
+                    item["received_at"] or "not fetched",
                     item["content_extent"] + (" (truncated)" if item["text_truncated"] else ""),
                 ]
                 for item in research["articles"]
@@ -317,12 +335,14 @@ def render_study(result):
     )
     table(["Account", "Commission", "Slippage", "Turnover", "Risk statistic status"], cost_rows)
     html.append(_equity_chart(accounts))
+    selected = first if selection["selected_attempt"] == "initial" else second
     section(
         "Latest forecast",
-        "This forecast reuses the revised fitted model with its disclosed "
+        f"This forecast reuses the selected {selection['selected_attempt']} fitted model with its "
+        "disclosed "
         "training cutoff. It is not an observed outcome and has no accuracy score.",
     )
-    latest = second.get("latest_forecast")
+    latest = selected.get("latest_forecast")
     if latest:
         table(
             ["Origin", "Target", "Reference price", "Predicted price", "Training cutoff"],
@@ -336,8 +356,10 @@ def render_study(result):
                 ]
             ],
         )
-    elif second.get("latest_forecast_unavailable"):
-        section("Forecast unavailable", "; ".join(second["latest_forecast_unavailable"]["reasons"]))
+    elif selected.get("latest_forecast_unavailable"):
+        section(
+            "Forecast unavailable", "; ".join(selected["latest_forecast_unavailable"]["reasons"])
+        )
     else:
         section("Forecast availability", "Synthetic run: no real-market latest forecast.")
     section(
@@ -348,6 +370,35 @@ def render_study(result):
         "Definitions, full quotes, predictions, orders and valuations are retained locally.",
     )
     table(["Setting", "Value"], [[key, value] for key, value in result["configuration"].items()])
+    runtime = result["runtime"]
+    section(
+        "Run time and usage",
+        f"Measured wall time: {runtime['total_elapsed_seconds']:.2f} seconds. "
+        "Counts describe this run, including failed attempts. Token counts are only what "
+        "the provider reported; missing usage is unknown, not zero. Cached input tokens are "
+        "included in input totals. No monetary cost is estimated.",
+    )
+    table(["Operation count", "Value"], [[key, value] for key, value in runtime["counts"].items()])
+    usage = runtime["token_usage"]
+    table(
+        ["Usage coverage", "Input tokens", "Cached input tokens", "Output tokens"],
+        [
+            [
+                usage["status"],
+                *[
+                    usage[key] if usage[key] is not None else "not reported"
+                    for key in ("input_tokens", "cached_input_tokens", "output_tokens")
+                ],
+            ]
+        ],
+    )
+    table(
+        ["Stage", "Status", "Seconds"],
+        [
+            [row["stage"], row["status"], _number(row["duration_seconds"])]
+            for row in runtime["stages"]
+        ],
+    )
     md.extend(
         [
             "## Full evidence",
@@ -366,6 +417,8 @@ def render_study(result):
     if research:
         md.extend(["[Active news evidence](news_research.json)", ""])
         html.append("<p><a href='news_research.json'>Active news evidence</a></p>")
+    md.extend(["[Run time and usage](runtime.json)", ""])
+    html.append("<p><a href='runtime.json'>Run time and usage</a></p>")
     return "\n".join(md), (
         "<!doctype html><html lang='en'><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
