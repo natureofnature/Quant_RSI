@@ -102,6 +102,70 @@ def render_study(result):
                 for item in iterations["attempts"]
             ],
         )
+    terminal = result.get("terminal_evaluation")
+    if terminal:
+        section("Reserved terminal evaluation", terminal["limitation"])
+        section(
+            "Frozen selection",
+            f"Round {terminal['selected_round']}; "
+            f"{terminal['sample_count']} reserved observations; "
+            f"status: {terminal['status']}. The same fitted model is reused without refitting.",
+        )
+        if terminal["status"] == "completed":
+            evaluation = terminal["evaluation"]
+            forecasts = [("Selected model", evaluation["metrics"])] + [
+                (name, value["metrics"]) for name, value in evaluation["baselines"].items()
+            ]
+            table(
+                ["Terminal forecast", "Price MAE", "Price RMSE", "Observations"],
+                [
+                    [name, _number(m["mae_price"]), _number(m["rmse_price"]), m["sample_count"]]
+                    for name, m in forecasts
+                ],
+            )
+            accounts = [(name, terminal["strategy"][name]) for name in ("strategy", "buy_and_hold")]
+            table(
+                ["Terminal account", "Net return", "Sharpe", "Max drawdown", "Daily returns"],
+                [
+                    [
+                        name,
+                        _number(a["metrics"]["net_return"], True),
+                        _number(a["metrics"]["sharpe_ratio"]),
+                        _number(a["metrics"]["max_drawdown"], True),
+                        a["metrics"]["risk_statistics"]["daily_return_count"],
+                    ]
+                    for name, a in accounts
+                ],
+            )
+            section(
+                "Terminal account period",
+                str(terminal["strategy"]["period"]) + ". "
+                "Same account costs and policy as development, independently initialized. "
+                "Sharpe is annualized using 252 sessions/year and zero risk-free rate; "
+                "these short samples are descriptive. Do not join these NAV curves.",
+            )
+            table(
+                ["Terminal origin", "Target", "Observed", "Predicted", "Unchanged price"],
+                [
+                    [
+                        r["origin_session"],
+                        r["target_session"],
+                        _number(r["observed_price"]),
+                        _number(r["predicted_price"]),
+                        _number(r["reference_price"]),
+                    ]
+                    for r in evaluation["rows"]
+                ],
+            )
+        else:
+            section("Terminal inputs unavailable", "No model substitution or row dropping.")
+            table(
+                ["Origin", "Missing factors"],
+                [
+                    [r["origin_session"], ", ".join(r["factor_ids"])]
+                    for r in terminal["missing_inputs"]
+                ],
+            )
     table(
         ["Component", "Provider"],
         [

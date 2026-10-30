@@ -43,6 +43,39 @@ def _write(path, value):
     path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8")
 
 
+def terminal_summary(terminal):
+    summary = {
+        "status": terminal["status"],
+        "selected_round": terminal["selected_round"],
+        "sample_count": terminal["sample_count"],
+        "limitation": terminal["limitation"],
+    }
+    if terminal["status"] != "completed":
+        return summary | {
+            "text": "Terminal evaluation unavailable: selected features are missing. "
+            "No rows were dropped and no alternative model was selected."
+        }
+    evaluation, strategy = terminal["evaluation"], terminal["strategy"]
+    metrics = strategy["strategy"]["metrics"]
+    sharpe = metrics["sharpe_ratio"]
+    sharpe_text = f"{sharpe:.4f}" if sharpe is not None else "N/A"
+    summary.update(
+        metrics=evaluation["metrics"],
+        baselines={name: value["metrics"] for name, value in evaluation["baselines"].items()},
+        strategy_metrics=metrics,
+        buy_and_hold_metrics=strategy["buy_and_hold"]["metrics"],
+        text=f"Reserved terminal evaluation ({terminal['sample_count']} observations), "
+        f"same fitted round {terminal['selected_round']}, no refit: "
+        f"price MAE {evaluation['metrics']['mae_price']:.4f}, "
+        "unchanged-price MAE "
+        f"{evaluation['baselines']['unchanged_price']['metrics']['mae_price']:.4f}; "
+        f"net return {float(metrics['net_return']):.2%}, Sharpe {sharpe_text}, "
+        f"buy-and-hold {float(strategy['buy_and_hold']['metrics']['net_return']):.2%}. "
+        + terminal["limitation"],
+    )
+    return summary
+
+
 def run_study(args):
     """Keep a completed stage log even when a later provider fails; never overwrite a run."""
     symbol = TypeAdapter(InstrumentId).validate_python(args.symbol.strip().upper())
@@ -145,11 +178,13 @@ def _run(args, symbol, root, configuration, record, progress):
         library,
         prices=prices,
         evaluation_sessions=args.evaluation_sessions,
+        terminal_sessions=args.terminal_sessions,
         estimator=args.model,
         ridge_alpha=args.ridge_alpha,
     )
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
+    _write(root / "evaluation_plan.json", model.terminal_plan())
     progress.finish(
         "load_prices",
         {"provider": model.price_provider, "symbol": symbol, "sessions": len(model.data.dates)},
@@ -225,6 +260,14 @@ def _run(args, symbol, root, configuration, record, progress):
         enabled=args.related_prices,
         simulated_suggestions=args.llm == "simulated",
     )
+    if args.terminal_sessions:
+        for support in peers["support"]:
+            if "aligned_sessions" in support:
+                values = peers["inputs"][support["symbol"]]["aligned_closes"]
+                support["aligned_sessions"] = sum(
+                    values[i] is not None for i in list(model.train) + list(model.origins)
+                )
+                support["alignment_scope"] = "training_and_development_only"
     model.configure_peers(peers)
     related["price_features"] = peers["support"]
     _write(
@@ -271,7 +314,36 @@ def _run(args, symbol, root, configuration, record, progress):
             },
         }
 
-    def summarize(context, first, second, feedback, *, iterations):
+    def evaluate_selected(iterations):
+        chosen = iterations["selected_round"]
+        selected = iterations["attempts"][chosen - 1]["prediction"]
+        receipt = {
+            "selected_round": chosen,
+            "factor_ids": selected["factor_ids"],
+            "selection_metric": args.selection_metric,
+            "development_score": select_attempt(selected, selected, args.selection_metric)[
+                "initial_score"
+            ],
+            "completed_fits": iterations["completed_fits"],
+            "terminal_plan": model.terminal_plan(),
+        }
+        _write(root / "selected_attempt.json", receipt)
+        terminal = model.evaluate_terminal(chosen)
+        if terminal["status"] == "completed":
+            terminal["strategy"] = evaluate_strategy(
+                model.data,
+                symbol,
+                terminal["evaluation"]["rows"],
+                commission_bps=args.commission_bps,
+                slippage_bps=args.slippage_bps,
+                initial_cash=args.initial_cash,
+                threshold=args.threshold,
+            )
+            terminal["strategy"]["evidence_mode"] = "historical_terminal_hypothetical_account"
+        _write(root / "terminal_evaluation.json", terminal)
+        return terminal
+
+    def summarize(context, first, second, feedback, *, iterations, terminal_evaluation=None):
         summary = model.summarize(context, first, second, feedback)
         chosen = iterations["selected_round"]
         selected = iterations["attempts"][chosen - 1]["prediction"]
@@ -308,6 +380,8 @@ def _run(args, symbol, root, configuration, record, progress):
             for item in iterations["attempts"]
         ]
         summary["stop_reason"] = iterations["stop_reason"]
+        if terminal_evaluation is not None:
+            summary["terminal_evaluation"] = terminal_summary(terminal_evaluation)
         summary["text"] = (
             f"{symbol}: {iterations['completed_fits']} real fits. "
             f"Stopped: {iterations['stop_reason']}. "
@@ -315,6 +389,8 @@ def _run(args, symbol, root, configuration, record, progress):
             f"{selection['selected_attempt']} attempt and has no observed outcome. "
             "Selection reuses development feedback; it does not establish independent gain."
         )
+        if terminal_evaluation is not None:
+            summary["text"] += " " + summary["terminal_evaluation"]["text"]
         return summary
 
     result = run_demo(
@@ -333,6 +409,7 @@ def _run(args, symbol, root, configuration, record, progress):
         fit_budget=configuration["fit_budget"],
         patience=args.patience,
         select=lambda incumbent, trial: select_attempt(incumbent, trial, args.selection_metric),
+        evaluate_selected=evaluate_selected if args.terminal_sessions else None,
     )
     result["trace"] = prelude + result["trace"]
     steps = {event["stage"]: event["output"] for event in result["trace"]}
@@ -452,6 +529,10 @@ def _run(args, symbol, root, configuration, record, progress):
     }
     from quant_rsi.research.study_report import render_study
 
+    if "terminal_evaluation" in result:
+        result["study"]["conclusion"] += (
+            " " + terminal_summary(result["terminal_evaluation"])["text"]
+        )
     # Freeze measured research time for the reports, but do not announce success yet.
     result["runtime"] = progress.snapshot("completed")
     markdown, html = render_study(result)

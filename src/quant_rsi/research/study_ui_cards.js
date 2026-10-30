@@ -194,6 +194,19 @@ const StudyCards = (() => {
     else wrap.append(table(['Observation','Value'],Object.entries(view.latest||{}).map(([k,v])=>[title(k),valueText(v)])));
     wrap.append(note('Sorted by absolute error. Signed error = predicted price − observed price. These observations are reused in the next hypothesis.'));return wrap;
   }
+  function terminal(view) {
+    const wrap=el('div');
+    wrap.append(el('h3','view-section-title','Reserved terminal evaluation'),note(`Selected round ${view.selected_round} · ${view.sample_count} reserved observations · same fitted model, no refit`));
+    if(view.status!=='completed'){
+      wrap.append(note('Unavailable: selected inputs are missing. No model substitution or row dropping.'),table(['Origin','Missing factors'],(view.missing_inputs||[]).map(r=>[r.origin_session,r.factor_ids.join(', ')])),note(view.limitation));return wrap;
+    }
+    const forecasts=[['Selected model',view.metrics],...Object.entries(view.baselines)];
+    wrap.append(table(['Terminal forecast','Price MAE','Price RMSE','Observations'],forecasts.map(([name,m])=>[name,fmt(m.mae_price),fmt(m.rmse_price),m.sample_count])));
+    wrap.append(table(['Terminal account','Net return','Sharpe','Max drawdown'],view.accounts.map(a=>[a.label,pct(a.net_return),fmt(a.sharpe_ratio),pct(a.max_drawdown)])));
+    wrap.append(chart(view.rows,[{key:'observed',label:'Observed',color:'#e7eff4'},{key:'prediction',label:'Selected model',color:'#62efc5'},{key:'baseline',label:'Unchanged price',color:'#d4b97d',dash:'4 5'}],'Terminal price predictions','Quote-price units'));
+    wrap.append(chart(view.nav,view.accounts.map((a,i)=>({key:a.label,label:a.label,color:['#62efc5','#d4b97d'][i]})),'Terminal account NAV','Account currency units'));
+    wrap.append(note('Costs included. Terminal accounts start separately; do not concatenate development and terminal NAV. Short-sample Sharpe uses 252 sessions/year and zero risk-free rate.'),note(view.limitation));return wrap;
+  }
   function summary(view) {
     const wrap=el('div'), s=view.selection;
     if(s){wrap.append(metrics([['Initial selection score',fmt(s.initial_score)],[s.selected_score!==undefined?'Selected score':'Revised selection score',fmt(s.selected_score!==undefined?s.selected_score:s.revised_score)],['Selected attempt',s.selected_attempt||'Unavailable',s.metric==='sharpe'?'Net strategy Sharpe':'Price MAE']]));wrap.append(note(s.reason));}
@@ -206,7 +219,8 @@ const StudyCards = (() => {
       const colors=['#83b5ff','#62efc5','#cba6ff','#d4b97d'];
       wrap.append(chart(view.nav||[],view.accounts.map((a,i)=>({key:a.label,label:a.label,color:colors[i]})),'Hypothetical account NAV','Account currency units'));
     }
-    wrap.append(note('Costs are included in account results. Development feedback and selection reuse these observations; this is not an independent improvement claim.'));return wrap;
+    wrap.append(note('Costs are included in account results. Development feedback and selection reuse these observations; this is not an independent improvement claim.'));
+    if(view.terminal)wrap.append(terminal(view.terminal));return wrap;
   }
   function render(host, view, emptyText) {
     let content=el('div');
@@ -234,6 +248,7 @@ const StudyCards = (() => {
     } else if(view.kind==='prediction')content=prediction(view);
     else if(view.kind==='feedback')content=feedback(view);
     else if(view.kind==='summary')content=summary(view);
+    else if(view.kind==='terminal')content=terminal(view);
     else if(view.kind==='iteration'){
       content.append(metrics([['Round',view.round],['Selected round',view.incumbent_round],['Fits',`${view.completed_fits} / ${view.fit_budget}`]]),note(view.decision?.reason||'Initial baseline retained.'),table(['Metric','Value'],[['Price MAE',fmt(view.development_metrics?.mae_price)],['Net return',pct(view.strategy_metrics?.net_return)],['Sharpe',fmt(view.strategy_metrics?.sharpe_ratio)]]),pills([view.accepted?'Accepted':'Retained incumbent',...(view.factor_changes?.activated||[]).map(f=>`+ ${f}`),...(view.factor_changes?.deactivated||[]).map(f=>`− ${f}`)]));
     }

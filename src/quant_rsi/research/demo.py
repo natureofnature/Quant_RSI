@@ -187,6 +187,7 @@ def run_demo(
     fit_budget=None,
     patience=None,
     select=None,
+    evaluate_selected=None,
 ):
     """One factor revision, no network, fits, workspace or persistence by default.
 
@@ -234,6 +235,11 @@ def run_demo(
     attempts = iterations["attempts"]
     initial, revised = attempts[0]["hypothesis"], attempts[-1]["hypothesis"]
     first, second = attempts[0]["prediction"], attempts[-1]["prediction"]
+    terminal = (
+        call("terminal_evaluation", evaluate_selected, deepcopy(iterations))
+        if evaluate_selected is not None
+        else None
+    )
     summary = call(
         "summary",
         summarize,
@@ -242,6 +248,7 @@ def run_demo(
         deepcopy(second),
         deepcopy(iterations["feedback"]),
         **({"iterations": deepcopy(iterations)} if select is not None else {}),
+        **({"terminal_evaluation": deepcopy(terminal)} if terminal is not None else {}),
     )
     live_llm = any(
         hypothesis.get("provider") in {"codex_cli", "openai_api"}
@@ -294,6 +301,7 @@ def run_demo(
         "iterations": iterations,
         "trace": trace,
         "summary": summary,
+        **({"terminal_evaluation": terminal} if terminal is not None else {}),
     }
 
 

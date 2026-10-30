@@ -27,6 +27,7 @@ class LightGBMDemo:
         *,
         prices=None,
         evaluation_sessions=1,
+        terminal_sessions=0,
         news_history=None,
         news_cutoffs=None,
         news_symbol=None,
@@ -39,6 +40,12 @@ class LightGBMDemo:
         if type(evaluation_sessions) is not int or not 1 <= evaluation_sessions <= 20:
             raise ValueError("evaluation_sessions must be an integer from 1 through 20")
         self.evaluation_sessions = evaluation_sessions
+        if type(terminal_sessions) is not int or not 0 <= terminal_sessions <= 20:
+            raise ValueError("terminal_sessions must be an integer from 0 through 20")
+        if terminal_sessions and evaluation_sessions == 1:
+            raise ValueError("Terminal evaluation requires a multi-origin study")
+        self._fits = []
+        self._terminal_started = False
         self._news_configuration_open = True
         self._news_history = None
         self._news_columns = {}
@@ -78,6 +85,10 @@ class LightGBMDemo:
             self.data, self.price_info = prices
             self.origin = len(self.data.dates) - 1 - self.horizon
         self.price_provider = "public_daily_prices" if self.price_info else "synthetic_price_series"
+        self.terminal_origins = np.arange(self.origin - terminal_sessions + 1, self.origin + 1)
+        if terminal_sessions:
+            # Development labels AND account valuations end before the terminal window.
+            self.origin = int(self.terminal_origins[0]) - self.horizon - 1
         self.origins = np.arange(self.origin - evaluation_sessions + 1, self.origin + 1)
         if evaluation_sessions == 1:
             # Keep the original demonstration's window and output unchanged.
@@ -90,6 +101,7 @@ class LightGBMDemo:
             self.train = np.arange(30, self.origins[0] - self.horizon)
         if len(self.train) < 12:
             raise ValueError("Insufficient mature training rows for the selected price window")
+        self._planned_development_end = self.data.dates[self.origins[-1] + self.horizon]
         if news_history is not None:
             self.configure_news(news_history, news_cutoffs, news_symbol)
 
@@ -124,7 +136,11 @@ class LightGBMDemo:
         training = self.train[available[self.train]]
         origins = self.origins[available[self.origins]]
         runnable = len(training) >= 12 and len(origins) >= 2
-        reasons = {reason for item in evidence for reason in item["reasons"]}
+        reasons = {
+            reason
+            for index in np.concatenate((self.train, self.origins))
+            for reason in evidence[index]["reasons"]
+        }
         if len(training) < 12:
             reasons.add("insufficient_news_training_rows")
         if len(origins) < 2:
@@ -231,6 +247,8 @@ class LightGBMDemo:
     def predict(self, context, factors, hypothesis):
         import lightgbm as lgb
 
+        if self._terminal_started:
+            raise ValueError("Research fitting is closed after terminal evaluation starts")
         self._news_configuration_open = False
         self._has_predicted = True
         if not factors or any(item["kind"] not in {"numeric", "news"} for item in factors):
@@ -325,6 +343,8 @@ class LightGBMDemo:
             result["boost_rounds"] = BOOST_ROUNDS
         if self.evaluation_sessions > 1:
             result["development"] = self._development(predicted_returns, float(y.mean()))
+        if len(self.terminal_origins):
+            self._fits.append((predict, matrix, float(y.mean()), deepcopy(result["factor_ids"])))
         if self.news_feature_support is not None:
             result["news_feature_support"] = deepcopy(self.news_feature_support)
         if news_factors:
@@ -440,10 +460,66 @@ class LightGBMDemo:
         )
         return usage
 
-    def _development(self, predicted_returns, training_mean):
+    def terminal_plan(self):
+        """Dates only: frozen before research, with no terminal values or outcomes."""
+        return {
+            "status": "reserved" if len(self.terminal_origins) else "disabled",
+            "sample_count": len(self.terminal_origins),
+            "origin_sessions": [self.data.dates[i] for i in self.terminal_origins],
+            "target_sessions": [self.data.dates[i + self.horizon] for i in self.terminal_origins],
+            "development_last_target_session": self._planned_development_end,
+            "rule": "select_on_development_then_evaluate_selected_fitted_model_once_no_refit",
+            "limitation": "Reserved from research feedback and selection, but retrospective. "
+            "Current news and pretrained LLM knowledge are not historically isolated. "
+            "This is not prospective validation or calibrated evidence of predictive gain.",
+        }
+
+    def evaluate_terminal(self, selected_round):
+        if not len(self.terminal_origins):
+            raise ValueError("No terminal observations were reserved")
+        if self._terminal_started:
+            raise ValueError("Terminal evaluation can only run once")
+        if type(selected_round) is not int or not 1 <= selected_round <= len(self._fits):
+            raise ValueError("Selected round must identify a completed fitted model")
+        self._terminal_started = True
+        predict, matrix, training_mean, factor_ids = self._fits[selected_round - 1]
+        result = self.terminal_plan() | {
+            "selected_round": selected_round,
+            "factor_ids": factor_ids,
+            "refitted": False,
+        }
+        missing = [
+            {
+                "origin_session": self.data.dates[origin],
+                "factor_ids": [
+                    factor_ids[j]
+                    for j in range(len(factor_ids))
+                    if not np.isfinite(matrix[origin, j])
+                ],
+            }
+            for origin in self.terminal_origins
+            if not np.isfinite(matrix[origin]).all()
+        ]
+        if missing:
+            return result | {
+                "status": "unavailable",
+                "reason": "missing_selected_features",
+                "missing_inputs": missing,
+            }
+        evaluation = self._development(
+            np.asarray(predict(matrix[self.terminal_origins])),
+            training_mean,
+            origins=self.terminal_origins,
+        )
+        evaluation["evaluation_note"] = "retrospective_terminal_reserved_from_feedback_selection"
+        return result | {"status": "completed", "evaluation": evaluation}
+
+    def _development(self, predicted_returns, training_mean, *, origins=None):
+        origins = self.origins if origins is None else origins
+
         def rows(returns):
             result = []
-            for origin, value in zip(self.origins, returns, strict=True):
+            for origin, value in zip(origins, returns, strict=True):
                 reference = float(self.data.closes[origin, 0])
                 predicted = float(reference * np.exp(value))
                 if not np.isfinite(predicted) or predicted <= 0:
@@ -463,7 +539,7 @@ class LightGBMDemo:
         predicted = rows(predicted_returns)
         baselines = {}
         for name, value in (("unchanged_price", 0.0), ("training_label_mean", training_mean)):
-            baseline_rows = rows(np.full(len(self.origins), value))
+            baseline_rows = rows(np.full(len(origins), value))
             baselines[name] = {
                 "prediction": "zero_log_return"
                 if name == "unchanged_price"
@@ -484,8 +560,8 @@ class LightGBMDemo:
                 "sample_count": "observations",
             },
             "currency": self.price_info.get("currency") if self.price_info else None,
-            "first_evaluation_session": self.data.dates[self.origins[0]],
-            "last_evaluation_session": self.data.dates[self.origins[-1]],
+            "first_evaluation_session": self.data.dates[origins[0]],
+            "last_evaluation_session": self.data.dates[origins[-1]],
             "evaluation_note": "retrospective_development_same_data_feedback_reuse",
         }
 

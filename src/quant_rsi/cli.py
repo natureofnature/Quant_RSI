@@ -99,6 +99,13 @@ def main(argv: list[str] | None = None) -> int:
             )
             demo.add_argument("--evaluation-sessions", type=int, default=20, choices=range(2, 21))
             demo.add_argument(
+                "--terminal-sessions",
+                type=int,
+                default=10,
+                choices=range(21),
+                help="reserved final evaluation observations (default: 10; 0: development only)",
+            )
+            demo.add_argument(
                 "--rounds",
                 type=int,
                 default=2,

@@ -164,7 +164,8 @@ def test_active_offline_study_executes_volatility_and_keeps_articles_out_of_trai
     decisions = [event for event in result["trace"] if event["stage"].endswith("_decision")]
     assert [event["stage"] for event in decisions] == ["round_1_decision", "round_2_decision"]
     assert [event["output"]["completed_fits"] for event in decisions] == [1, 2]
-    assert len(result["trace"]) - len(decisions) == 20
+    assert len(result["trace"]) - len(decisions) == 21
+    assert result["trace"][-2]["stage"] == "terminal_evaluation"
     assert [json.loads(line) for line in (root / "trace.jsonl").read_text().splitlines()] == result[
         "trace"
     ]
