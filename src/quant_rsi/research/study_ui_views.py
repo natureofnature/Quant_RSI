@@ -191,6 +191,12 @@ def _terminal_view(output):
 
 
 def visual_output(stage, output, previous, symbol):
+    if stage == "observe_prior_forecasts":
+        return {
+            "kind": "facts",
+            "facts": {key: value for key, value in output.items() if key != "notice"},
+            "note": output.get("notice"),
+        }
     if stage == "terminal_evaluation":
         return _terminal_view(output)
     match = re.fullmatch(

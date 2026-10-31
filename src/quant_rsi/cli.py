@@ -77,6 +77,9 @@ def main(argv: list[str] | None = None) -> int:
         demo.add_argument("--prices-dir", type=Path, help="retained daily collection directory")
         if study:
             demo.add_argument(
+                "--history-dir", type=Path, help="shared study receipts, outcomes and news archive"
+            )
+            demo.add_argument(
                 "--factor-root",
                 type=Path,
                 default=Path("instruments"),
@@ -154,6 +157,22 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             demo.add_argument("--model", choices=("simulated", "lightgbm"), default="simulated")
+    history = commands.add_parser(
+        "research-history", help="inspect or observe saved study forecasts"
+    )
+    history.add_argument("action", choices=("status", "observe"))
+    history.add_argument("symbol")
+    history.add_argument("--history-dir", type=Path, required=True)
+    history.add_argument("--json", action="store_true", help="emit all retained history fields")
+    history.add_argument(
+        "--ui",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="open the latest study view with current history",
+    )
+    history.add_argument(
+        "--prices-dir", type=Path, help="later retained daily collection; required for observe"
+    )
     workflow = commands.add_parser("research-workflow", help="one frozen research/account profile")
     workflow_commands = workflow.add_subparsers(dest="workflow_command", required=True)
     for name in ("prepare", "run"):
@@ -378,6 +397,41 @@ def main(argv: list[str] | None = None) -> int:
             command.add_argument("--steps", type=int, default=1)
     args = parser.parse_args(argv)
     try:
+        if args.command == "research-history":
+            from quant_rsi.research.study_history import (
+                collection_snapshot,
+                history_view,
+                observe_prices,
+            )
+
+            symbol = args.symbol.strip().upper()
+            if args.action == "observe":
+                if args.prices_dir is None:
+                    raise ValueError("research-history observe requires --prices-dir")
+                result = observe_prices(
+                    args.history_dir, symbol, collection_snapshot(symbol, args.prices_dir)
+                )
+            else:
+                if args.prices_dir is not None:
+                    raise ValueError("research-history status does not read prices")
+                result = history_view(args.history_dir, symbol)
+            if (args.ui if args.ui is not None else sys.stderr.isatty()) and result["entries"]:
+                from quant_rsi.research.study_ui import start_view
+
+                start_view(Path(result["entries"][-1]["run_directory"]))
+            if args.json:
+                print(json.dumps(result, indent=2, allow_nan=False))
+            else:
+                entries = result["entries"]
+                pending = sum(e["status"] == "pending" for e in entries)
+                settled = sum(e["status"] == "settled" for e in entries)
+                print(
+                    f"{symbol}: {len(entries)} studies shown; "
+                    f"{pending} pending, {settled} settled, "
+                    f"{len(entries) - pending - settled} unavailable/non-prospective. "
+                    "Use --json for full evidence or --ui for the study view."
+                )
+            return 0
         if args.command == "research-study":
             from quant_rsi.research.study import run_study
 

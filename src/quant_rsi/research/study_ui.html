@@ -30,6 +30,7 @@ button,a,select{font:inherit}button,select{color:inherit}button,a{touch-action:m
 <div class="workspace"><section class="panel" aria-label="Task output"><div class="panel-head"><span class="task-head"><span class="terminal-dots"><i></i><i></i><i></i></span> NODE OUTPUT</span><button id="follow" class="plain-button">Following live ↗</button></div><div class="task-intro"><div><h2 id="task-title" class="task-title">Preparing your research</h2><div id="task-stage" class="task-stage">Waiting for the first stage…</div></div><select id="event-select" aria-label="Choose stage output" hidden></select></div><div id="output-label" class="output-label" hidden></div><div id="visual-output" class="visual-output"></div><details id="raw-output" class="raw-output" hidden><summary>Inspect raw JSON</summary><pre id="output" class="output waiting" tabindex="0">The research process will appear here.</pre><div id="truncated" class="output-truncated" hidden>Preview shortened. The full output is retained in trace.jsonl.</div></details></section>
 <aside class="panel telemetry"><h2>RUN TELEMETRY</h2><div class="timer" id="elapsed">00:00</div><div class="timer-label">ELAPSED TIME</div><div class="stats"><div class="stat"><strong id="fits">0 / 2</strong><span>Model fits completed</span></div><div class="stat"><strong id="searches">0</strong><span>News searches</span></div><div class="stat"><strong id="calls">0</strong><span>LLM requests</span></div><div class="stat"><strong id="tokens">—</strong><span>Reported input + output tokens</span></div></div><div class="provider"><span>RESEARCH ENGINE</span><b id="provider">—</b></div><p class="scope" id="usage-note">Unavailable token usage is unknown, not zero.</p><p class="scope">Development feedback is reused. Completion does not establish predictive improvement.</p></aside></div>
 <section id="results" class="panel results" hidden aria-label="Research results"><div class="result-heading"><div><p class="eyebrow">Loop complete</p><h2>The evidence is ready.</h2></div><a id="report-link" target="_blank" rel="noopener">Open full report ↗</a></div><div class="result-cards"><div class="result-card"><span id="initial-label">INITIAL SCORE</span><strong id="initial-score">—</strong></div><div class="result-card"><span id="revised-label">REVISED SCORE</span><strong id="revised-score">—</strong></div><div class="result-card chosen"><span>DEVELOPMENT SELECTION</span><strong id="chosen">—</strong></div></div><p class="conclusion" id="conclusion"></p><details class="report-wrap" open><summary>Prediction, strategy, Sharpe &amp; NAV report</summary><iframe id="report" title="Complete research report" sandbox=""></iframe></details></section>
+<section id="history" class="panel results" hidden><p class="eyebrow">Across research runs</p><h2>Forecasts &amp; observed outcomes</h2><p id="history-notice" class="scope"></p><div id="history-table" class="view-table-wrap"></div></section>
 <footer><span>QUANT RSI <span class="hidden-mobile"> / </span> LOCAL RESEARCH · READ-ONLY VIEW</span><span id="connection">Live updates from your research process</span></footer>
 </div>
 <script>
@@ -57,7 +58,7 @@ function group(name){
  if(/^round_\d+_feedback$/.test(name))return 6;
  if(/^round_\d+_(hypothesis|factor_library|factors)$/.test(name))return 7;
  if(/^round_\d+_(prediction|decision)$/.test(name))return 8;
- if(name==='load_prices')return 0;
+ if(['load_prices','observe_prior_forecasts'].includes(name))return 0;
  if(['collect_news_context','load_related_prices','target','related_stocks'].includes(name))return 1;
  if(name==='news'||/^(news_search_|article_reads_|news_review_)/.test(name))return 2;
  if(name==='initial_hypothesis')return 3;
@@ -122,7 +123,18 @@ function renderOutput(statuses){
  $('raw-output').hidden=!event;
  const rawText=event?event.text:text;if(output.textContent!==rawText)output.textContent=rawText;
 }
+function renderHistory(){
+ const history=state.history;$('history').hidden=!history;if(!history)return;
+ $('history-notice').textContent=history.notice+' Refresh this view after recording new observations. Saved HTML is a snapshot.';
+ const table=document.createElement('table'),head=document.createElement('tr');table.className='view-table';
+ for(const title of ['Issued','Target','Round','Status','Predicted','Actual','Price error','Net return','Sharpe','Buy & hold']){const cell=document.createElement('th');cell.textContent=title;head.append(cell);}table.append(head);
+ const number=(v,percent=false)=>v==null?'—':(Number(v)*(percent?100:1)).toFixed(4)+(percent?'%':'');
+ for(const e of history.entries||[]){const row=document.createElement('tr'),f=e.forecast||{},m=e.metrics||{},s=e.strategy||{};
+  for(const value of [e.issued_at,f.target_session||'—',e.selected_round,e.reason?`${e.status}: ${e.reason}`:e.status,number(f.predicted_price),number(m.actual_price),number(m.price_error),number(s.strategy?.net_return,true),number(s.strategy?.sharpe_ratio),number(s.buy_and_hold?.net_return,true)]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}table.append(row);}
+ $('history-table').replaceChildren(table);
+}
 function render(){
+ renderHistory();
  const runtime=state.runtime,statuses=nodeStates();document.title=`${state.symbol} · Quant RSI research`;
  $('symbol').textContent=state.symbol;$('model').textContent=`${state.config.model||'Model'} · ${state.iterations?.completed_fits??Math.min(state.config.research_rounds??2,state.config.fit_budget??2)} research rounds`;
  const simulated=state.config.prices==='synthetic'||state.config.llm==='simulated'||state.config.news==='simulated';

@@ -161,6 +161,75 @@ quant-rsi research-study KO --output /tmp/ko-study-offline \
 
 ## Inputs and controls
 
+### Continue research across market days
+
+Opt into one shared history directory while keeping each study output directory fresh:
+
+```bash
+quant-rsi research-study KO --news-research \
+  --history-dir /tmp/ko-research-history --output /tmp/ko-study-day-one
+
+# On a later day, collect new prices and assess older predictions before new research.
+quant-rsi research-study KO --news-research \
+  --history-dir /tmp/ko-research-history --output /tmp/ko-study-day-two
+
+# Observe without another LLM call or model fit. Use a new collection directory.
+quant-rsi research-history observe KO --history-dir /tmp/ko-research-history \
+  --prices-dir /tmp/ko-observation-prices --ui
+quant-rsi research-history status KO --history-dir /tmp/ko-research-history
+```
+
+The first command saves the **selected round's** latest forecast, factor IDs,
+training cutoff, costs and original result in the existing content-addressed store
+and Journal. A post-commit clock witness uses the existing publication confirmation
+rule: issuance and confirmation must occur after the origin close and before the
+next registered open. Late or unconfirmed publications remain `not_prospective`;
+synthetic or unavailable latest forecasts cannot become real observations.
+
+The next study assesses earlier forecasts against its newly received daily collection
+before making any hypothesis calls. Only mature, eligible outcomes from the latest
+assessment enter `context.prior_outcomes`; the exact input is also saved in
+`prior_outcomes.json`. This is cross-run research feedback, separate from within-run
+development revisions. Once supplied to the researcher, it is no longer untouched
+confirmation evidence. The existing retrospective terminal-window limitations remain.
+
+Later public collections have new source versions. The adapter matches provider
+endpoints, instrument, raw-price/currency conventions and the six frozen calendar
+sessions. It does not claim these separate collections extend an old market registry's
+receipt prefix. Revised origin prices, changed calendars and missing periods cannot
+produce a scored outcome. Corrections append assessments; the latest assessment wins,
+including an invalidating correction. Repeating an identical receipt is idempotent,
+and corrections are never counted as additional predictions. Original studies and
+their saved reports are not rewritten.
+
+Mature outcomes include price error, unchanged-price forecast control, costed return,
+Sharpe, drawdown and buy-and-hold through the existing account evaluator. These are
+**hypothetical replays of the frozen signal on later bars**, not durable paper orders
+or broker fills. Five daily returns do not establish a stable Sharpe estimate. There
+is no new scheduler, automatic order submission or guarantee of predictive improvement.
+
+The existing UI adds a forecast-history table. Opening it again reads current history;
+`research-history ... --ui` opens the latest study view after observing. Saved HTML
+and each study report remain snapshots. The table shows the latest 50 entries for the
+symbol; at most 20 mature outcomes from that view enter the LLM context. All receipts
+and corrections remain in the journal. Without `--history-dir`, studies stay isolated.
+
+With shared history, issuer RSS snapshots default to
+`HISTORY/news_archive/real/SYMBOL`; synthetic-price history uses a separate `simulated`
+namespace. An explicit `--news-archive` still overrides this path. Original receipt
+times and existing archive size/count limits are preserved; current news is never
+backdated to manufacture historical training rows. Ordinary experiments can record
+pending results immediately; actual maturity requires elapsed market time. Controlled
+clock tests exercise this workflow without pretending that such time has elapsed.
+
+A 2026-10-31 real Codex acceptance run completed six LLM calls, two news searches
+and two LightGBM fits, selected round 2 and registered a pending KO forecast from
+2026-10-30 to 2026-11-06 (reference 94.0800, predicted 93.3007). One issuer RSS
+snapshot was retained in the shared archive. Its outcome was not yet observed.
+A separate controlled-clock, synthetic-source acceptance ran two complete studies,
+settled the first prediction and supplied its error/account metrics to the second
+hypothesis. This proves engineering continuity; it is not an elapsed real-market result.
+
 Daily prices are collected under `OUTPUT/prices` unless you supply a retained
 collection with `--prices-dir PATH`. Populated collections are verified and reused,
 not refreshed or overwritten. Freshness is bounded by their receipt. These are

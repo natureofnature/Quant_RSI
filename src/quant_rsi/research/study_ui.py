@@ -63,6 +63,14 @@ def read_state(root):
         updated = (root / "runtime.json").stat().st_mtime
     except FileNotFoundError:
         updated = time.time()
+    history = None
+    if config.get("history_dir"):
+        from quant_rsi.research.study_history import history_view
+
+        try:
+            history = history_view(Path(config["history_dir"]), config.get("symbol"))
+        except (OSError, ValueError) as exc:
+            history = {"entries": [], "notice": f"Study history unavailable: {exc}"}
     return {
         "symbol": config.get("symbol", "…"),
         "config": {
@@ -88,6 +96,7 @@ def read_state(root):
         "conclusion": result.get("study", {}).get("conclusion"),
         "selection": result.get("study", {}).get("selection"),
         "report": report,
+        "history": history,
     }
 
 

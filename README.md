@@ -42,6 +42,13 @@ Unavailable business sources remain pending. Factor cards and the report show wh
 run and what was selected. Explicit `--catalog` keeps the standalone catalog path;
 see [factor layers and execution](docs/factor_layers.md#execution-in-the-connected-study).
 
+Add `--history-dir /tmp/ko-research-history` to connect separate study runs. The next
+run observes prior forecasts using newly received prices and passes mature outcomes
+to the LLM, while sharing the retained news archive. The UI shows pending and observed
+forecasts with price error, costed return and Sharpe. Use `research-history observe`
+to update outcomes without another fit; see [continuous research](docs/connected_research_study.md#continue-research-across-market-days).
+Late forecasts remain non-prospective, and account results are hypothetical.
+
 The study adopts a revision only when its **development MAE strictly improves**;
 otherwise it retains the incumbent for the latest forecast. To choose strategy
 Sharpe instead, set `--selection-metric sharpe` before the run. Ties and unavailable
