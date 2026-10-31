@@ -227,6 +227,21 @@ def visual_output(stage, output, previous, symbol):
         return view
     if stage == "load_prices":
         return {"kind": "facts", "facts": _pick(output, "symbol", "provider", "sessions")}
+    if stage == "extract_guidance":
+        extraction = output.get("latest_extraction") or {}
+        items = {item["id"]: item for item in extraction.get("items", [])}
+        return {
+            "kind": "findings",
+            "findings": [
+                {
+                    "text": f["status"] + ": " + f["quote"],
+                    "evidence": _news([items.get(f["news_id"], {"id": f["news_id"]})]),
+                }
+                for f in extraction.get("facts", [])
+            ],
+            "related": [],
+            "followup": output["notice"] + " Status: " + output["status"],
+        }
     if stage in {"collect_news_context", "load_related_prices"}:
         return {"kind": "relationships", "target": symbol, **output["related"]}
     if stage == "target":

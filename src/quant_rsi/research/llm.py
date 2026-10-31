@@ -132,6 +132,10 @@ class LLMHypothesizer:
                 "log_return_volatility is the unannualized sample standard deviation (ddof=1) "
                 "of trailing daily log returns; its window must be 2..30. "
                 "Revision may deactivate earlier factors by omitting their IDs. "
+                "Supplied news.guidance_direction_7/30 factors encode the latest explicit issuer "
+                "guidance change (+1 raised, -1 lowered, 0 reaffirmed or no explicit statement). "
+                "They are business facts, not expected stock returns. Select only runnable "
+                "definitions; missing historical extraction cannot be imputed from current news. "
                 "Development metrics and strategy diagnostics reuse selected retrospective data, "
                 "not independent evidence. Current news is not a historical feature. "
                 if study

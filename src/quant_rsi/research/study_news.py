@@ -228,7 +228,7 @@ class NewsHistory:
         return result
 
 
-def simulated_history(data, symbol):
+def simulated_history(data, symbol, *, guidance=False):
     """Invented daily snapshots for synthetic-price demos only; no market-news claim."""
     snapshots = []
     for index, session in enumerate(data.dates):
@@ -245,7 +245,14 @@ def simulated_history(data, symbol):
                         id=f"simulated.{symbol}.{session}.v1",
                         symbol=symbol,
                         title="SIMULATED "
-                        + ("earnings growth" if index % 2 else "demand weakness"),
+                        + ("earnings growth" if index % 2 else "demand weakness")
+                        + (
+                            "; company "
+                            + ("raises", "lowers", "reaffirms")[index % 3]
+                            + " earnings guidance"
+                            if guidance
+                            else ""
+                        ),
                         summary="Invented fixture, not real issuer news.",
                         url=f"https://simulated.invalid/{symbol}/{session}",
                         published_at=utc_text(timestamp(received) - timedelta(hours=1)),

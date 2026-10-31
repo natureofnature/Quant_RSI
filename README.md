@@ -82,7 +82,10 @@ quant-rsi research-study KO --output /tmp/ko-study-offline \
 
 The [connected study guide](docs/connected_research_study.md) explains prerequisites,
 options, artifacts and interpretation. Feedback revises bounded price recipes and
-headline-count recipes when receipt-time news history supports them;
+headline-count recipes when receipt-time news history supports them. `--news-research`
+also extracts issuer earnings-guidance changes with source quotes and completion times.
+The resulting guidance factors can enter training when retained history supports them,
+and can be removed in the next research round;
 both attempts use the same development observations, so a better second result
 is not independent evidence of improvement. The latest forecast has no observed
 outcome. RSI means **recursive self-improvement** here; testing whether research
@@ -169,7 +172,7 @@ at a time.
 | Live LLM hypotheses | Optional Codex CLI or OpenAI Responses API makes two independent calls with explicit feedback; current news is research context, not historical training data |
 | Company relationships and prices | Configured links and optional source-cited suggestions feed bounded related-price collection (up to three symbols). Aligned peer-return and target-minus-peer-return factors can enter both fits; unavailable markets/history stay explicit. LLM suggestions remain unverified and do not rewrite profiles |
 | Live news in the product loop | Registered RSS remains the default; optional active research uses Codex/API web search, bounded public-page reads and one optional follow-up request, with receipts, citations and failures in the report |
-| News features in the connected study | Literal keyword counts over retained target headlines, gated by original receipt time and freshness; insufficient history leaves proposals pending, while the offline synthetic demo can exercise actual news columns |
+| News features in the connected study | Retained headline counts and, with active research, source-bound issuer guidance direction. Receipt/extraction clocks gate execution; insufficient history leaves factors pending. The synthetic demo exercises numerical news columns and their removal |
 | Models in the product loop | LightGBM by default; `research-study --model ridge` uses a regularized linear alternative with training-only scaling on the same feature/maturity path. Two actual fits reuse development feedback; neither choice implies independent improvement |
 | Study factor proposals | Momentum, mean return, local Qlib-style ROC/MA, trailing log-return volatility and eligible archived headline counts can enter the feature matrix. The LLM can also select related-price recipes from the run-local catalog; no arbitrary generated code |
 | Daily prices in the product loop | Collect once or reuse verified daily evidence; report development errors separately from the latest-bar five-session forecast, whose outcome is unobserved |
