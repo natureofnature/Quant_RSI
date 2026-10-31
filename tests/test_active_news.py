@@ -164,7 +164,9 @@ def test_active_offline_study_executes_volatility_and_keeps_articles_out_of_trai
     decisions = [event for event in result["trace"] if event["stage"].endswith("_decision")]
     assert [event["stage"] for event in decisions] == ["round_1_decision", "round_2_decision"]
     assert [event["output"]["completed_fits"] for event in decisions] == [1, 2]
-    assert len(result["trace"]) - len(decisions) == 21
+    assert result["trace"][0]["stage"] == "extract_guidance"
+    assert steps["extract_guidance"]["status"] == "simulated_historical_extractions"
+    assert len(result["trace"]) - len(decisions) == 22
     assert result["trace"][-2]["stage"] == "terminal_evaluation"
     assert [json.loads(line) for line in (root / "trace.jsonl").read_text().splitlines()] == result[
         "trace"
@@ -237,7 +239,10 @@ def test_discovery_failure_preserves_completed_search_and_read_stages(tmp_path, 
     assert main(command(root, "codex")) == 1
     failure = json.loads((root / "failure.json").read_text())
     assert failure["last_completed_stage"] == "article_reads_1"
-    assert len((root / "trace.jsonl").read_text().splitlines()) == 2
+    completed = [
+        json.loads(line)["stage"] for line in (root / "trace.jsonl").read_text().splitlines()
+    ]
+    assert completed == ["extract_guidance", "news_search_1", "article_reads_1"]
     assert not (root / "report.html").exists()
 
 
