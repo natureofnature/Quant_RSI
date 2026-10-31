@@ -9,6 +9,7 @@ import pytest
 from quant_rsi.cli import main
 from quant_rsi.market import news_feed
 from quant_rsi.research import demo, demo_news, llm
+from quant_rsi.research.demo_related import profile_related
 
 CATALOG = Path(__file__).resolve().parents[1] / "instruments/shared/equities.json"
 RECEIVED = "2026-10-29T12:00:00+00:00"
@@ -60,6 +61,32 @@ def test_registered_feed_selection_preserves_origin_and_timestamp_precision(tran
     all_news = demo_news.issuer_news({"symbol": "KO"}, limit=20)
     assert all_news["items"][-1]["publication_precision"] == "unknown"
     assert all_news["items"][-1]["published_at"] is None
+
+
+def test_xom_registered_context_retains_issuer_and_missing_partner_coverage(monkeypatch):
+    def fetch(source, limit):
+        assert source.instrument == "XOM"
+        assert source.url == (
+            "https://investor.exxonmobil.com/company-information/press-releases/rss"
+        )
+        body = feed(item("earnings", "Wed, 28 Oct 2026 12:00:00 GMT"))
+        return body.replace(b"investors.coca-colacompany.com", b"investor.exxonmobil.com"), {
+            "received_at": RECEIVED,
+            "http_status": 200,
+        }
+
+    monkeypatch.setattr(news_feed, "fetch", fetch)
+    related = profile_related("XOM")
+    assert related["stocks"] == ["CVX"]
+    assert related["selection"] == "configured_not_discovered"
+    news = demo_news.issuer_news({"symbol": "XOM", "related": related})
+    assert news["coverage_status"] == "partial"
+    assert [(item["symbol"], item["status"]) for item in news["coverage"]] == [
+        ("XOM", "available"),
+        ("CVX", "not_configured"),
+    ]
+    assert news["items"][0]["published_at"] == "2026-10-28T12:00:00+00:00"
+    assert news["items"][0]["url"] == "https://investor.exxonmobil.com/earnings"
 
 
 def test_cli_passes_actual_news_and_feedback_into_both_llm_calls(transport, monkeypatch, capsys):

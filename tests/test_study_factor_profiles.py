@@ -47,7 +47,7 @@ def profiles(tmp_path):
     return root
 
 
-def configured(root=ROOT, *, symbol="KO", estimator="ridge", missing_terminal=False):
+def configured(root=ROOT, *, symbol="KO", peer="KOF", estimator="ridge", missing_terminal=False):
     model = LightGBMDemo(
         load_catalog(ROOT / "shared/equities.json"),
         evaluation_sessions=20,
@@ -60,7 +60,7 @@ def configured(root=ROOT, *, symbol="KO", estimator="ridge", missing_terminal=Fa
         model.data,
         cutoffs,
         list(model.train) + list(model.origins),
-        {"stocks": ["KOF"]},
+        {"stocks": [peer]},
         mode="synthetic",
         directory=None,
     )
@@ -70,6 +70,22 @@ def configured(root=ROOT, *, symbol="KO", estimator="ridge", missing_terminal=Fa
     model.configure_peers(peers)
     model.configure_profile(resolve_instrument_factors(root, "US", symbol))
     return model
+
+
+def test_xom_profile_executes_partner_composition_without_ko_bindings():
+    model = configured(symbol="XOM", peer="CVX")
+    columns = model.profile_features["columns"]
+    np.testing.assert_allclose(
+        columns["xom.relative_partner_momentum"],
+        columns["bound.price_momentum"] - model.peer_features["columns"]["peer.CVX.peer_return_5"],
+        equal_nan=True,
+    )
+    factors = select_factors(model.library, {"factor_ids": ["xom.relative_partner_momentum"]})
+    prediction = model.predict(model.context("XOM"), factors, {})
+    assert prediction["training_feature_columns"] == 1
+    inputs = prediction["bound_factor_inputs"][0]["inputs"]
+    assert [item["source"]["entity"] for item in inputs] == ["XOM", "CVX"]
+    assert "ko.relative_bottler_momentum" not in columns
 
 
 def test_shared_local_and_composed_features_use_exact_declared_columns(profiles):

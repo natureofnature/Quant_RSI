@@ -18,6 +18,37 @@ compositions. `--factor-root` changes the factor configuration root; explicit `-
 bypasses profile resolution. Source availability is checked on the common research
 sample, and unsupported inputs stay pending. See [factor execution and provenance](factor_layers.md#execution-in-the-connected-study).
 
+## Second-stock example: XOM
+
+The same entry point supports XOM through three files in
+[`instruments/US/XOM`](../instruments/US/XOM): issuer RSS, company relationships and
+factor bindings. No stock-specific orchestration or model is required.
+
+```bash
+quant-rsi research-study XOM --news-research \
+  --history-dir /tmp/xom-research-history --output /tmp/xom-study
+```
+
+This uses real Codex CLI calls, ExxonMobil's official press-release RSS, public
+XOM/CVX daily prices and two actual model fits by default. Keep the history directory
+for later studies and use a fresh output directory each time. As with KO, current
+news guides hypotheses; new guidance extractions cannot fill historical feature
+rows that precede their availability. Missing news history remains pending.
+
+The configured CVX relationship comes from
+[Tengizchevroil's year-end 2025 fact sheet](https://tengizchevroil.com/docs/default-source/factsheets/eng/2025/tco---factsheet---eng-q4.pdf?sfvrsn=4a4fcd5c_1).
+It is a dated joint-venture link, not discovered return correlation or evidence of
+causality. Both target and partner reuse the shared five-session momentum recipe;
+`xom.relative_partner_momentum` subtracts the aligned CVX return from XOM's return.
+The LLM may select, omit or revise these inputs. CVX has no registered issuer RSS
+here, so feed coverage remains explicitly partial; active search does not silently
+turn that missing feed into complete coverage.
+
+Public data and search availability can vary. Examine the saved source coverage,
+failed requests, actual selected factors and development/terminal tables before
+interpreting a completed run. Neither a successful second-stock run nor lower
+development error establishes predictive advantage.
+
 ## Bounded research iterations
 
 Use `--rounds 5 --max-fits 4 --patience 2` to request up to five rounds with a four-fit
