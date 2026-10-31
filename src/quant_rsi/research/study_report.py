@@ -590,6 +590,38 @@ def render_study(result):
         )
     else:
         section("Forecast availability", "Synthetic run: no real-market latest forecast.")
+    comparison = result["study"].get("qlib_comparison")
+    if comparison:
+        section("Actual Qlib workflow comparison", comparison["notice"])
+        for segment, values in comparison["segments"].items():
+            if values["status"] != "completed":
+                section(f"Qlib {segment}", values["reason"])
+                continue
+            rows = []
+            for engine in ("native", "qlib"):
+                value = values[engine]
+                metrics = value["strategy"]["strategy"]["metrics"]
+                rows.append(
+                    [
+                        segment,
+                        engine,
+                        _number(value["metrics"]["mae_price"]),
+                        _number(metrics["net_return"], percent=True),
+                        _number(metrics["sharpe_ratio"]),
+                        _number(metrics["max_drawdown"], percent=True),
+                    ]
+                )
+            table(["Window", "Engine", "Price MAE", "Net return", "Sharpe", "Max drawdown"], rows)
+            section(
+                f"{segment.capitalize()} prediction agreement",
+                f"Within declared tolerance: {values['prediction_parity']}. "
+                f"Maximum absolute price difference: "
+                f"{values['max_absolute_difference']['predicted_price']:.12g}. "
+                "Matching the same fitted algorithm is not evidence of superiority.",
+            )
+        section(
+            "Qlib runtime", json.dumps(comparison["versions"]) + "; " + comparison["inputs_sha256"]
+        )
     section(
         "Engine and limits",
         result["study"]["external_engine"] + " "

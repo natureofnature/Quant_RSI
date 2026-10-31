@@ -253,6 +253,9 @@ const StudyCards = (() => {
     else if(view.kind==='feedback')content=feedback(view);
     else if(view.kind==='summary')content=summary(view);
     else if(view.kind==='terminal')content=terminal(view);
+    else if(view.kind==='engine_comparison'){
+      content.append(note(view.note),table(['Window','Engine','Price MAE','Net return','Sharpe','Max drawdown'],view.rows.map(row=>[row.window,row.engine,fmt(row.mae),pct(row.net_return),fmt(row.sharpe_ratio),pct(row.max_drawdown)])));
+    }
     else if(view.kind==='iteration'){
       content.append(metrics([['Round',view.round],['Selected round',view.incumbent_round],['Fits',`${view.completed_fits} / ${view.fit_budget}`]]),note(view.decision?.reason||'Initial baseline retained.'),table(['Metric','Value'],[['Price MAE',fmt(view.development_metrics?.mae_price)],['Net return',pct(view.strategy_metrics?.net_return)],['Sharpe',fmt(view.strategy_metrics?.sharpe_ratio)]]),pills([view.accepted?'Accepted':'Retained incumbent',...(view.factor_changes?.activated||[]).map(f=>`+ ${f}`),...(view.factor_changes?.deactivated||[]).map(f=>`− ${f}`)]));
     }

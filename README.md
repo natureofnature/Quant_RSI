@@ -42,6 +42,11 @@ Its local factor combines XOM and CVX returns; the engine and model are shared.
 See the [second-stock example](docs/connected_research_study.md#second-stock-example-xom)
 for coverage and evidence limits.
 
+With the [optional Qlib environment](docs/qlib_workflow_comparison.md), add
+`--compare-qlib` to run one actual upstream fit on the selected study's frozen
+features and splits. The same report compares forecasts and costed accounts;
+the comparison adds one declared fit and does not change research selection.
+
 The study also resolves the stock's factor profile: shared definitions, local definitions
 and bounded compositions retain their source bindings and ownership. KO can reuse the
 shared momentum recipe for KO and KOF and combine them in its own configured factor.
@@ -181,6 +186,7 @@ at a time.
 | Live news in the product loop | Registered RSS remains the default; optional active research uses Codex/API web search, bounded public-page reads and one optional follow-up request, with receipts, citations and failures in the report |
 | News features in the connected study | Retained headline counts and, with active research, source-bound issuer guidance direction. Receipt/extraction clocks gate execution; insufficient history leaves factors pending. The synthetic demo exercises numerical news columns and their removal |
 | Models in the product loop | LightGBM by default; `research-study --model ridge` uses a regularized linear alternative with training-only scaling on the same feature/maturity path. Two actual fits reuse development feedback; neither choice implies independent improvement |
+| Actual Qlib workflow | Optional `research-study --compare-qlib` runs upstream DatasetH/LGBModel on the selected common inputs, with one additional fit, local recorder and shared costed account comparisons. This does not compare Qlib's portfolio engine or autonomous research |
 | Study factor proposals | Momentum, mean return, local Qlib-style ROC/MA, trailing log-return volatility and eligible archived headline counts can enter the feature matrix. The LLM can also select related-price recipes from the run-local catalog; no arbitrary generated code |
 | Daily prices in the product loop | Collect once or reuse verified daily evidence; report development errors separately from the latest-bar five-session forecast, whose outcome is unobserved |
 | Bounded research workflow | One profile runs bounded discovery, costed per-fold strategy/buy-and-hold reports and linked forecast/paper observation; feedback uses development forecast MAE only |
@@ -333,6 +339,7 @@ it is not a declaration that every capability is implemented.
 | Understand shared factors and single-stock bindings | [Factor layers](docs/factor_layers.md) |
 | Use the first source-pinned candidate adapters | [Candidate factor runtime](docs/candidate_factor_runtime.md) |
 | Compare native price formulas with actual pinned Qlib operators | [Optional Qlib operator comparison](docs/qlib_operator_comparison.md) |
+| Compare the selected study with an actual upstream Qlib workflow | [Optional Qlib workflow comparison](docs/qlib_workflow_comparison.md) |
 | Inspect a company-specific factor tree | [CALM worked example](docs/calm_factor_discovery_example.md) |
 | Run a five-session baseline or enhanced comparison | [Baseline](docs/forecast_baseline.md), [enhanced workflow](docs/enhanced_forecast_workflow.md) |
 | Run bounded recursive market research | [Recursive market exploration](docs/recursive_market_exploration.md) |

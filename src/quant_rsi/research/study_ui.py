@@ -83,6 +83,7 @@ def read_state(root):
                 "news_research",
                 "research_rounds",
                 "fit_budget",
+                "comparison_fit_budget",
             )
         },
         "iterations": {

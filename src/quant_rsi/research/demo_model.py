@@ -444,8 +444,7 @@ class LightGBMDemo:
             result["boost_rounds"] = BOOST_ROUNDS
         if self.evaluation_sessions > 1:
             result["development"] = self._development(predicted_returns, float(y.mean()))
-        if len(self.terminal_origins):
-            self._fits.append((predict, matrix, float(y.mean()), deepcopy(result["factor_ids"])))
+        self._fits.append((predict, matrix, y.copy(), deepcopy(result["factor_ids"])))
         if self.news_feature_support is not None:
             result["news_feature_support"] = deepcopy(self.news_feature_support)
         if news_factors:
@@ -585,6 +584,35 @@ class LightGBMDemo:
         )
         return usage
 
+    def comparison_inputs(self, selected_round):
+        """Copy the selected fit's exact inputs; evaluation labels are deliberately absent."""
+        if type(selected_round) is not int or not 1 <= selected_round <= len(self._fits):
+            raise ValueError("Comparison requires a completed selected fit")
+        _, matrix, training_labels, factor_ids = self._fits[selected_round - 1]
+        segments = {}
+        for name, indices in (
+            ("train", self.train),
+            ("development", self.origins),
+            ("terminal", self.terminal_origins),
+        ):
+            values = matrix[indices]
+            segments[name] = {
+                "sessions": [self.data.dates[i] for i in indices],
+                "features": np.where(np.isfinite(values), values, None).tolist(),
+                "available": bool(len(indices) and np.isfinite(values).all()),
+            }
+        segments["train"]["labels"] = training_labels.tolist()
+        segments["train"]["label_sessions"] = [
+            self.data.dates[i + self.horizon] for i in self.train
+        ]
+        return {
+            "selected_round": selected_round,
+            "symbol": self.data.instruments[0],
+            "factor_ids": deepcopy(factor_ids),
+            "model_configuration": deepcopy(self.model_configuration),
+            "segments": segments,
+        }
+
     def terminal_plan(self):
         """Dates only: frozen before research, with no terminal values or outcomes."""
         return {
@@ -607,7 +635,7 @@ class LightGBMDemo:
         if type(selected_round) is not int or not 1 <= selected_round <= len(self._fits):
             raise ValueError("Selected round must identify a completed fitted model")
         self._terminal_started = True
-        predict, matrix, training_mean, factor_ids = self._fits[selected_round - 1]
+        predict, matrix, training_labels, factor_ids = self._fits[selected_round - 1]
         result = self.terminal_plan() | {
             "selected_round": selected_round,
             "factor_ids": factor_ids,
@@ -633,7 +661,7 @@ class LightGBMDemo:
             }
         evaluation = self._development(
             np.asarray(predict(matrix[self.terminal_origins])),
-            training_mean,
+            float(training_labels.mean()),
             origins=self.terminal_origins,
         )
         evaluation["evaluation_note"] = "retrospective_terminal_reserved_from_feedback_selection"
