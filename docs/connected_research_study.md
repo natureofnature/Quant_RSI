@@ -51,6 +51,12 @@ development error establishes predictive advantage.
 
 ## Bounded research iterations
 
+To compare the selected LightGBM fit with actual upstream Qlib, use
+[`--compare-qlib`](qlib_workflow_comparison.md) in the optional environment.
+This adds one separately counted fit after native selection, reuses the same
+features and evaluation rows, and adds comparison tables to this report/UI.
+The research-round and `--max-fits` limits below govern native research fits.
+
 Use `--rounds 5 --max-fits 4 --patience 2` to request up to five rounds with a four-fit
 allowance and early stopping after two consecutive non-improvements. `--rounds` and
 `--max-fits` accept 2–10; the fit allowance defaults to the round limit. `--patience`
@@ -680,9 +686,11 @@ connects datasets, model training, backtesting and evaluation.
 [QuantDinger](https://github.com/OpenByteInc/QuantDinger) presents an integrated
 research/strategy/backtest product. They are references for connecting useful
 steps into one inspectable flow, not evidence that this study matches their scope
-or results. This command uses local Qlib-derived ROC/MA adapters, not an external
-Qlib runtime. External-engine workflow integration and comparable performance
-studies remain separate work; no Qlib/QuantDinger performance parity is claimed.
+or results. By default this command uses local Qlib-derived ROC/MA adapters.
+The optional [`--compare-qlib` path](qlib_workflow_comparison.md) also executes an
+actual upstream dataset/model/recorder workflow on the selected common inputs.
+It reuses the native account evaluator; broader portfolio-engine and research-policy
+comparisons remain separate work. No Qlib/QuantDinger performance superiority is claimed.
 
 ## Recorded validation
 

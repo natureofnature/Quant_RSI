@@ -191,6 +191,23 @@ def _terminal_view(output):
 
 
 def visual_output(stage, output, previous, symbol):
+    if stage == "qlib_comparison":
+        rows = []
+        for segment, values in output["segments"].items():
+            if values["status"] != "completed":
+                continue
+            for engine in ("native", "qlib"):
+                value = values[engine]
+                metrics = value["strategy"]["strategy"]["metrics"]
+                rows.append(
+                    {
+                        "window": segment,
+                        "engine": engine,
+                        "mae": value["metrics"]["mae_price"],
+                        **_pick(metrics, "net_return", "sharpe_ratio", "max_drawdown"),
+                    }
+                )
+        return {"kind": "engine_comparison", "rows": rows, "note": output["notice"]}
     if stage == "observe_prior_forecasts":
         return {
             "kind": "facts",

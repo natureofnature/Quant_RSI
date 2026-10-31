@@ -1,0 +1,125 @@
+"""Frozen-input export plus optional real upstream fit/predict/account integration."""
+
+import importlib.metadata
+import json
+from dataclasses import replace
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from quant_rsi.cli import main
+from quant_rsi.core.artifacts import digest
+from quant_rsi.research import study_qlib
+from quant_rsi.research.demo import load_catalog, select_factors
+from quant_rsi.research.demo_features import price_feature
+from quant_rsi.research.demo_model import LightGBMDemo
+from quant_rsi.research.study_ui import read_state
+
+CATALOG = Path(__file__).resolve().parents[1] / "instruments/shared/equities.json"
+
+
+def command(root, *extra):
+    return [
+        "research-study",
+        "KO",
+        "--llm",
+        "simulated",
+        "--news",
+        "simulated",
+        "--related",
+        "simulated",
+        "--prices",
+        "synthetic",
+        "--no-ui",
+        "--compare-qlib",
+        "--output",
+        str(root),
+        *extra,
+    ]
+
+
+def test_export_uses_selected_fit_and_excludes_evaluation_labels():
+    catalog = load_catalog(CATALOG)
+    model = LightGBMDemo(catalog, evaluation_sessions=20, terminal_sessions=10)
+    model.data = replace(model.data, instruments=("KO",))
+    first = select_factors(catalog, {"factor_ids": ["equity.price_momentum_5"]})
+    second = select_factors(catalog, {"factor_ids": ["equity.price_mean_return_5"]})
+    model.predict(model.context("KO"), first, {})
+    original = model.comparison_inputs(1)
+    model.predict(model.context("KO"), second, {})
+    assert model.comparison_inputs(1) == original
+    assert model.comparison_inputs(2)["factor_ids"] == ["equity.price_mean_return_5"]
+    train = original["segments"]["train"]
+    np.testing.assert_array_equal(
+        np.asarray(train["features"]).ravel(),
+        price_feature(model.data, first[0]["recipe"])[model.train],
+    )
+    assert max(train["label_sessions"]) <= original["segments"]["development"]["sessions"][0]
+    for name in ("development", "terminal"):
+        assert "labels" not in original["segments"][name]
+    model.data.closes[model.terminal_origins[-1] + model.horizon, 0] *= 2
+    assert model.comparison_inputs(1) == original
+    # The exported labels are the fitted labels, not a later recomputation.
+    model.data.closes[model.train[-1], 0] *= 2
+    assert model.comparison_inputs(1) == original
+    # A missing terminal feature preserves the complete window as unavailable.
+    model._fits[0][1][model.terminal_origins[0], 0] = np.nan
+    missing = model.comparison_inputs(1)["segments"]["terminal"]
+    assert not missing["available"] and len(missing["features"]) == 10
+    assert missing["features"][0] == [None]
+    with pytest.raises(ValueError, match="selected fit"):
+        model.comparison_inputs(3)
+
+
+def test_missing_optional_runtime_fails_before_provider_work(tmp_path, monkeypatch, capsys):
+    def missing(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(study_qlib.importlib.metadata, "version", missing)
+    root = tmp_path / "missing"
+    assert main(command(root)) == 1
+    assert "optional Qlib workflow environment" in capsys.readouterr().err
+    assert not root.exists()
+
+
+def test_ridge_comparison_rejected_before_provider_work(tmp_path, capsys):
+    root = tmp_path / "ridge"
+    assert main(command(root, "--model", "ridge")) == 1
+    assert "requires --model lightgbm" in capsys.readouterr().err
+    assert not root.exists()
+
+
+@pytest.mark.parametrize("terminal_sessions", [0, 10])
+def test_actual_upstream_workflow_matches_frozen_inputs_and_common_accounts(
+    tmp_path, terminal_sessions
+):
+    pytest.importorskip("qlib", reason="optional upstream Qlib workflow environment is absent")
+    pytest.importorskip("mlflow", reason="optional upstream Qlib workflow recorder is absent")
+    root = tmp_path / "study"
+    assert main(command(root, "--terminal-sessions", str(terminal_sessions))) == 0
+    result = json.loads((root / "result.json").read_text())
+    comparison = result["study"]["qlib_comparison"]
+    inputs = root / "qlib-comparison/inputs.json"
+    assert comparison["inputs_sha256"] == digest(inputs.read_bytes())
+    assert comparison["versions"]["pyqlib"] == "0.9.7"
+    assert comparison["recorder_id"]
+    assert (root / "qlib-comparison/model.txt").stat().st_size > 0
+    assert (root / "qlib-comparison/mlflow.db").stat().st_size > 0
+    assert result["configuration"]["comparison_fit_budget"] == 1
+    assert result["runtime"]["counts"]["comparison_model_stages_completed"] == 1
+    assert result["runtime"]["counts"]["model_stages_completed"] == 2
+    selected = result["iterations"]["attempts"][result["iterations"]["selected_round"] - 1]
+    assert comparison["factor_ids"] == selected["factor_ids"]
+    for name in ("development", "terminal"):
+        values = comparison["segments"][name]
+        if name == "terminal" and not terminal_sessions:
+            assert values["status"] == "unavailable"
+            continue
+        assert values["prediction_parity"]
+        assert values["qlib"]["metrics"] == pytest.approx(values["native"]["metrics"])
+        assert values["qlib"]["strategy"] == values["native"]["strategy"]
+    assert "Actual Qlib workflow comparison" in (root / "report.html").read_text()
+    view = next(e["view"] for e in read_state(root)["events"] if e["stage"] == "qlib_comparison")
+    assert view["kind"] == "engine_comparison"
+    assert len(view["rows"]) == (4 if terminal_sessions else 2)

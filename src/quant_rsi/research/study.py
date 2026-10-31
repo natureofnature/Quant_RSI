@@ -95,6 +95,13 @@ def run_study(args):
     """Keep a completed stage log even when a later provider fails; never overwrite a run."""
     symbol = TypeAdapter(InstrumentId).validate_python(args.symbol.strip().upper())
     estimator_configuration = model_configuration(args.model, args.ridge_alpha)
+    compare_external = getattr(args, "compare_qlib", False)
+    if compare_external:
+        if args.model != "lightgbm":
+            raise ValueError("--compare-qlib currently requires --model lightgbm")
+        from quant_rsi.research.study_qlib import require_qlib
+
+        require_qlib()
     fit_budget = args.rounds if args.max_fits is None else args.max_fits
     validate_limits(args.rounds, fit_budget, args.patience)
     if args.prices == "synthetic" and args.prices_dir is not None:
@@ -122,6 +129,7 @@ def run_study(args):
         model_configuration=estimator_configuration,
         research_rounds=args.rounds,
         fit_budget=fit_budget,
+        comparison_fit_budget=int(compare_external),
         generated_recipes="bounded_price_operators_and_retained_headline_counts",
     )
     _write(root / "config.json", configuration)
@@ -635,6 +643,30 @@ def _run(args, symbol, root, configuration, record, progress):
         result["study"]["conclusion"] += (
             " " + terminal_summary(result["terminal_evaluation"])["text"]
         )
+    if getattr(args, "compare_qlib", False):
+        from quant_rsi.research.study_qlib import compare_qlib
+
+        progress.start("qlib_comparison")
+        chosen = selection["selected_round"]
+        comparison = compare_qlib(
+            model.comparison_inputs(chosen),
+            model.data,
+            attempts[chosen - 1]["prediction"],
+            result.get("terminal_evaluation"),
+            root / "qlib-comparison",
+            policy={
+                "commission_bps": args.commission_bps,
+                "slippage_bps": args.slippage_bps,
+                "initial_cash": args.initial_cash,
+                "threshold": args.threshold,
+            },
+        )
+        event = {"stage": "qlib_comparison", "output": comparison}
+        record(event)
+        result["trace"].append(event)
+        result["study"]["qlib_comparison"] = comparison
+        result["study"]["external_engine"] = comparison["notice"]
+        result["study"]["conclusion"] += " Actual Qlib comparison completed; see the engine table."
     # Freeze measured research time for the reports, but do not announce success yet.
     result["runtime"] = progress.snapshot("completed")
     if args.history_dir:
