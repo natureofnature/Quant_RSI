@@ -26,7 +26,8 @@ def issuer_news(context, *, limit=5):
         source = news_feed.source_for(symbol)
     except FileNotFoundError:
         raise ValueError(
-            f"No registered issuer RSS feed for {symbol}; currently configured: KO"
+            f"No registered issuer RSS feed for {symbol}; "
+            f"configure instruments/US/{symbol}/news_feed.json"
         ) from None
     target = _read_source(source, limit)
     related = context.get("related", {})

@@ -35,6 +35,13 @@ This adds at most one follow-up search request before the two model fits. The re
 connects retrieved article IDs to findings, company suggestions and factor choices.
 Current articles guide hypotheses; they are never backdated into historical features.
 
+XOM also has a complete study configuration, using its official issuer RSS and
+a dated CVX business relationship. Run the same flow with
+`quant-rsi research-study XOM --news-research --output /tmp/xom-active-study`.
+Its local factor combines XOM and CVX returns; the engine and model are shared.
+See the [second-stock example](docs/connected_research_study.md#second-stock-example-xom)
+for coverage and evidence limits.
+
 The study also resolves the stock's factor profile: shared definitions, local definitions
 and bounded compositions retain their source bindings and ownership. KO can reuse the
 shared momentum recipe for KO and KOF and combine them in its own configured factor.
