@@ -18,6 +18,92 @@ compositions. `--factor-root` changes the factor configuration root; explicit `-
 bypasses profile resolution. Source availability is checked on the common research
 sample, and unsupported inputs stay pending. See [factor execution and provenance](factor_layers.md#execution-in-the-connected-study).
 
+## Local workbench and recovery
+
+```bash
+quant-rsi research-ui --workspace /tmp/quant-rsi-workbench
+# Keep the server in the terminal without automatically opening a browser:
+quant-rsi research-ui --workspace /tmp/quant-rsi-workbench --no-open --port 8765
+# Resume a CLI-created study directly:
+quant-rsi research-resume /tmp/ko-interrupted-study --ui
+```
+
+The workbench binds only to `127.0.0.1`, prints a random-token URL, and opens the browser.
+It accepts a symbol, Codex/API/simulated researcher, optional LLM model, LightGBM/Ridge,
+real/synthetic inputs and the news-research switch. API mode requires a model name and
+`OPENAI_API_KEY` in the server environment; Codex uses the existing local login.
+No credentials are accepted or saved by the form. The page shows running/completed/failed
+studies, links to the existing animated graph and reports, and offers **Continue study**.
+One worker runs at a time per workbench. This is a local single-user tool, not a hosted job service.
+
+Each launch runs the existing CLI in `WORKSPACE/tasks/ID/study`; `worker.log` captures its
+output. Shared forecast/news history lives under `WORKSPACE/history`, separated by real
+and synthetic inputs. The workspace owns its task list: arbitrary old CLI directories are
+not silently imported. Use `research-resume PATH` for such directories created by this version.
+Closing the browser or stopping the workbench leaves launched workers running. Reopening
+the same workspace restores the list. An absent worker with unfinished state is marked
+interrupted, rather than remaining permanently "running". A run lock prevents two writers.
+
+Recovery preserves the experiment configuration and completed inputs. Run-local JSON
+checkpoints bind successful operations to their inputs, source/profile hashes and Python,
+NumPy, LightGBM and Pydantic versions. No pickle or arbitrary serialized Python is loaded.
+Completed issuer snapshots, searches, page reads, validated LLM hypotheses and fits are reused;
+failed operations are retried on explicit continuation. The deterministic orchestration
+reconstructs features and predictions from those receipts. Completed LightGBM boosters and
+Ridge coefficients are restored without fitting again. An interrupted fit can run again.
+Incomplete target collections remain intact; managed collection retries use a new directory.
+Explicit external `--prices-dir` inputs are never silently refreshed or repaired.
+
+Before continuation, old runtime/trace/failure records are copied to `attempts/N`. Current
+`runtime.json` counts describe the current attempt; `previous_attempts` retains earlier
+counts, reported/unknown tokens and elapsed times, while `reused_operations` identifies
+cache hits. Failures still cost time/calls, and restarting does not erase those costs.
+The fit allowance bounds logical candidate fits, not failed transport/fit attempts or money.
+Completed runs are immutable. Runs from older versions without checkpoints cannot be resumed;
+code, profile, configuration or bound-input changes require a fresh study. Keep the original
+checkout/runtime available to continue an old interrupted run after an upgrade.
+
+## Nasdaq example: AAPL
+
+```bash
+quant-rsi research-study AAPL --news-research --output /tmp/aapl-study
+```
+
+[`instruments/US/AAPL`](../instruments/US/AAPL) supplies a complete profile: shared price
+bindings, Apple's official [Newsroom Atom feed](https://www.apple.com/newsroom/rss-feed.rss),
+a QCOM peer binding, and an AAPL-minus-QCOM five-session return composition. The dated
+[Qualcomm agreement](https://investor.qualcomm.com/news-events/press-releases/news-details/2023/Qualcomm-Announces-Agreement-with-Apple-for-Chip-Supply-09-11-2023/default.aspx)
+covers Snapdragon modem-RF supply for smartphone launches in 2024–2026; it is business
+context, not evidence of a return relationship or a claim about every Apple device.
+QCOM has no configured issuer feed, so related-news coverage remains explicitly partial.
+Atom `updated` orders current context but is never substituted for original publication
+or historical availability. Entries without `published` retain unknown publication time.
+
+The daily collector accepts Yahoo's Nasdaq NMS/NGM/NCM metadata alongside NYSE-family
+USD listings. Nasdaq collections retain the official
+[holiday schedule and regular market hours](https://www.nasdaq.com/market-activity/stock-market-holiday-schedule)
+and its hash, closures, 13:00 early closes, and 09:30–16:00 America/New_York sessions.
+It does not substitute a NYSE calendar or extrapolate unpublished years. A changed/incomplete
+calendar fails explicitly. Existing raw-price/corporate-action checks still apply.
+
+Live collection checks on 2026-10-31 loaded 120 sessions through 2026-10-30 for AAPL,
+QCOM and CCEP, with five-session targets on 2026-11-06. MNST passed exchange collection but
+its retained Yahoo evidence contains a 2:1 split dated 2026-08-11, so the model loader rejected
+that window as an unresolved corporate action. This is provider evidence, not independent
+verification of the split or a reason to bypass price-continuity checks. Nasdaq listing
+support does not guarantee every symbol/window is usable or certify point-in-time availability.
+
+A connected live AAPL smoke run on that date completed seven Codex calls, two bounded
+search requests and two LightGBM fits in 202.28 seconds. The initial fit used
+`bound.price_momentum`, `aapl.relative_supplier_momentum` and generated 20-session
+volatility; the revision used `bound.qlib_ma` and 15-session momentum. A separate KO
+study with a simulated researcher and real retained daily prices fitted
+`peer.CCEP.peer_return_5`, then `peer.CCEP.relative_return_10`. These demonstrate
+provider/feature execution, not predictive superiority. Offline failure-injection tests
+and browser checks cover continuation and retained-fit reuse; the live smoke did not
+inject a real provider outage.
+
+
 ## Second-stock example: XOM
 
 The same entry point supports XOM through three files in
@@ -78,15 +164,15 @@ UI/HTML/Markdown report includes a round table and an explicit `round_limit`,
 all attempts under `iterations`; `trace.jsonl` retains incremental stage outputs.
 Provider/model failure stops the study and retains completed stages plus `failure.json`;
 it does not retry, dispatch another fit or produce a successful final report. Failed
-attempts are visible in runtime started/completed counts. Study directories are not
-resumable, and historical directories are never migrated.
+attempts are visible in runtime started/completed counts. New study directories can be explicitly continued with `research-resume` or the workbench;
+historical directories are never migrated. See [recovery](#local-workbench-and-recovery).
 
 The fit limit is not a currency, token or whole-run wall-clock budget. Active-news
 research retains its separate bounded search/read behavior; LLM requests retain their
 per-call timeout. Candidate selection uses **development** observations only. Terminal
 evaluation follows the frozen selection; it does not influence another revision or
 perform production promotion or modification of the researcher's own program (#3).
-The default live path is currently configured for KO only; other symbols do not
+Complete live profiles are available for KO, XOM and AAPL; other symbols do not
 automatically gain relationship profiles or registered news feeds.
 
 ## Reserved terminal evaluation
@@ -316,7 +402,8 @@ company suggestions. RSS news limits apply per issuer; see
 
 API mode requires `OPENAI_API_KEY` and `--llm-model MODEL_ID`; see
 [LLM prerequisites](simulated_research_loop.md#use-a-real-llm-for-hypotheses).
-Service errors stop the study; no silent fallback or automatic resume is claimed.
+Service errors stop the study without silent fallback. Explicit `research-resume` or
+**Continue study** retries the failed work using retained checkpoints.
 Optional related-price collection failures are recorded per symbol and leave those peers
 unavailable; they do not stop an otherwise usable target-price study.
 
@@ -347,13 +434,13 @@ both attempts and their baselines retain the same rows. A missing latest peer wi
 the selected attempt's latest forecast unavailable without discarding its historical result
 or switching to another model.
 
-The daily adapter's existing market scope still applies: NYSE, NYSE Arca and NYSE American
-USD listings. KO's configured CCEP/MNST peers are Nasdaq listings and currently produce
-explicit unsupported-market records. The profile also includes KOF, the NYSE-listed ADS
-of Coca-Cola FEMSA, with official business/listing sources retained in its configuration.
-KOF or a compatible discovered peer can be used when its retained collection is usable;
-otherwise the study continues with its other executable factors. This change does not add a Nasdaq
-calendar adapter or certify historical point-in-time data availability.
+The daily adapter supports NYSE, NYSE Arca, NYSE American and Nasdaq USD listings.
+KO's CCEP/MNST peers now pass the exchange filter and use Nasdaq's own calendar;
+CCEP's current retained collection is usable, while MNST's current window is excluded
+by a separate unresolved split check. The profile also includes KOF, the NYSE-listed ADS
+of Coca-Cola FEMSA. Compatible peers can enter features when their retained collections
+cover every required row; otherwise the study continues with its other executable factors.
+See [Nasdaq coverage](#nasdaq-example-aapl) for evidence and limits.
 
 `related_prices.json` retains aligned closes, source metadata/hashes, availability and
 recipe definitions. Daily collection directories preserve their original receipts and are
@@ -669,7 +756,7 @@ The CLI prints each running/completed stage and its elapsed seconds to **stderr*
 `--json` stdout stays machine-readable. `--quiet` suppresses only that display.
 `runtime.json` is updated at stage boundaries and when usage arrives, so it also
 records the active or failed stage when a run does not finish. It is observational
-metadata, not a resume or recovery protocol.
+metadata; recovery uses separately validated `checkpoints/` receipts.
 
 The report lists preparation/research stage durations, total measured research
 wall time, started/completed LLM/search/model-stage counts and token usage. Counts
@@ -698,10 +785,11 @@ inferred or saved. See the official [Codex JSON event example](https://learn.cha
 | `report.md`, `report.html` | Human-readable comparisons; HTML includes NAV visualization |
 | `live.html` | Saved interactive workflow view, when UI is enabled; final state and embedded report |
 | `ui-server.log` | Local viewer diagnostics, when UI is enabled |
+| `checkpoints/`, `attempts/` | Bound completed operations and preserved prior failed/interrupted attempts |
 | `failure.json` | Written for failures after run initialization, retaining the completed trace for diagnosis |
 
 Each study needs a fresh directory. Keep outputs and raw collections out of Git;
-a failed run is inspectable evidence, not a resumable research campaign.
+continue an interrupted new-version study with `research-resume PATH`, preserving its evidence.
 
 ## Relation to mature engines
 

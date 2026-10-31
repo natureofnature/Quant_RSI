@@ -298,3 +298,27 @@ def test_unknown_stock_and_invalid_limit_fail_before_network(transport):
     with pytest.raises(ValueError, match="between 1 and 20"):
         demo_news.issuer_news({"symbol": "KO"}, limit=21)
     assert not transport
+
+
+def test_apple_atom_uses_alternate_article_and_does_not_invent_publication(monkeypatch):
+    body = b"""<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>apple-release</id><title>Apple update</title><updated>2026-10-30T12:00:00Z</updated>
+    <link href="https://www.apple.com/newsroom/release/"/>
+    <link rel="enclosure" href="https://www.apple.com/image.jpg"/>
+    <content>Operating developments</content></entry></feed>"""
+    source = news_feed.source_for("AAPL")
+    records = news_feed.parse(body, source, 20)
+    assert records[0]["published_at"] is None
+    assert records[0]["publication_precision"] == "unknown"
+    monkeypatch.setattr(
+        news_feed, "fetch", lambda *a: (body, {"received_at": RECEIVED, "http_status": 200})
+    )
+    news = demo_news.issuer_news({"symbol": "AAPL", "related": profile_related("AAPL")})
+    assert news["items"][0]["url"].endswith("/release/")
+    assert news["coverage_status"] == "partial"  # QCOM has no configured feed.
+    published = body.replace(b"<updated>", b"<published>").replace(b"</updated>", b"</published>")
+    assert news_feed.parse(published, source, 20)[0]["published_at"] == "2026-10-30T12:00:00+00:00"
+    with pytest.raises(ValueError, match="outside registered"):
+        news_feed.parse(
+            body.replace(b"www.apple.com/newsroom", b"example.org/newsroom"), source, 20
+        )

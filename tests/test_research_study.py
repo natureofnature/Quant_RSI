@@ -251,4 +251,8 @@ def test_api_study_uses_strict_proposal_schema_and_keeps_key_out_of_artifacts(
     root = tmp_path / "api"
     assert main(command(root, "--llm", "api", "--llm-model", "test-model")) == 0
     assert len(calls) == 2
-    assert all("study-api-test-secret" not in path.read_text() for path in root.iterdir())
+    assert all(
+        "study-api-test-secret" not in path.read_text()
+        for path in root.rglob("*")
+        if path.is_file()
+    )

@@ -162,6 +162,13 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             demo.add_argument("--model", choices=("simulated", "lightgbm"), default="simulated")
+    workbench = commands.add_parser("research-ui", help="local research launcher and task history")
+    workbench.add_argument("--workspace", type=Path, required=True)
+    workbench.add_argument("--port", type=int, default=0)
+    workbench.add_argument("--open", action=argparse.BooleanOptionalAction, default=True)
+    retry = commands.add_parser("research-resume", help="continue an interrupted study")
+    retry.add_argument("directory", type=Path)
+    retry.add_argument("--ui", action="store_true")
     history = commands.add_parser(
         "research-history", help="inspect or observe saved study forecasts"
     )
@@ -402,6 +409,21 @@ def main(argv: list[str] | None = None) -> int:
             command.add_argument("--steps", type=int, default=1)
     args = parser.parse_args(argv)
     try:
+        if args.command == "research-ui":
+            from quant_rsi.research.study_workbench import serve
+
+            serve(args.workspace, port=args.port, open_browser=args.open)
+            return 0
+        if args.command == "research-resume":
+            from quant_rsi.research.study import run_study
+            from quant_rsi.research.study_resume import resume_arguments
+
+            result = run_study(resume_arguments(args.directory, ui=args.ui), resume=True)
+            print(
+                f"Research completed: {args.directory.resolve() / 'report.html'}\n"
+                + result["study"]["conclusion"]
+            )
+            return 0
         if args.command == "research-history":
             from quant_rsi.research.study_history import (
                 collection_snapshot,

@@ -61,6 +61,25 @@ class StandardizedRidge:
         if not np.isfinite(self.coefficients).all():
             raise ValueError("Ridge produced non-finite coefficients")
 
+    @classmethod
+    def from_state(cls, state):
+        model = object.__new__(cls)
+        model.mean = np.asarray(state["mean"], dtype=float)
+        model.scale = np.asarray(state["scale"], dtype=float)
+        model.coefficients = np.asarray(state["coefficients"], dtype=float)
+        model.intercept = float(state["intercept"])
+        if (
+            model.mean.ndim != 1
+            or not len(model.mean)
+            or model.scale.shape != model.mean.shape
+            or model.coefficients.shape != model.mean.shape
+            or not all(np.isfinite(x).all() for x in (model.mean, model.scale, model.coefficients))
+            or not (model.scale > 0).all()
+            or not math.isfinite(model.intercept)
+        ):
+            raise ValueError("Invalid retained ridge state")
+        return model
+
     def predict(self, x):
         x = np.asarray(x, dtype=float)
         if x.ndim != 2 or x.shape[1] != len(self.mean) or not np.isfinite(x).all():
