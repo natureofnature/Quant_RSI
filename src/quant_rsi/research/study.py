@@ -27,6 +27,13 @@ from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.study_estimators import model_configuration
 from quant_rsi.research.study_factor_profiles import load_study_catalog
+from quant_rsi.research.study_history import (
+    collection_snapshot,
+    history_view,
+    mature_feedback,
+    observe_prices,
+    register_study,
+)
 from quant_rsi.research.study_iterations import validate_limits
 from quant_rsi.research.study_news import (
     NewsHistory,
@@ -92,6 +99,10 @@ def run_study(args):
         raise ValueError("Keep study artifacts outside the source checkout")
     if args.news_archive and args.news_archive.resolve().is_relative_to(checkout):
         raise ValueError("Keep news snapshots outside the source checkout")
+    if args.history_dir:
+        args.history_dir = args.history_dir.resolve()
+        if args.history_dir.is_relative_to(checkout) or args.history_dir == root:
+            raise ValueError("Keep shared study history outside the checkout and run directory")
     if args.related_prices_dir and args.related_prices_dir.resolve().is_relative_to(checkout):
         raise ValueError("Keep related price collections outside the source checkout")
     root.mkdir(parents=True, exist_ok=False)
@@ -189,6 +200,26 @@ def _run(args, symbol, root, configuration, record, progress):
         "load_prices",
         {"provider": model.price_provider, "symbol": symbol, "sessions": len(model.data.dates)},
     )
+    history_prices = (
+        collection_snapshot(symbol, prices[1]["collection_directory"])
+        if args.history_dir and prices
+        else None
+    )
+    prior_outcomes = None
+    if args.history_dir:
+        progress.start("observe_prior_forecasts")
+        if history_prices:
+            observe_prices(args.history_dir, symbol, history_prices)
+        prior_outcomes = mature_feedback(args.history_dir, symbol)
+        _write(root / "prior_outcomes.json", prior_outcomes)
+        progress.finish(
+            "observe_prior_forecasts",
+            {
+                "mature_forecasts_for_feedback": len(prior_outcomes["entries"]),
+                "history_directory": str(args.history_dir),
+                "notice": prior_outcomes["notice"],
+            },
+        )
     progress.start("collect_news_context")
     related = (profile_related if args.related == "profile" else simulated_related)(symbol)
     news_context = {"symbol": symbol, "related": related}
@@ -197,7 +228,14 @@ def _run(args, symbol, root, configuration, record, progress):
         if args.news == "issuer-rss"
         else simulated_news(news_context)
     )
-    archive = args.news_archive or root / "news_archive"
+    archive = args.news_archive or (
+        args.history_dir
+        / "news_archive"
+        / ("real" if args.prices == "daily" else "simulated")
+        / symbol
+        if args.history_dir
+        else root / "news_archive"
+    )
     snapshots = load_archive(archive)
     if args.prices == "daily" and any(
         snapshot["provider"] != "issuer_rss" for snapshot in snapshots
@@ -294,6 +332,7 @@ def _run(args, symbol, root, configuration, record, progress):
 
     def context(target):
         return model.context(target) | {
+            "prior_outcomes": prior_outcomes,
             "allow_factor_proposals": True,
             "selection_policy": {
                 "metric": args.selection_metric,
@@ -547,6 +586,9 @@ def _run(args, symbol, root, configuration, record, progress):
         )
     # Freeze measured research time for the reports, but do not announce success yet.
     result["runtime"] = progress.snapshot("completed")
+    if args.history_dir:
+        register_study(args.history_dir, root, result, history_prices)
+        result["study"]["history"] = history_view(args.history_dir, symbol)
     markdown, html = render_study(result)
     (root / "report.md").write_text(markdown, encoding="utf-8")
     (root / "report.html").write_text(html, encoding="utf-8")

@@ -103,6 +103,43 @@ def render_study(result):
             ],
         )
     profile = result["study"].get("factor_profile", [])
+    history = result["study"].get("history")
+    if history:
+        section("Forecast history and later observations", history["notice"])
+        table(
+            [
+                "Issued",
+                "Target",
+                "Round",
+                "Status",
+                "Predicted",
+                "Actual",
+                "Price error",
+                "Net return",
+                "Sharpe",
+                "Buy-and-hold",
+            ],
+            [
+                [
+                    entry["issued_at"],
+                    (entry.get("forecast") or {}).get("target_session", "N/A"),
+                    entry["selected_round"],
+                    entry["status"],
+                    _number((entry.get("forecast") or {}).get("predicted_price")),
+                    _number((entry.get("metrics") or {}).get("actual_price")),
+                    _number((entry.get("metrics") or {}).get("price_error")),
+                    _number(
+                        (entry.get("strategy") or {}).get("strategy", {}).get("net_return"), True
+                    ),
+                    _number((entry.get("strategy") or {}).get("strategy", {}).get("sharpe_ratio")),
+                    _number(
+                        (entry.get("strategy") or {}).get("buy_and_hold", {}).get("net_return"),
+                        True,
+                    ),
+                ]
+                for entry in history["entries"]
+            ],
+        )
     if profile:
         section(
             "Instrument factor profile",
