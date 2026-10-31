@@ -89,6 +89,13 @@ def simulated_hypothesis(context, library, *, previous=None, feedback=None):
             ]
             if context["news_feature_support"]["runnable"]:
                 factors.append(f"news.{name}_{window}")
+        guidance = [
+            item
+            for item in library["definitions"]
+            if item.get("recipe", {}).get("op") == "guidance_direction" and item.get("runnable")
+        ]
+        if guidance and previous is None:
+            factors.append(guidance[0]["factor_id"])
         peers = [
             item
             for item in library["definitions"]

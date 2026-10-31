@@ -49,6 +49,8 @@ class LightGBMDemo:
         self._terminal_started = False
         self._news_configuration_open = True
         self._news_history = None
+        self._guidance_history = None
+        self.guidance_support = []
         self._news_columns = {}
         self.news_feature_support = None
         self.peer_features = None
@@ -173,21 +175,53 @@ class LightGBMDemo:
         )
         return deepcopy(self.news_feature_support)
 
+    def configure_guidance(self, history):
+        if self._has_predicted or self._guidance_history is not None or self._news_history is None:
+            raise ValueError("Guidance must be configured once after news and before prediction")
+        self._guidance_history = deepcopy(history)
+        indices = np.concatenate((self.train, self.origins))
+        for days in (7, 30):
+            recipe = {"op": "guidance_direction", "window_days": days}
+            values, evidence = self._news_column(recipe)
+            reasons = sorted({reason for i in indices for reason in evidence[i]["reasons"]})
+            definition = {
+                "factor_id": f"news.guidance_direction_{days}",
+                "kind": "news",
+                "input_kind": "retained_issuer_guidance",
+                "recipe": recipe,
+                "description": "Latest explicit issuer guidance: raised +1, lowered -1, "
+                "reaffirmed 0; no statement in the inspected window also 0. "
+                "Not a stock-return forecast. Missing extraction is unavailable.",
+                "runnable": bool(np.isfinite(values[indices]).all()),
+                "reasons": reasons,
+            }
+            self.guidance_support.append(definition)
+        self.library["definitions"].extend(deepcopy(self.guidance_support))
+        self.library["execution_note"] += (
+            " Guidance-direction definitions marked runnable use source-bound extractions "
+            "on the same frozen rows; they can be selected or omitted each round."
+        )
+
     def _news_column(self, recipe):
         key = canonical(recipe)
         if key not in self._news_columns:
+            guidance = recipe.get("op") == "guidance_direction"
+            history = self._guidance_history if guidance else self._news_history
+            if history is None:
+                raise ValueError("News feature history is not configured")
             evidence = [
-                deepcopy(self._news_history.evaluate(recipe, self._news_symbol, cutoff))
+                deepcopy(history.evaluate(recipe, self._news_symbol, cutoff))
                 for cutoff in self._news_cutoffs
             ]
             values = np.array(
                 [np.nan if item["value"] is None else float(item["value"]) for item in evidence]
             )
             if any(
-                item["value"] is not None and (not np.isfinite(value) or value < 0)
+                item["value"] is not None
+                and (not np.isfinite(value) or (value not in {-1, 0, 1} if guidance else value < 0))
                 for item, value in zip(evidence, values, strict=True)
             ):
-                raise ValueError("News executor returned an invalid count")
+                raise ValueError("News executor returned an invalid numeric feature")
             self._news_columns[key] = values, evidence
         return self._news_columns[key]
 
@@ -266,6 +300,8 @@ class LightGBMDemo:
             )
         if self.peer_features is not None:
             result["related_price_support"] = deepcopy(self.peer_features["support"])
+        if self._guidance_history is not None:
+            result["guidance_feature_support"] = deepcopy(self.guidance_support)
         if self.profile_features is not None:
             result["factor_profile"] = deepcopy(self.library["profile_resolution"])
         return result
@@ -282,8 +318,19 @@ class LightGBMDemo:
                 "LightGBM demo accepts only selected numeric or supported news factors"
             )
         news_factors = [item for item in factors if item["kind"] == "news"]
-        if news_factors and not (self.news_feature_support or {}).get("runnable"):
+        headline_factors = [
+            f for f in news_factors if f["recipe"].get("op") != "guidance_direction"
+        ]
+        if headline_factors and not (self.news_feature_support or {}).get("runnable"):
             raise ValueError("News factor execution is unavailable for this study")
+        for factor in news_factors:
+            if factor["recipe"].get("op") == "guidance_direction" and not any(
+                d["runnable"]
+                and d["factor_id"] == factor["factor_id"]
+                and d["recipe"] == factor["recipe"]
+                for d in self.guidance_support
+            ):
+                raise ValueError("Guidance factor lacks its exact usable retained recipe")
         columns, news_inputs, news_evidence = [], [], {}
         bound = {
             item["factor_id"]: item for item in (self.profile_features or {}).get("definitions", [])
@@ -492,7 +539,29 @@ class LightGBMDemo:
                     "relationship_status": peer["relationship_status"],
                 }
             )
-        news_ids = [item["factor_id"] for item in factors if item["kind"] == "news"]
+        guidance_ids = [
+            item["factor_id"]
+            for item in factors
+            if item.get("recipe", {}).get("op") == "guidance_direction"
+        ]
+        if self._guidance_history is not None:
+            usage.append(
+                {
+                    "source": "issuer_guidance",
+                    "factor_ids": guidance_ids,
+                    "status": "used"
+                    if guidance_ids
+                    else "not_selected"
+                    if any(d["runnable"] for d in self.guidance_support)
+                    else "unavailable",
+                    "reason": "source_bound_extraction_on_fixed_sample",
+                }
+            )
+        news_ids = [
+            item["factor_id"]
+            for item in factors
+            if item["kind"] == "news" and item["factor_id"] not in guidance_ids
+        ]
         support = self.news_feature_support or {}
         usage.append(
             {

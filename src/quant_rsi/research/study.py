@@ -27,6 +27,14 @@ from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.study_estimators import model_configuration
 from quant_rsi.research.study_factor_profiles import load_study_catalog
+from quant_rsi.research.study_guidance import (
+    NOTICE as GUIDANCE_NOTICE,
+)
+from quant_rsi.research.study_guidance import (
+    GuidanceHistory,
+    collect_guidance,
+    extract_guidance,
+)
 from quant_rsi.research.study_history import (
     collection_snapshot,
     history_view,
@@ -245,7 +253,7 @@ def _run(args, symbol, root, configuration, record, progress):
         retain_snapshot(archive, current_news)
         snapshots = load_archive(archive)
     elif args.prices == "synthetic" and not snapshots:
-        snapshots = simulated_history(model.data, symbol)
+        snapshots = simulated_history(model.data, symbol, guidance=args.news_research)
     history = NewsHistory(snapshots)
     cutoffs = (
         model.price_info["session_close_times"]
@@ -271,12 +279,53 @@ def _run(args, symbol, root, configuration, record, progress):
     )
     progress.finish("collect_news_context", {"related": related, "news": current_news})
     prelude = []
+    guidance_summary = None
     if args.news_research:
 
         def record_research(event):
             prelude.append(event)
             record(event)
 
+        progress.start("extract_guidance")
+        if snapshots and all(s["provider"] == "simulated_news_archive" for s in snapshots):
+            guidance_records = [
+                extract_guidance(s, symbol, None, extracted_at=s["received_at"]) for s in snapshots
+            ]
+            guidance_status = "simulated_historical_extractions"
+        elif args.llm != "simulated" and args.news == "issuer-rss":
+
+            def mark_guidance_request():
+                progress.stages[-1]["llm_request"] = True
+
+            guidance_records, _ = collect_guidance(
+                archive.with_name(archive.name + "_guidance"),
+                current_news,
+                symbol,
+                hypothesis,
+                on_extract=mark_guidance_request,
+            )
+            guidance_status = "retained_real_extractions"
+        else:
+            guidance_records = []
+            guidance_status = "unavailable_real_extractor_or_issuer_source"
+        model.configure_guidance(GuidanceHistory(snapshots, guidance_records))
+        _write(root / "guidance_extractions.json", guidance_records)
+        latest = max(guidance_records, key=lambda r: r["extracted_at"], default=None)
+        guidance_summary = {
+            "status": guidance_status,
+            "record_count": len(guidance_records),
+            "notice": GUIDANCE_NOTICE,
+            "definitions": deepcopy(model.guidance_support),
+            "latest_extraction": {
+                key: latest[key]
+                for key in ("provider", "extracted_at", "facts", "llm_mode", "requested_model")
+            }
+            | {"items": [item for item in latest["snapshot"]["items"] if item["symbol"] == symbol]}
+            if latest
+            else None,
+            "evidence_file": "guidance_extractions.json",
+        }
+        record_research({"stage": "extract_guidance", "output": guidance_summary})
         discovery = research_news(
             symbol,
             related,
@@ -333,6 +382,7 @@ def _run(args, symbol, root, configuration, record, progress):
     def context(target):
         return model.context(target) | {
             "prior_outcomes": prior_outcomes,
+            "guidance": guidance_summary,
             "allow_factor_proposals": True,
             "selection_policy": {
                 "metric": args.selection_metric,
@@ -512,13 +562,14 @@ def _run(args, symbol, root, configuration, record, progress):
     news_definitions = [
         item
         for item in steps[f"{final_prefix}_factor_library"]["definitions"]
-        if item["kind"] == "news"
+        if item["kind"] == "news" and item["recipe"]["op"] == "headline_keyword_count"
     ]
     news_used = any(
         item["kind"] == "news" for key in steps if key.endswith("_factors") for item in steps[key]
     )
     result["study"] = {
         "engine": f"local_{args.model}_and_existing_finite_account",
+        "guidance": guidance_summary,
         "factor_profile": deepcopy(model.profile_features["definitions"])
         if model.profile_features is not None
         else [],
@@ -531,8 +582,8 @@ def _run(args, symbol, root, configuration, record, progress):
             "See selection and round decisions; definitions remain in the trace.",
         },
         "news_use": (
-            "Selected retained-headline counts entered the fitted feature matrix. "
-            "Counts cover the selected RSS corpus, not all issuer news; no sentiment is inferred."
+            "Selected issuer-news features entered the fitted feature matrix. "
+            "Features cover the selected RSS corpus, not all issuer news; no sentiment is inferred."
             if news_used
             else "News informed hypotheses and recipe proposals only; no news column was fitted."
         ),

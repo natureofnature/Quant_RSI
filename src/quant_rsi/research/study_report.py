@@ -401,6 +401,33 @@ def render_study(result):
                 for item in prediction["input_usage"]
             ],
         )
+    guidance = result["study"].get("guidance")
+    if guidance:
+        section("Issuer guidance business factors", guidance["notice"] + " " + guidance["status"])
+        extraction = guidance["latest_extraction"] or {}
+        table(
+            ["News ID", "Classification", "Source quote", "Extraction completed"],
+            [
+                [f["news_id"], f["status"], f["quote"], extraction.get("extracted_at")]
+                for f in extraction.get("facts", [])
+            ],
+        )
+        table(
+            ["Factor", "Days", "State", "Reason"],
+            [
+                [
+                    d["factor_id"],
+                    d["recipe"]["window_days"],
+                    "eligible" if d["runnable"] else "pending",
+                    ", ".join(d["reasons"]),
+                ]
+                for d in guidance["definitions"]
+            ],
+        )
+        md.extend(["[Guidance source and extraction evidence](guidance_extractions.json)", ""])
+        html.append(
+            "<p><a href='guidance_extractions.json'>Guidance source and extraction evidence</a></p>"
+        )
     news_factors = result["study"].get("news_factors")
     if news_factors:
         support = news_factors["support"]
@@ -451,7 +478,7 @@ def render_study(result):
                 [
                     "Round",
                     "Executed factor",
-                    "Count at final origin",
+                    "Feature value at final origin",
                     "Snapshot receipt",
                     "Evidence",
                 ],

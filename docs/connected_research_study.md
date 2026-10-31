@@ -433,6 +433,63 @@ content and preserves each source's original `received_at`. Limits are 256 files
 authenticated timestamps. The run also saves its original snapshot bundle in
 `news_history.json`; no additional ledger is created.
 
+### Issuer guidance as an executable business factor
+
+`--news-research` also makes one bounded structured extraction call over the selected
+target issuer's RSS titles and summaries. Each item receives a classification:
+`raised`, `lowered`, `reaffirmed`, `not_guidance`, or `ambiguous`, with an exact
+source quote. This is an LLM interpretation of the supplied text, not independent
+verification of the statement. Analyst targets and past earnings growth are not
+management guidance. Full-page search results remain hypothesis context in this slice.
+
+Two run-local catalog factors, `news.guidance_direction_7` and
+`news.guidance_direction_30`, encode the latest explicit guidance statement within
+7 or 30 calendar days: +1 raised, -1 lowered, 0 reaffirmed. A fully inspected selected
+corpus with no explicit statement in the window also yields zero; the evidence
+distinguishes these cases. The sign is a business fact representation, not a stock
+return forecast. Conflicting simultaneous directions or ambiguous statements are
+unavailable. The LLM can select either eligible window or remove the factor in a
+later round, using the same existing selection and fitting path.
+
+The feature requires a fresh issuer snapshot, precise publication times, and an
+extraction completed by each historical session close. It must cover **every already
+frozen training and development row**; it does not drop rows to make a feature usable
+and does not inspect terminal outcomes to decide eligibility. New extractions made
+today cannot fill yesterday's missing feature. A first real run will normally show
+these factors as pending while price research continues.
+
+`guidance_extractions.json` preserves the source snapshots, classifications, quotes,
+provider and completion clocks. The UI news node shows the extraction and its sources;
+the report shows eligibility and executed feature values. Real extraction records
+are also retained in a sibling `<news-archive-name>_guidance` directory, with the same
+file/byte bounds as news snapshots. Reusing identical input preserves its original
+extraction time and avoids an extra LLM call. `--history-dir` therefore shares both
+archives across runs. The archive is local evidence, not an authenticated publication
+service, and prior completed studies are not rewritten.
+
+For the complete extraction → numeric feature → fit → feedback → deactivation path:
+
+```bash
+quant-rsi research-study KO --news-research --llm simulated --news simulated \
+  --related simulated --prices synthetic --no-ui --output /tmp/ko-guidance-offline
+```
+
+This fixture explicitly invents historical issuer statements and extraction clocks.
+It performs real model fits and verifies engineering wiring; it supplies no evidence
+of historical availability or prediction quality. Real sources with a simulated LLM
+do not manufacture guidance extractions and remain unavailable.
+
+A 2026-10-31 real Codex/issuer RSS/public-price acceptance run completed seven LLM
+calls, two searches and two fits in about 197 seconds. It classified the retained
+KO release's "Raises Full Year Guidance" text as `raised` and the other four selected
+items as `not_guidance`. Both guidance windows correctly stayed pending because
+their extraction occurred after the historical research cutoffs. The complete
+synthetic example fitted guidance values {-1, 0, +1}, then removed that factor on
+revision. These are separate extraction and engineering checks, not evidence that
+real guidance features improved predictions.
+
+### Headline-count recipes
+
 The LLM can propose one or two news recipes with `name`, `keywords`, `window_days`
 and `description`, identified as `news.<name>_<window_days>`. Each counts distinct
 target-issuer headline IDs matching any of up to five case-insensitive literal

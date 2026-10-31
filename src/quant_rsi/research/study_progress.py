@@ -56,7 +56,7 @@ class StudyProgress:
             "llm_requests": lambda name: (
                 self.llm_mode != "simulated"
                 and (
-                    name in {"initial_hypothesis", "revised_hypothesis"}
+                    name in {"initial_hypothesis", "revised_hypothesis", "extract_guidance"}
                     or (name.startswith("round_") and name.endswith("_hypothesis"))
                     or name.startswith(("news_search_", "news_review_"))
                 )
@@ -68,7 +68,12 @@ class StudyProgress:
             ),
         }
         for group, matches in groups.items():
-            selected = [item for item in stages if matches(item["stage"])]
+            selected = [
+                item
+                for item in stages
+                if matches(item["stage"])
+                and (item["stage"] != "extract_guidance" or item.get("llm_request"))
+            ]
             counts[group + "_started"] = len(selected)
             counts[group + "_completed"] = sum(item["status"] == "completed" for item in selected)
         totals = {}
