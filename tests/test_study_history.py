@@ -111,6 +111,17 @@ def test_two_complete_studies_pass_mature_outcomes_to_next_hypothesis(tmp_path, 
     assert [e["status"] for e in current] == ["settled", "pending"]
     assert "Forecast history and later observations" in (second / "report.html").read_text()
     assert json.loads((second / "prior_outcomes.json").read_text())["entries"] == prior
+    frozen_history = contexts[2]["prior_outcomes"]["history"]["entries"]
+    assert len(frozen_history) == 1 and frozen_history[0]["status"] == "settled"
+    view = next(e["view"] for e in read_state(second)["events"] if e["stage"] == "summary")
+    assert view["continuity"]["entries"][0]["provided_as_feedback"]
+    assert (
+        view["continuity"]["selected_factor_ids"]
+        == json.loads((second / "result.json").read_text())["study"]["selection"][
+            "selected_factor_ids"
+        ]
+    )
+    assert "Continuing the previous research" in (second / "report.html").read_text()
 
 
 def test_registration_confirmation_clock_and_selected_model_are_frozen(tmp_path, monkeypatch):

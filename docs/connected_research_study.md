@@ -161,6 +161,13 @@ Node outputs use visual views rather than a raw JSON wall:
 - Company context shows a relationship diagram; discovered suggestions stay marked unverified.
 - News cards show sources, publication/receipt times and evidence IDs. Hypotheses link to
   retained evidence; no confidence scores or relationship weights are invented.
+- Failed reads show the reason and final requested URL; application-triggered recovery
+  queries are distinguished from LLM-proposed follow-ups.
+- Prediction and conclusion views trace news citations → hypothesis → fitted inputs.
+  Each round lists actual fitted columns separately from unselected or unavailable news
+  definitions, with coverage reasons. This is provenance, not feature attribution or a
+  measured causal news effect. Rejected trials remain visible; only the selected model
+  supplies the latest forecast.
 - Factor cards show executable recipes. Revision views distinguish additions, removals,
   parameter changes and recipe replacements with different IDs.
 - Prediction charts compare observed prices, both attempts and the unchanged-price baseline,
@@ -250,6 +257,14 @@ The existing UI adds a forecast-history table. Opening it again reads current hi
 and each study report remain snapshots. The table shows the latest 50 entries for the
 symbol; at most 20 mature outcomes from that view enter the LLM context. All receipts
 and corrections remain in the journal. Without `--history-dir`, studies stay isolated.
+
+The **Continuing the previous research** view uses the history snapshot retained in
+`prior_outcomes.json` and the target trace at this run's start. It shows which settled
+outcomes were supplied to the LLM, pending targets without invented errors, and changes
+between the previous run's selected factors and this run's selected factors. The LLM
+is asked to explain how mature outcomes motivate its hypothesis; supplying feedback
+does not prove it used that feedback. This frozen explanation stays separate from the
+live history table, which may receive new observations after the run completes.
 
 With shared history, issuer RSS snapshots default to
 `HISTORY/news_archive/real/SYMBOL`; synthetic-price history uses a separate `simulated`
@@ -400,8 +415,12 @@ See official [Codex web search](https://learn.chatgpt.com/docs/web-search) and
 The prelude makes one discovery request: the LLM chooses a focused query and
 returns up to three source URLs. The application reads those public pages, then
 asks the LLM to review the extracted text, cite article IDs and suggest related
-listed companies. It may request one follow-up search; the second review cannot
-extend the loop. There are at most two search requests and six page-read attempts.
+listed companies. It may request one follow-up search. If it declines but the first
+search has no readable results or a failed read, the application uses that same
+follow-up allowance to search for accessible official HTML coverage of the missing
+story. It preserves the LLM's null response and records the recovery query separately.
+The second review cannot extend the loop. There are at most two search requests and
+six page-read attempts; recovery is not a guarantee that a replacement will be readable.
 The prompts request one native search per request; Codex controls internal tool
 calls, so this is not an exact provider-call or billing budget. API searches also
 set `max_tool_calls=2`. The actual search-tool metadata is retained; a response
@@ -420,13 +439,18 @@ tools disabled; shell, apps and multi-agent tools remain disabled for all Codex
 calls. Web pages and search results are treated as untrusted input data.
 
 The reader accepts public HTTP(S) HTML/text pages, validates and pins public DNS
-addresses, and revalidates every redirect. Each page is limited to 1 MiB with up
+addresses, and revalidates every redirect. Gzip responses are supported, with separate
+1 MiB limits on received and decompressed bytes; the hash identifies received bytes.
+Each page is limited to 1 MiB with up
 to three redirects and a 15-second socket-operation timeout. The reader strips
 navigation/scripts and prefers article/main content, saving at most 16,000 text
 characters; LLM context uses at most 8,000 per page. It does not execute JavaScript
 or bypass paywalls, and does not assert that extracted text is the complete article.
 Failures, truncation, hashes and actual receipt times remain visible. Publication
 times are left unknown rather than inferred from search snippets or model memory.
+Failed redirects retain the last validated requested URL so a denying destination
+host can guide recovery. PDF and JavaScript-only sources remain unsupported; searches
+prefer issuer/primary HTML or plain-text sources instead of adding a browser scraper.
 
 Search summaries and tool actions are kept separately from independently retrieved
 page text. Findings and related-company suggestions must cite successfully read

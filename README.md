@@ -31,9 +31,12 @@ companies with source citations, use the same entry point:
 quant-rsi research-study KO --news-research --output /tmp/ko-active-study
 ```
 
-This adds at most one follow-up search request before the two model fits. The report
-connects retrieved article IDs to findings, company suggestions and factor choices.
-Current articles guide hypotheses; they are never backdated into historical features.
+This adds at most one follow-up search request before the two model fits. Missing
+readable sources trigger that recovery request even if the LLM proposes no follow-up;
+failures and recovery queries stay visible. The UI and report connect cited news to
+each hypothesis and distinguish **fitted**, **not selected**, and **unavailable** factors.
+Citations explain the research rationale, not the size of a source's effect on prediction.
+Current articles are never backdated into historical features.
 
 XOM also has a complete study configuration, using its official issuer RSS and
 a dated CVX business relationship. Run the same flow with
@@ -60,6 +63,9 @@ to the LLM, while sharing the retained news archive. The UI shows pending and ob
 forecasts with price error, costed return and Sharpe. Use `research-history observe`
 to update outcomes without another fit; see [continuous research](docs/connected_research_study.md#continue-research-across-market-days).
 Late forecasts remain non-prospective, and account results are hypothetical.
+The research view also freezes the history seen at the start of that run, marks which
+mature outcomes were supplied as feedback, and compares the previous selected factor
+set with this run's selected model. Pending outcomes remain unknown.
 
 The study adopts a revision only when its **development MAE strictly improves**;
 otherwise it retains the incumbent for the latest forecast. To choose strategy

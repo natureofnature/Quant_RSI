@@ -169,3 +169,35 @@ def test_start_hook_reports_failing_operation_without_a_completed_event():
         ("complete", "news_search_1"),
         ("start", "article_reads_1"),
     ]
+
+
+@pytest.mark.parametrize("initial", [[], ["https://denied.example/story"]])
+def test_missing_sources_trigger_bounded_recovery_when_llm_declines_followup(initial):
+    fixture = SearchFixture([initial, ["https://primary.example/release"]])
+    fixture.structured = lambda *_: json.dumps(
+        {"findings": [], "related_companies": [], "followup_query": None}
+    )
+    events = []
+    result = research_news(
+        "KO",
+        {},
+        fixture,
+        reader=lambda url: article(url, "http_403" if "denied" in url else None),
+        on_stage=events.append,
+    )
+    assert len(result["searches"]) == 2
+    assert result["searches"][1]["query_origin"] == "unavailable_source_recovery"
+    assert result["articles"][-1]["status"] == "available"
+    review = next(e["output"] for e in events if e["stage"] == "news_review_1")
+    assert review["followup_query"] is None  # Preserve what the LLM actually requested.
+    assert fixture.search_inputs[1]["followup_query"] == review["recovery_query"]
+    assert len(result["articles"]) <= 6
+
+
+def test_readable_sources_do_not_trigger_unrequested_second_search():
+    fixture = SearchFixture([["https://primary.example/release"]])
+    fixture.structured = lambda *_: json.dumps(
+        {"findings": [], "related_companies": [], "followup_query": None}
+    )
+    result = research_news("KO", {}, fixture, reader=article, on_stage=lambda _: None)
+    assert len(result["searches"]) == 1

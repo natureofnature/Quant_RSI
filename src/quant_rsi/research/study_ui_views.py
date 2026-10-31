@@ -3,6 +3,8 @@
 import math
 import re
 
+from quant_rsi.research.study_explanation import continuity, evidence_path, explain_prediction
+
 
 def _pick(value, *keys):
     return {key: value.get(key) for key in keys}
@@ -24,6 +26,9 @@ def _news(items):
                 "published_date",
                 "received_at",
                 "status",
+                "reason",
+                "final_url",
+                "fetch_attempted",
                 "content_extent",
                 "symbol",
             ),
@@ -66,6 +71,7 @@ def _factors(items):
             "recipe",
             "runnable",
             "availability_reason",
+            "reasons",
             "definition_id",
             "definition_scope",
             "definition_owner",
@@ -209,6 +215,8 @@ def visual_output(stage, output, previous, symbol):
                 )
         return {"kind": "engine_comparison", "rows": rows, "note": output["notice"]}
     if stage == "observe_prior_forecasts":
+        if "prior_outcomes" in output:
+            return {"kind": "continuity", **continuity(output["prior_outcomes"])}
         return {
             "kind": "facts",
             "facts": {key: value for key, value in output.items() if key != "notice"},
@@ -234,6 +242,8 @@ def visual_output(stage, output, previous, symbol):
         )
         previous["initial_factors"] = previous.get(f"{prefix}_factors", [])
         previous["revised_hypothesis"] = previous.get(f"round_{number}_hypothesis", {})
+        previous["revised_factors"] = previous.get(f"round_{number}_factors", [])
+        previous["revised_factor_library"] = previous.get(f"round_{number}_factor_library", {})
         if suffix == "feedback":
             previous["first_prediction"] = previous.get(prediction_stage, {})
         mapped = {"prediction": "second_prediction", "feedback": "feedback"}.get(
@@ -286,6 +296,7 @@ def visual_output(stage, output, previous, symbol):
             "count": len(items),
             "query": output.get("query") if isinstance(output, dict) else None,
             "note": output.get("rationale") if isinstance(output, dict) else None,
+            "query_origin": output.get("query_origin") if isinstance(output, dict) else None,
         }
     if stage.startswith("news_review_"):
         return {
@@ -299,6 +310,8 @@ def visual_output(stage, output, previous, symbol):
             ],
             "related": output.get("related_companies", []),
             "followup": output.get("followup_query"),
+            "recovery_query": output.get("recovery_query"),
+            "recovery_reason": output.get("recovery_reason"),
         }
     if stage in {"initial_hypothesis", "revised_hypothesis"}:
         return {
@@ -330,6 +343,7 @@ def visual_output(stage, output, previous, symbol):
         }
     if stage in {"first_prediction", "second_prediction"}:
         initial = previous.get("first_prediction") if stage == "second_prediction" else None
+        prefix = "revised" if stage == "second_prediction" else "initial"
         development = output.get("development", {})
         return {
             "kind": "prediction",
@@ -344,6 +358,13 @@ def visual_output(stage, output, previous, symbol):
             "horizon": output.get("horizon_sessions"),
             "note": development.get("evaluation_note"),
             "input_usage": output.get("input_usage", []),
+            "evidence_path": explain_prediction(
+                output,
+                previous.get(f"{prefix}_hypothesis", {}),
+                previous.get(f"{prefix}_factors", []),
+                previous.get(f"{prefix}_factor_library", previous.get("factor_library", {})),
+                previous.get("news", {}),
+            ),
         }
     if stage == "feedback":
         rows = prediction_rows(previous.get("first_prediction", {}))
@@ -371,6 +392,11 @@ def visual_output(stage, output, previous, symbol):
             "nav": nav,
             "rounds": output.get("research_rounds", []),
             "stop_reason": output.get("stop_reason"),
+            "evidence_paths": evidence_path(previous),
+            "continuity": continuity(
+                previous.get("target", {}).get("prior_outcomes"),
+                (output.get("selection") or {}).get("selected_factor_ids"),
+            ),
             "terminal": _terminal_view(previous["terminal_evaluation"])
             if "terminal_evaluation" in previous
             else None,
