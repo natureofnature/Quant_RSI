@@ -34,7 +34,9 @@ class LightGBMDemo:
         news_symbol=None,
         estimator="lightgbm",
         ridge_alpha=None,
+        fit_cache=None,
     ):
+        self.fit_cache = fit_cache
         self.model_configuration = model_configuration(estimator, ridge_alpha)
         self.estimator = estimator
         self.model_label = "LightGBM" if estimator == "lightgbm" else "Ridge"
@@ -402,15 +404,49 @@ class LightGBMDemo:
             raise ValueError("Non-finite numerical training inputs")
         if not np.isfinite(matrix[self.origins]).all():
             raise ValueError("Non-finite numerical evaluation inputs")
-        if self.estimator == "ridge":
-            model = StandardizedRidge(x, y, self.model_configuration["parameters"]["alpha"])
-            predict = model.predict
-        else:
-            model = lgb.train(
+
+        def fit():
+            if self.estimator == "ridge":
+                return StandardizedRidge(x, y, self.model_configuration["parameters"]["alpha"])
+            return lgb.train(
                 MODEL_PARAMETERS | {"seed": 7},
                 lgb.Dataset(x, label=y),
                 num_boost_round=BOOST_ROUNDS,
             )
+
+        model = None
+
+        def fit_state():
+            nonlocal model
+            model = fit()
+            return (
+                model.state()
+                if self.estimator == "ridge"
+                else {"model_string": model.model_to_string()}
+            )
+
+        if self.fit_cache:
+            state = self.fit_cache.call(
+                f"fit_{len(self._fits) + 1}",
+                {
+                    "x": x.tolist(),
+                    "y": y.tolist(),
+                    "configuration": self.model_configuration,
+                    "factors": factors,
+                },
+                fit_state,
+            )
+            if model is None:
+                model = (
+                    StandardizedRidge.from_state(state)
+                    if self.estimator == "ridge"
+                    else lgb.Booster(model_str=state["model_string"])
+                )
+        else:
+            model = fit()
+        if self.estimator == "ridge":
+            predict = model.predict
+        else:
 
             def predict(rows):
                 return model.predict(rows, num_threads=1)

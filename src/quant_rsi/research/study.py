@@ -51,6 +51,7 @@ from quant_rsi.research.study_news import (
 )
 from quant_rsi.research.study_peers import prepare_related_prices
 from quant_rsi.research.study_progress import StudyProgress
+from quant_rsi.research.study_resume import StudyCache, run_lock
 from quant_rsi.research.study_selection import select_attempt
 
 
@@ -91,8 +92,15 @@ def terminal_summary(terminal):
     return summary
 
 
-def run_study(args):
-    """Keep a completed stage log even when a later provider fails; never overwrite a run."""
+def run_study(args, *, resume=False):
+    symbol, root, configuration = _configuration(args)
+    if not resume:
+        root.mkdir(parents=True, exist_ok=False)
+    with run_lock(root):
+        return _run_study(args, symbol, root, configuration, resume=resume)
+
+
+def _configuration(args):
     symbol = TypeAdapter(InstrumentId).validate_python(args.symbol.strip().upper())
     estimator_configuration = model_configuration(args.model, args.ridge_alpha)
     compare_external = getattr(args, "compare_qlib", False)
@@ -120,9 +128,9 @@ def run_study(args):
             raise ValueError("Keep shared study history outside the checkout and run directory")
     if args.related_prices_dir and args.related_prices_dir.resolve().is_relative_to(checkout):
         raise ValueError("Keep related price collections outside the source checkout")
-    root.mkdir(parents=True, exist_ok=False)
     configuration = {
-        key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()
+        key: str(value.resolve()) if isinstance(value, Path) else value
+        for key, value in vars(args).items()
     }
     configuration.update(
         symbol=symbol,
@@ -132,9 +140,16 @@ def run_study(args):
         comparison_fit_budget=int(compare_external),
         generated_recipes="bounded_price_operators_and_retained_headline_counts",
     )
-    _write(root / "config.json", configuration)
+    return symbol, root, configuration
+
+
+def _run_study(args, symbol, root, configuration, *, resume=False):
+    cache = StudyCache(root, configuration, resume=resume)
+    if not resume:
+        _write(root / "config.json", configuration)
     last_stage = "initialization"
-    progress = StudyProgress(root, args.llm, quiet=args.quiet)
+    progress = StudyProgress(root, args.llm, quiet=args.quiet, previous_attempts=cache.previous)
+    cache.progress = progress
     if getattr(args, "ui", False):
         from quant_rsi.research.study_ui import start_view
 
@@ -148,7 +163,7 @@ def run_study(args):
         last_stage = event["stage"]
 
     try:
-        return _run(args, symbol, root, configuration, record, progress)
+        return _run(args, symbol, root, configuration, record, progress, cache)
     except (Exception, KeyboardInterrupt) as exc:
         runtime = progress.fail()
         _write(
@@ -159,7 +174,8 @@ def run_study(args):
                 "error_type": type(exc).__name__,
                 "error": str(exc),
                 "runtime": runtime,
-                "note": "Completed trace stages are retained. This directory is not resumable.",
+                "note": "Completed operations are retained. "
+                "Resume with quant-rsi research-resume PATH.",
             },
         )
         raise
@@ -173,7 +189,10 @@ def run_study(args):
                 print(f"[quant-rsi] Could not save live.html: {exc}", file=sys.stderr)
 
 
-def _run(args, symbol, root, configuration, record, progress):
+def _run(args, symbol, root, configuration, record, progress, cache):
+    if (cache.root / "final_result.json").exists():
+        packet = cache.call("final_result", symbol, lambda: None)
+        return _finish_study(args, symbol, root, packet["result"], packet["prices"], progress)
     # Validate provider options before collection or fitting; no silent fallback.
     hypothesis = (
         simulated_hypothesis
@@ -196,11 +215,42 @@ def _run(args, symbol, root, configuration, record, progress):
         if definition["factor_id"] not in {x["factor_id"] for x in library["definitions"]}:
             library["definitions"].append(definition)
     progress.start("load_prices")
+
+    def collect_target():
+        directory = args.prices_dir or root / "prices"
+        if (
+            args.prices_dir is None
+            and directory.exists()
+            and any(directory.iterdir())
+            and (
+                not (directory / "collection_receipt.json").exists()
+                or json.loads((directory / "collection_receipt.json").read_bytes()).get("status")
+                == "failed"
+            )
+        ):
+            # Keep partial collection evidence; retry transport into a fresh directory.
+            from uuid import uuid4
+
+            directory = root / "price_retries" / uuid4().hex
+        _, info = load_daily_prices(symbol, directory)
+        return info["collection_directory"]
+
     prices = (
-        load_daily_prices(symbol, args.prices_dir or root / "prices")
+        load_daily_prices(symbol, cache.call("target_collection", symbol, collect_target))
         if args.prices == "daily"
         else None
     )
+    if prices:
+        cache.call(
+            "target_inputs",
+            {
+                "metadata": prices[1],
+                "dates": list(prices[0].dates),
+                "opens": prices[0].opens.tolist(),
+                "closes": prices[0].closes.tolist(),
+            },
+            lambda: True,
+        )
     model = LightGBMDemo(
         library,
         prices=prices,
@@ -208,6 +258,7 @@ def _run(args, symbol, root, configuration, record, progress):
         terminal_sessions=args.terminal_sessions,
         estimator=args.model,
         ridge_alpha=args.ridge_alpha,
+        fit_cache=cache,
     )
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
@@ -226,7 +277,9 @@ def _run(args, symbol, root, configuration, record, progress):
         progress.start("observe_prior_forecasts")
         if history_prices:
             observe_prices(args.history_dir, symbol, history_prices)
-        prior_outcomes = mature_feedback(args.history_dir, symbol)
+        prior_outcomes = cache.call(
+            "prior_outcomes", symbol, lambda: mature_feedback(args.history_dir, symbol)
+        )
         _write(root / "prior_outcomes.json", prior_outcomes)
         progress.finish(
             "observe_prior_forecasts",
@@ -238,12 +291,20 @@ def _run(args, symbol, root, configuration, record, progress):
             },
         )
     progress.start("collect_news_context")
-    related = (profile_related if args.related == "profile" else simulated_related)(symbol)
+    related = cache.call(
+        "related",
+        symbol,
+        lambda: (profile_related if args.related == "profile" else simulated_related)(symbol),
+    )
     news_context = {"symbol": symbol, "related": related}
-    current_news = (
-        issuer_news(news_context, limit=args.news_limit)
-        if args.news == "issuer-rss"
-        else simulated_news(news_context)
+    current_news = cache.call(
+        "issuer_news",
+        news_context,
+        lambda: (
+            issuer_news(news_context, limit=args.news_limit)
+            if args.news == "issuer-rss"
+            else simulated_news(news_context)
+        ),
     )
     archive = args.news_archive or (
         args.history_dir
@@ -253,16 +314,21 @@ def _run(args, symbol, root, configuration, record, progress):
         if args.history_dir
         else root / "news_archive"
     )
-    snapshots = load_archive(archive)
-    if args.prices == "daily" and any(
-        snapshot["provider"] != "issuer_rss" for snapshot in snapshots
-    ):
-        raise ValueError("Simulated news history cannot enter a daily-price study")
-    if args.news == "issuer-rss":
-        retain_snapshot(archive, current_news)
+
+    def collect_snapshots():
         snapshots = load_archive(archive)
-    elif args.prices == "synthetic" and not snapshots:
-        snapshots = simulated_history(model.data, symbol, guidance=args.news_research)
+        if args.prices == "daily" and any(
+            snapshot["provider"] != "issuer_rss" for snapshot in snapshots
+        ):
+            raise ValueError("Simulated news history cannot enter a daily-price study")
+        if args.news == "issuer-rss":
+            retain_snapshot(archive, current_news)
+            snapshots = load_archive(archive)
+        elif args.prices == "synthetic" and not snapshots:
+            snapshots = simulated_history(model.data, symbol, guidance=args.news_research)
+        return snapshots
+
+    snapshots = cache.call("news_history", current_news, collect_snapshots)
     history = NewsHistory(snapshots)
     cutoffs = (
         model.price_info["session_close_times"]
@@ -306,12 +372,16 @@ def _run(args, symbol, root, configuration, record, progress):
             def mark_guidance_request():
                 progress.stages[-1]["llm_request"] = True
 
-            guidance_records, _ = collect_guidance(
-                archive.with_name(archive.name + "_guidance"),
+            guidance_records, _ = cache.call(
+                "guidance",
                 current_news,
-                symbol,
-                hypothesis,
-                on_extract=mark_guidance_request,
+                lambda: collect_guidance(
+                    archive.with_name(archive.name + "_guidance"),
+                    current_news,
+                    symbol,
+                    hypothesis,
+                    on_extract=mark_guidance_request,
+                ),
             )
             guidance_status = "retained_real_extractions"
         else:
@@ -341,21 +411,38 @@ def _run(args, symbol, root, configuration, record, progress):
             None if args.llm == "simulated" else hypothesis,
             on_stage=record_research,
             on_start=progress.start,
+            cache=cache,
         )
         _write(root / "news_research.json", discovery)
         current_news, related = attach_research(current_news, related, discovery, symbol)
 
     progress.start("load_related_prices")
-    peers = prepare_related_prices(
-        model.data,
-        cutoffs,
-        list(model.train) + list(model.origins),
-        related,
-        mode=args.prices,
-        directory=args.related_prices_dir or root / "related_prices",
-        enabled=args.related_prices,
-        simulated_suggestions=args.llm == "simulated",
+
+    def collect_peers():
+        value = prepare_related_prices(
+            model.data,
+            cutoffs,
+            list(model.train) + list(model.origins),
+            related,
+            mode=args.prices,
+            directory=args.related_prices_dir or root / "related_prices",
+            enabled=args.related_prices,
+            simulated_suggestions=args.llm == "simulated",
+        )
+        value["columns"] = {
+            key: [float(x) if math.isfinite(x) else None for x in column]
+            for key, column in value["columns"].items()
+        }
+        return value
+
+    peers = cache.call(
+        "peers", {"related": related, "dates": list(model.data.dates)}, collect_peers
     )
+    import numpy as np
+
+    peers["columns"] = {
+        key: np.asarray(column, dtype=float) for key, column in peers["columns"].items()
+    }
     if args.terminal_sessions:
         for support in peers["support"]:
             if "aligned_sessions" in support:
@@ -387,6 +474,17 @@ def _run(args, symbol, root, configuration, record, progress):
         },
     )
     progress.finish("load_related_prices", {"related": related})
+
+    hypothesis_number = 0
+
+    def cached_hypothesis(context, library, **kwargs):
+        nonlocal hypothesis_number
+        hypothesis_number += 1
+        return cache.call(
+            f"hypothesis_{hypothesis_number}",
+            [context, library, kwargs],
+            lambda: hypothesis(context, library, **kwargs),
+        )
 
     def context(target):
         return model.context(target) | {
@@ -506,7 +604,7 @@ def _run(args, symbol, root, configuration, record, progress):
         price_context=context,
         related=lambda target: related,
         news=lambda context: current_news,
-        hypothesize=hypothesis,
+        hypothesize=cached_hypothesis,
         predict=predict,
         observe=observe,
         summarize=summarize,
@@ -638,8 +736,6 @@ def _run(args, symbol, root, configuration, record, progress):
             "has no observed outcome."
         ),
     }
-    from quant_rsi.research.study_report import render_study
-
     if "terminal_evaluation" in result:
         result["study"]["conclusion"] += (
             " " + terminal_summary(result["terminal_evaluation"])["text"]
@@ -649,19 +745,28 @@ def _run(args, symbol, root, configuration, record, progress):
 
         progress.start("qlib_comparison")
         chosen = selection["selected_round"]
-        comparison = compare_qlib(
-            model.comparison_inputs(chosen),
-            model.data,
-            attempts[chosen - 1]["prediction"],
-            result.get("terminal_evaluation"),
-            root / "qlib-comparison",
-            policy={
-                "commission_bps": args.commission_bps,
-                "slippage_bps": args.slippage_bps,
-                "initial_cash": args.initial_cash,
-                "threshold": args.threshold,
-            },
-        )
+
+        def compare():
+            comparison_root = root / "qlib-comparison"
+            if comparison_root.exists():
+                from uuid import uuid4
+
+                comparison_root = root / ("qlib-comparison-retry-" + uuid4().hex)
+            return compare_qlib(
+                model.comparison_inputs(chosen),
+                model.data,
+                attempts[chosen - 1]["prediction"],
+                result.get("terminal_evaluation"),
+                comparison_root,
+                policy={
+                    "commission_bps": args.commission_bps,
+                    "slippage_bps": args.slippage_bps,
+                    "initial_cash": args.initial_cash,
+                    "threshold": args.threshold,
+                },
+            )
+
+        comparison = cache.call("qlib_comparison", model.comparison_inputs(chosen), compare)
         event = {"stage": "qlib_comparison", "output": comparison}
         record(event)
         result["trace"].append(event)
@@ -670,9 +775,21 @@ def _run(args, symbol, root, configuration, record, progress):
         result["study"]["conclusion"] += " Actual Qlib comparison completed; see the engine table."
     # Freeze measured research time for the reports, but do not announce success yet.
     result["runtime"] = progress.snapshot("completed")
+    cache.call("final_result", symbol, lambda: {"result": result, "prices": history_prices})
+    return _finish_study(args, symbol, root, result, history_prices, progress)
+
+
+def _finish_study(args, symbol, root, result, history_prices, progress):
+    from quant_rsi.research.study_report import render_study
+
     if args.history_dir:
         register_study(args.history_dir, root, result, history_prices)
         result["study"]["history"] = history_view(args.history_dir, symbol)
+    if not (root / "trace.jsonl").exists():
+        (root / "trace.jsonl").write_text(
+            "".join(json.dumps(event, allow_nan=False) + "\n" for event in result["trace"]),
+            encoding="utf-8",
+        )
     markdown, html = render_study(result)
     (root / "report.md").write_text(markdown, encoding="utf-8")
     (root / "report.html").write_text(html, encoding="utf-8")

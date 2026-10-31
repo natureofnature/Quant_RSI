@@ -164,9 +164,13 @@ def _review(symbol, related, articles, llm, followup_allowed):
     return result
 
 
-def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None):
+def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None, cache=None):
     """At most two search requests and six page reads; llm=None is explicitly simulated."""
     reader = reader or (read_article if llm else _simulated_read)
+
+    def retained(name, inputs, operation):
+        return cache.call(name, inputs, operation) if cache else operation()
+
     searches, articles = [], []
     query = None
     query_origin = "initial_discovery"
@@ -175,9 +179,17 @@ def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None)
         if on_start:
             on_start(f"news_search_{round_number}")
         search = (
-            _search(symbol, related, llm, query, articles)
+            retained(
+                f"search_{round_number}",
+                [symbol, related, query, articles],
+                lambda query=query: _search(symbol, related, llm, query, articles),
+            )
             if llm
-            else _simulated_search(symbol, query, round_number)
+            else retained(
+                f"search_{round_number}",
+                [symbol, query, round_number],
+                lambda query=query, number=round_number: _simulated_search(symbol, query, number),
+            )
         )
         search["query_origin"] = query_origin
         searches.append(search)
@@ -205,7 +217,11 @@ def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None)
                     "content_extent": "not_read",
                 }
             else:
-                article = reader(result["url"]) | {"fetch_attempted": True}
+                article = retained(
+                    "article_" + hashlib.sha256(result["url"].encode()).hexdigest()[:16],
+                    result["url"],
+                    lambda url=result["url"]: reader(url),
+                ) | {"fetch_attempted": True}
             article.update(
                 id="research-news-" + hashlib.sha256(result["url"].encode()).hexdigest()[:16],
                 title=result["title"],
@@ -218,7 +234,11 @@ def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None)
         if on_start:
             on_start(f"news_review_{round_number}")
         review = (
-            _review(symbol, related, articles, llm, round_number == 1)
+            retained(
+                f"review_{round_number}",
+                [symbol, related, articles, round_number],
+                lambda number=round_number: _review(symbol, related, articles, llm, number == 1),
+            )
             if llm
             else _simulated_review(symbol, articles, round_number)
         )

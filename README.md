@@ -15,6 +15,19 @@ the report; no frontend install is needed. Node outputs include news cards, fact
 interactive prediction/NAV charts and metric tables, with raw JSON available on demand.
 See the [live UI guide](docs/connected_research_study.md#live-research-ui).
 
+To start studies from the browser and return to previous tasks, open the local workbench:
+
+```bash
+quant-rsi research-ui --workspace /tmp/quant-rsi-workbench
+```
+
+Enter a symbol, choose Codex/API or a simulated researcher, and start the study.
+The history list links to the same live graph and results, with **Continue study**
+for failed/interrupted runs. Closing the browser does not stop the worker; reopen
+this command with the same workspace to reconnect. API credentials stay in the
+server environment. See [task operations and recovery](docs/connected_research_study.md#local-workbench-and-recovery).
+
+
 This connects configured company relationships, issuer news, daily prices, two
 Codex hypothesis calls and two real LightGBM fits. Open `/tmp/ko-study/report.html`
 for prediction baselines, initial/revised strategies versus buy-and-hold, costs,
@@ -44,6 +57,14 @@ a dated CVX business relationship. Run the same flow with
 Its local factor combines XOM and CVX returns; the engine and model are shared.
 See the [second-stock example](docs/connected_research_study.md#second-stock-example-xom)
 for coverage and evidence limits.
+
+AAPL provides a Nasdaq example with Apple's official Atom news feed and a dated
+QCOM supplier relationship: `quant-rsi research-study AAPL --news-research --output /tmp/aapl-study`.
+Nasdaq daily prices use Nasdaq's own published holiday/early-close calendar. KO's CCEP
+peer can now use the same price path; MNST is recognized but its current retained window
+contains a split and remains unavailable under the existing corporate-action checks.
+See [Nasdaq coverage](docs/connected_research_study.md#nasdaq-example-aapl).
+
 
 With the [optional Qlib environment](docs/qlib_workflow_comparison.md), add
 `--compare-qlib` to run one actual upstream fit on the selected study's frozen

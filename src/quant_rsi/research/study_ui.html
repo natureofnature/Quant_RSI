@@ -144,6 +144,7 @@ function render(){
  $('completed').textContent=statuses.filter(x=>x==='completed').length;
  const counts=runtime.counts||{},usage=runtime.token_usage||{};$('fits').textContent=`${counts.model_stages_completed||0} / ${state.config.fit_budget??2}`;$('searches').textContent=counts.search_requests_started||0;$('calls').textContent=counts.llm_requests_started||0;
  $('tokens').textContent=usage.input_tokens==null||usage.output_tokens==null?'—':(usage.input_tokens+usage.output_tokens).toLocaleString();$('usage-note').textContent=`Token coverage: ${usage.status||'unavailable'}. Missing usage is unknown, not zero.`;$('provider').textContent=state.config.llm||'—';
+ if(runtime.previous_attempts?.length){const previous=runtime.previous_attempts;$('usage-note').textContent+=` Current attempt only; ${previous.length} earlier attempt(s) retained: ${previous.reduce((n,p)=>n+(p.counts?.model_stages_started||0),0)} model stages, ${previous.reduce((n,p)=>n+(p.counts?.llm_requests_started||0),0)} LLM requests. ${runtime.reused_operations||0} operations reused.`;}
  const failed=runtime.status==='failed';$('notice').hidden=!failed;if(failed)$('notice').textContent=`${state.failure?.error_type||'Research failed'}: ${state.failure?.error||'The run stopped. Completed outputs have been retained.'}`;
  if(runtime.status==='completed'&&state.conclusion){
   $('results').hidden=false;$('conclusion').textContent=state.conclusion;const s=state.selection||{},label=s.metric==='sharpe'?'NET STRATEGY SHARPE':'PRICE MAE';

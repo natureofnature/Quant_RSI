@@ -94,7 +94,12 @@ def _read_source(source, limit):
     if not records:
         raise ValueError("Registered issuer RSS returned no news; demo stopped")
     records.sort(
-        key=lambda item: (item["published_at"] or item["published_date"] or "", item["event_id"]),
+        key=lambda item: (
+            item["published_at"]
+            or item["published_date"]
+            or item["payload"]["item"].get("updated", ""),
+            item["event_id"],
+        ),
         reverse=True,
     )
     items = []

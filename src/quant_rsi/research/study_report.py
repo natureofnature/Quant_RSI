@@ -686,11 +686,40 @@ def render_study(result):
     section(
         "Run time and usage",
         f"Measured wall time: {runtime['total_elapsed_seconds']:.2f} seconds. "
-        "Counts describe this run, including failed attempts. Token counts are only what "
+        "Counts describe the current execution attempt, excluding reused operations. "
+        "Earlier attempts are listed separately. Token counts are only what "
         "the provider reported; missing usage is unknown, not zero. Cached input tokens are "
         "included in input totals. No monetary cost is estimated.",
     )
     table(["Operation count", "Value"], [[key, value] for key, value in runtime["counts"].items()])
+    if runtime.get("previous_attempts"):
+        table(
+            [
+                "Earlier attempt",
+                "Status",
+                "Seconds",
+                "Model stages started",
+                "LLM requests",
+                "Input tokens",
+                "Output tokens",
+            ],
+            [
+                [
+                    index,
+                    previous["status"],
+                    _number(previous["total_elapsed_seconds"]),
+                    previous["counts"].get("model_stages_started", 0),
+                    previous["counts"].get("llm_requests_started", 0),
+                    *[
+                        previous["token_usage"].get(key)
+                        if previous["token_usage"].get(key) is not None
+                        else "not reported"
+                        for key in ("input_tokens", "output_tokens")
+                    ],
+                ]
+                for index, previous in enumerate(runtime["previous_attempts"], 1)
+            ],
+        )
     usage = runtime["token_usage"]
     table(
         ["Usage coverage", "Input tokens", "Cached input tokens", "Output tokens"],

@@ -9,8 +9,9 @@ from quant_rsi.core.artifacts import atomic_write
 
 
 class StudyProgress:
-    def __init__(self, root, llm_mode, quiet=False):
+    def __init__(self, root, llm_mode, quiet=False, previous_attempts=()):
         self.root, self.llm_mode, self.quiet = root, llm_mode, quiet
+        self.previous_attempts = list(previous_attempts)
         self.started = time.monotonic()
         self.ended = None
         self.active = None
@@ -74,6 +75,7 @@ class StudyProgress:
                 item
                 for item in stages
                 if matches(item["stage"])
+                and not item.get("reused_operations")
                 and (item["stage"] != "extract_guidance" or item.get("llm_request"))
             ]
             counts[group + "_started"] = len(selected)
@@ -99,6 +101,8 @@ class StudyProgress:
             "Missing usage is unknown, not zero. No currency cost is inferred.",
         )
         return {
+            "previous_attempts": self.previous_attempts,
+            "reused_operations": sum(len(s.get("reused_operations", [])) for s in stages),
             "status": status,
             "llm_mode": self.llm_mode,
             "total_elapsed_seconds": round(now - self.started, 6),

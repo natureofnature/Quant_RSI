@@ -1,4 +1,4 @@
-"""Bounded public daily-bar collection for explicitly supported NYSE-family USD listings.
+"""Bounded public daily-bar collection for NYSE-family and Nasdaq USD listings.
 
 This is an exploratory source adapter, not a PIT certification or an exchange feed.
 It writes a fresh collection directory and never fits a model or submits an order.
@@ -22,8 +22,15 @@ from quant_rsi.core.artifacts import atomic_write, canonical
 from quant_rsi.market.market_contracts import CSV_FIELDS, DataContract
 
 CALENDAR_URL = "https://www.nyse.com/markets/hours-calendars"
+NASDAQ_CALENDAR_URL = "https://www.nasdaq.com/market-activity/stock-market-holiday-schedule"
 CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/"
-SUPPORTED_EXCHANGES = {"PCX": "NYSE Arca", "NYQ": "NYSE", "ASE": "NYSE American"}
+NASDAQ_EXCHANGES = {"NMS", "NGM", "NCM"}
+SUPPORTED_EXCHANGES = {
+    "PCX": "NYSE Arca",
+    "NYQ": "NYSE",
+    "ASE": "NYSE American",
+    **dict.fromkeys(NASDAQ_EXCHANGES, "Nasdaq"),
+}
 HISTORY_SESSIONS = 120
 CLOSE_BUFFER_SECONDS = 900
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
@@ -200,6 +207,57 @@ def _calendar(body):
     return holidays, early
 
 
+def _nasdaq_calendar(body):
+    """Parse Nasdaq's own published closures and regular equity hours, without NYSE fallback."""
+    page = _CalendarHTML()
+    page.feed(body.decode("utf-8"))
+    hours = [
+        row[1]
+        for table in page.tables
+        for row in table[1:]
+        if len(row) == 2 and row[0] == "The Nasdaq Stock Market" and not row[1].startswith("System")
+    ]
+    if hours != ["9:30 am – 4:00 pm (ET)"]:
+        raise ValueError("Official Nasdaq regular equity hours are absent or have changed")
+    tables = [
+        table for table in page.tables if table and table[0] == ["Holiday", "Date", "Market Status"]
+    ]
+    if len(tables) != 1:
+        raise ValueError("Official Nasdaq holiday table is missing or ambiguous")
+    holidays, early, seen = {}, set(), set()
+    for row in tables[0][1:]:
+        if len(row) != 3:
+            raise ValueError("Incomplete Nasdaq holiday row")
+        day = datetime.strptime(row[1], "%B %d, %Y").date()
+        if day in seen or day.weekday() >= 5:
+            raise ValueError("Duplicate or non-session Nasdaq calendar date")
+        seen.add(day)
+        holidays.setdefault(day.year, set())
+        if row[2] == "Closed":
+            holidays[day.year].add(day)
+        elif row[0] == "Early Close" and row[2] == "1:00 p.m.":
+            early.add(day)
+        else:
+            raise ValueError("Unsupported Nasdaq market status or early-close time")
+    if not holidays or any(
+        len(days) < (9 if date(year, 1, 1).weekday() == 5 else 10)
+        for year, days in holidays.items()
+    ):
+        raise ValueError("Incomplete published Nasdaq holiday year")
+    for year, closures in holidays.items():
+        november = [
+            day
+            for day in closures
+            if day.month == 11 and day.weekday() == 3 and 22 <= day.day <= 28
+        ]
+        expected = {date(year, 7, 3), date(year, 12, 24)}
+        expected.update(day + timedelta(days=1) for day in november)
+        expected = {day for day in expected if day.weekday() < 5 and day not in closures}
+        if not november or not expected <= early:
+            raise ValueError("Incomplete published Nasdaq early-close evidence")
+    return holidays, early
+
+
 def _session(day, holidays, early):
     if day.year not in holidays:
         raise ValueError(f"Official calendar evidence does not cover {day.year}")
@@ -249,8 +307,8 @@ def _chart(body, ticker):
         or meta.get("dataGranularity") != "1d"
     ):
         raise ValueError(
-            "Supported scope is USD NYSE/NYSE Arca/NYSE American EQUITY or ETF daily bars; "
-            "other exchanges, including NASDAQ, require their own verified calendar adapter"
+            "Supported scope is USD NYSE/NYSE Arca/NYSE American/Nasdaq EQUITY or ETF daily bars; "
+            "other exchanges require their own verified calendar adapter"
         )
     timestamps = data.get("timestamp")
     quotes = data.get("indicators", {}).get("quote")
@@ -403,14 +461,17 @@ def collect_daily(ticker, output_dir) -> dict:
         raw = _download(url, raw_path, downloads)
         data, timestamps, quotes = _chart(raw, ticker)
         bars_received_at = datetime.fromisoformat(downloads[-1]["received_at"])
-        calendar_path = output / "nyse_hours_calendar.html"
-        calendar_body = _download(CALENDAR_URL, calendar_path, downloads)
-        holidays, early = _calendar(calendar_body)
+        nasdaq = data["meta"]["exchangeName"] in NASDAQ_EXCHANGES
+        calendar_url = NASDAQ_CALENDAR_URL if nasdaq else CALENDAR_URL
+        calendar_name = "nasdaq" if nasdaq else "nyse"
+        calendar_path = output / f"{calendar_name}_hours_calendar.html"
+        calendar_body = _download(calendar_url, calendar_path, downloads)
+        holidays, early = (_nasdaq_calendar if nasdaq else _calendar)(calendar_body)
         bars, future = _complete_bars(timestamps, quotes, holidays, early, bars_received_at)
         sessions = [bar[0] for bar in bars] + future
         calendar_evidence = {
-            "kind": "ParsedPublishedNYSECalendar",
-            "source_url": CALENDAR_URL,
+            "kind": "ParsedPublishedNasdaqCalendar" if nasdaq else "ParsedPublishedNYSECalendar",
+            "source_url": calendar_url,
             "source_ref": _sha(calendar_body),
             "timezone": "America/New_York",
             "holidays": {
@@ -458,7 +519,9 @@ def collect_daily(ticker, output_dir) -> dict:
                 f"{source_version}"
             ),
             "provider_statement": (
-                "Yahoo daily chart raw quote fields; selected NYSE-family USD listing. "
+                "Yahoo daily chart raw quote fields; selected "
+                + ("Nasdaq" if nasdaq else "NYSE-family")
+                + " USD listing. "
                 "Historical event-time availability and USD/share units are explicit exploration "
                 "assumptions, not provider publication times or PIT certification."
             ),
@@ -466,7 +529,7 @@ def collect_daily(ticker, output_dir) -> dict:
             "price_basis": "raw",
             "frequency": "daily_equities",
             "calendar": {
-                "calendar_id": "nyse_core_" + _sha(json.dumps(sessions).encode())[:20],
+                "calendar_id": calendar_name + "_core_" + _sha(json.dumps(sessions).encode())[:20],
                 "timezone": "America/New_York",
                 "sessions": sessions,
             },
