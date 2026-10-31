@@ -232,8 +232,8 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             from uuid import uuid4
 
             directory = root / "price_retries" / uuid4().hex
-        _, info = load_daily_prices(symbol, directory)
-        return info["collection_directory"]
+        load_daily_prices(symbol, directory)
+        return str(directory.resolve())
 
     prices = (
         load_daily_prices(symbol, cache.call("target_collection", symbol, collect_target))
