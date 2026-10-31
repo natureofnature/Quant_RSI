@@ -57,6 +57,11 @@ const StudyCards = (() => {
     head.append(source || el('span', '', 'Source URL not provided'));
     if (item.status) head.append(badge(item.status, item.status === 'available' ? 'good' : 'caution'));
     card.append(head, el('h3', '', item.title || item.symbol || 'Retained news item'));
+    if (item.reason) card.append(note(`Read result · ${title(item.reason)}${item.fetch_attempted === false ? ' · No request sent' : ''}`));
+    if (item.final_url && item.final_url !== item.url) {
+      const destination = link(item.final_url, 'Final requested URL');
+      if (destination) card.append(destination);
+    }
     if (item.excerpt) card.append(el('p', 'news-excerpt', item.excerpt));
     if (item.excerpt_shortened) card.append(note('Excerpt shortened; full retained text is in the trace artifact.'));
     const times = el('div', 'news-times');
@@ -108,7 +113,37 @@ const StudyCards = (() => {
     if (item.input_factor_ids) card.append(note(`Bound inputs · ${item.input_factor_ids.join(', ')}`));
     if (item.runnable === false) card.append(badge('Not executable in this path', 'caution'));
     if (item.availability_reason) card.append(note(title(item.availability_reason)));
+    if (item.reasons?.length) card.append(note(item.reasons.map(title).join('; ')));
     return card;
+  }
+  function evidencePath(view) {
+    const wrap = el('div', 'evidence-path');
+    wrap.append(el('h3', 'view-section-title', 'News → hypothesis → fitted inputs'));
+    wrap.append(pills([`${view.citations.length} cited sources`, `${view.news_columns_fitted} news columns fitted`]));
+    const rationale = el('details', 'observation-details');
+    rationale.append(el('summary', '', 'Read hypothesis and source citations'));
+    if (view.hypothesis) rationale.append(el('p', 'hypothesis-text', view.hypothesis));
+    if (view.citations.length) rationale.append(table(['Cited source', 'Role'], view.citations.map(c => [link(c.url, c.title) || c.title, 'Hypothesis context'])));
+    wrap.append(rationale);
+    wrap.append(table(['Factor', 'Input', 'Execution', 'Reason'], view.factors.map(f => [f.factor_id, title(f.input_kind), badge(title(f.status), f.status === 'fitted' ? 'good' : 'caution'), title(f.reason)])));
+    const coverage = view.news_coverage || {};
+    if (coverage.original_training_rows !== undefined) wrap.append(note(`Headline history coverage · ${coverage.available_training_rows}/${coverage.original_training_rows} training rows · ${coverage.available_evaluation_rows}/${coverage.original_evaluation_rows} development rows. Coverage is measured before factor selection.`));
+    wrap.append(note(view.notice));
+    return wrap;
+  }
+  function continuity(view) {
+    const wrap = el('div');
+    wrap.append(el('h3', 'view-section-title', 'Continuing the previous research'));
+    wrap.append(pills(Object.entries(view.counts).map(([status, count]) => `${count} ${title(status)}`)));
+    if (!view.entries.length) wrap.append(note('First run in this history. No previous outcome feedback.'));
+    else wrap.append(table(['Target', 'Status / reason', 'Predicted', 'Actual', 'Price error', 'Outcome feedback supplied'], view.entries.map(e => [e.target_session, `${title(e.status)} · ${title(e.reason || '')}`, fmt(e.predicted_price), fmt(e.actual_price), fmt(e.price_error), e.provided_as_feedback ? 'Yes' : 'No'])));
+    if (view.previous_study_id && view.selected_factor_ids !== null) {
+      wrap.append(table(['Selected factors', 'IDs'], [['Previous run', view.previous_factor_ids.join(', ')], ['This run', view.selected_factor_ids.join(', ')]]));
+      wrap.append(pills([...view.added.map(f => `+ ${f}`), ...view.removed.map(f => `− ${f}`)]));
+      if (!view.added.length && !view.removed.length) wrap.append(note('Selected factor IDs are unchanged from the previous run.'));
+    }
+    wrap.append(note(view.notice));
+    return wrap;
   }
   function changes(items) {
     const list = el('div', 'change-list');
@@ -179,6 +214,7 @@ const StudyCards = (() => {
     const tiles=revised ? [['Initial MAE',fmt(initial)],['Revised MAE',fmt(current)]] : [['Price MAE',fmt(current)]];
     tiles.push(['Unchanged-price MAE',fmt(view.baseline_metrics?.mae_price)],['Observations',valueText(view.metrics?.sample_count)]);
     wrap.append(metrics(tiles));
+    if(view.evidence_path)wrap.append(evidencePath(view.evidence_path));
     if(view.input_usage?.length){wrap.append(el('h3','view-section-title','Inputs actually used'),table(['Source','Status','Executed factors / reason'],view.input_usage.map(u=>[u.source,title(u.status),u.factor_ids?.length?u.factor_ids.join(', '):title(u.reason)])));}
     if(revised && number(initial)!==null && number(current)!==null){const delta=number(current)-number(initial);wrap.append(el('p',`metric-delta ${delta>0?'worse':delta<0?'better':''}`,`MAE change ${delta>0?'+':''}${fmt(delta)} · ${delta>0?'higher error':delta<0?'lower error':'unchanged error'} in reported development metrics`));}
     const series=[{key:'observed',label:'Observed',color:'#e7eff4'}];
@@ -215,6 +251,13 @@ const StudyCards = (() => {
     const wrap=el('div'), s=view.selection;
     if(s){wrap.append(metrics([['Initial selection score',fmt(s.initial_score)],[s.selected_score!==undefined?'Selected score':'Revised selection score',fmt(s.selected_score!==undefined?s.selected_score:s.revised_score)],['Selected attempt',s.selected_attempt||'Unavailable',s.metric==='sharpe'?'Net strategy Sharpe':'Price MAE']]));wrap.append(note(s.reason));}
     if(view.text)wrap.append(el('p','hypothesis-text',view.text));
+    if(view.continuity)wrap.append(continuity(view.continuity));
+    (view.evidence_paths||[]).forEach(path=>{
+      const details=el('details','observation-details');
+      details.open=path.round===(s?.selected_round||1);
+      details.append(el('summary','',`Round ${path.round}${path.round===s?.selected_round?' · Selected model':''} · News and fitted inputs`),evidencePath(path));
+      wrap.append(details);
+    });
     if(view.rounds?.length){
       wrap.append(note(`Stopped: ${view.stop_reason}`),table(['Round','Factors','Price MAE','Net return','Sharpe','Accepted'],view.rounds.map(r=>[r.round,r.factor_ids.join(', '),fmt(r.mae_price),pct(r.net_return),fmt(r.sharpe_ratio),r.accepted?'Yes':'No'])));
     }
@@ -233,6 +276,7 @@ const StudyCards = (() => {
     else if(view.kind==='news'){
       if(view.query)content.append(el('h3','view-section-title',view.query));
       if(view.note)content.append(note(view.note));
+      if(view.query_origin)content.append(badge(title(view.query_origin)));
       content.append(articles(view.items),note(`Showing ${view.items.length} of ${view.count} items. Current news is context, not backdated training evidence.`));
     } else if(view.kind==='hypothesis'){
       content.append(badge('Research hypothesis'),el('p','hypothesis-text',view.text||'No hypothesis text provided.'),el('h3','view-section-title','Candidate factors'),pills(view.factors));
@@ -242,6 +286,7 @@ const StudyCards = (() => {
       (view.findings||[]).forEach(f=>{content.append(el('p','hypothesis-text',f.text),articles(f.evidence));});
       if(view.related?.length)content.append(el('h3','view-section-title','Unverified company suggestions'),pills(view.related.map(c=>`${c.symbol} · ${c.relationship}`)));
       if(view.followup)content.append(note(`Follow-up query · ${view.followup}`));
+      if(view.recovery_query)content.append(note(`Recovery search · ${view.recovery_query}. ${view.recovery_reason}`));
     } else if(view.kind==='factors'){
       content.append(note(view.catalog?'Factor catalog · inclusion does not mean execution.':'Selected model inputs'),note(view.note));
       const grid=el('div','factor-grid');view.factors.forEach(f=>grid.append(factor(f)));content.append(grid);
@@ -252,6 +297,7 @@ const StudyCards = (() => {
     } else if(view.kind==='prediction')content=prediction(view);
     else if(view.kind==='feedback')content=feedback(view);
     else if(view.kind==='summary')content=summary(view);
+    else if(view.kind==='continuity')content=continuity(view);
     else if(view.kind==='terminal')content=terminal(view);
     else if(view.kind==='engine_comparison'){
       content.append(note(view.note),table(['Window','Engine','Price MAE','Net return','Sharpe','Max drawdown'],view.rows.map(row=>[row.window,row.engine,fmt(row.mae),pct(row.net_return),fmt(row.sharpe_ratio),pct(row.max_drawdown)])));

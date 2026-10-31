@@ -3,6 +3,8 @@
 import json
 from html import escape
 
+from quant_rsi.research.study_explanation import continuity, evidence_path
+
 
 def _cell(value):
     return str(value).replace("\n", " ").replace("|", "\\|")
@@ -103,6 +105,37 @@ def render_study(result):
             ],
         )
     profile = result["study"].get("factor_profile", [])
+    previous = continuity(
+        steps.get("target", {}).get("prior_outcomes"), selection["selected_factor_ids"]
+    )
+    if previous:
+        section("Continuing the previous research", previous["notice"])
+        if previous["entries"]:
+            table(
+                ["Target", "Status / reason", "Predicted", "Actual", "Error", "Feedback supplied"],
+                [
+                    [
+                        e["target_session"],
+                        e["status"] + " / " + (e["reason"] or ""),
+                        _number(e["predicted_price"]),
+                        _number(e["actual_price"]),
+                        _number(e["price_error"]),
+                        "Yes" if e["provided_as_feedback"] else "No",
+                    ]
+                    for e in previous["entries"]
+                ],
+            )
+            table(
+                ["Selected model", "Factors"],
+                [
+                    ["Previous run", ", ".join(previous["previous_factor_ids"])],
+                    ["This run", ", ".join(previous["selected_factor_ids"])],
+                    ["Added", ", ".join(previous["added"]) or "None"],
+                    ["Removed", ", ".join(previous["removed"]) or "None"],
+                ],
+            )
+        else:
+            section("First run", "No previous outcome feedback in this history.")
     history = result["study"].get("history")
     if history:
         section("Forecast history and later observations", history["notice"])
@@ -258,6 +291,19 @@ def render_study(result):
             ["Setting", "Value"], [[key, json.dumps(value)] for key, value in model_config.items()]
         )
     section("News and relationships", result["study"]["news_use"])
+    for path in evidence_path(steps):
+        section(
+            f"Round {path['round']}: news → hypothesis → fitted inputs",
+            (path["hypothesis"] or "No hypothesis text") + " " + path["notice"],
+        )
+        table(
+            ["Cited source ID", "Title", "Role"],
+            [[c["id"], c["title"], "Hypothesis context"] for c in path["citations"]],
+        )
+        table(
+            ["Factor", "Input", "Execution", "Reason"],
+            [[f["factor_id"], f["input_kind"], f["status"], f["reason"]] for f in path["factors"]],
+        )
     related = steps["related_stocks"]
     if related.get("relationships"):
         table(
@@ -291,9 +337,15 @@ def render_study(result):
     if research:
         section("Active news research", research["provider"] + ". " + research["notice"])
         table(
-            ["Search request", "Proposed query", "Reason", "Recorded tool actions"],
+            ["Search request", "Proposed query", "Origin", "Reason", "Recorded tool actions"],
             [
-                [index, item["query"], item["rationale"], json.dumps(item["search_actions"])]
+                [
+                    index,
+                    item["query"],
+                    item.get("query_origin", "not recorded"),
+                    item["rationale"],
+                    json.dumps(item["search_actions"]),
+                ]
                 for index, item in enumerate(research["searches"], 1)
             ],
         )

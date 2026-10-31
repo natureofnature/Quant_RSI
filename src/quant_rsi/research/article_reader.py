@@ -1,10 +1,13 @@
 """Bounded public-page reads for current research context, never historical training data."""
 
+import gzip
 import hashlib
 import http.client
+import io
 import ipaddress
 import socket
 import ssl
+import zlib
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -70,7 +73,7 @@ def _fetch(url):
             headers={
                 "User-Agent": "QuantRSI/0.1 (public research article reader)",
                 "Accept": "text/html,text/plain,application/xhtml+xml",
-                "Accept-Encoding": "identity",
+                "Accept-Encoding": "gzip, identity",
             },
         )
         response = connection.getresponse()
@@ -84,7 +87,7 @@ def _fetch(url):
             "application/xhtml+xml",
         }:
             raise _Unavailable("unsupported_content_type")
-        if response.headers.get("Content-Encoding", "identity").lower() != "identity":
+        if response.headers.get("Content-Encoding", "identity").lower() not in {"identity", "gzip"}:
             raise _Unavailable("unsupported_content_encoding")
         body = response.read(MAX_BYTES + 1)
         if len(body) > MAX_BYTES:
@@ -179,6 +182,8 @@ def read_article(url):
         result["url"] = url
         current = url
         for redirects in range(MAX_REDIRECTS + 1):
+            _url(current)
+            result["final_url"] = current
             status, headers, body = _fetch(current)
             if status in {301, 302, 303, 307, 308}:
                 if redirects == MAX_REDIRECTS:
@@ -188,6 +193,15 @@ def read_article(url):
                     raise _Unavailable("redirect_without_location")
                 current = urljoin(current, location)
                 continue
+            content_hash = hashlib.sha256(body).hexdigest()
+            if headers.get("Content-Encoding", "identity").lower() == "gzip":
+                try:
+                    with gzip.GzipFile(fileobj=io.BytesIO(body)) as compressed:
+                        body = compressed.read(MAX_BYTES + 1)
+                except (OSError, EOFError, zlib.error):
+                    raise _Unavailable("invalid_compressed_body") from None
+                if len(body) > MAX_BYTES:
+                    raise _Unavailable("decompressed_response_too_large")
             charset = headers.get_content_charset() or "utf-8"
             try:
                 decoded = body.decode(charset, errors="replace")
@@ -207,7 +221,7 @@ def read_article(url):
                 status="available",
                 text=text[:MAX_TEXT],
                 text_truncated=len(text) > MAX_TEXT,
-                content_sha256=hashlib.sha256(body).hexdigest(),
+                content_sha256=content_hash,
             )
             break
     except _Unavailable as exc:

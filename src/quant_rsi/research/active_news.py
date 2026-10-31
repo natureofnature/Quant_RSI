@@ -82,7 +82,8 @@ def _search(symbol, related, llm, query, previous):
         "and business relationships, or use the supplied followup_query exactly. "
         "Search once; do not open pages or use any other tools. The application will read "
         "the returned URLs. Return up to three relevant article URLs actually found by search, "
-        "preferring issuer releases and primary sources. Do not invent URLs or fill empty "
+        "preferring issuer releases and primary sources in HTML or plain text; PDF documents "
+        "and JavaScript-only pages cannot be read by this reader. Do not invent URLs or fill empty "
         "results from memory. Avoid URLs already listed in previous_articles. Use their "
         "failure reasons to find alternative accessible official or primary sources. Do not "
         "return URLs on avoid_hosts: they denied access or rate-limited this run, including "
@@ -168,6 +169,7 @@ def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None)
     reader = reader or (read_article if llm else _simulated_read)
     searches, articles = [], []
     query = None
+    query_origin = "initial_discovery"
     review = {}
     for round_number in (1, 2):
         if on_start:
@@ -177,6 +179,7 @@ def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None)
             if llm
             else _simulated_search(symbol, query, round_number)
         )
+        search["query_origin"] = query_origin
         searches.append(search)
         on_stage({"stage": f"news_search_{round_number}", "output": deepcopy(search)})
         reads = []
@@ -219,8 +222,20 @@ def research_news(symbol, related, llm, *, on_stage, reader=None, on_start=None)
             if llm
             else _simulated_review(symbol, articles, round_number)
         )
-        on_stage({"stage": f"news_review_{round_number}", "output": deepcopy(review)})
         query = review["followup_query"]
+        query_origin = "llm_followup"
+        if (
+            round_number == 1
+            and query is None
+            and (not articles or any(a["status"] != "available" for a in articles))
+        ):
+            failed = next((a for a in articles if a["status"] != "available"), None)
+            topic = failed["title"][:200] if failed else "recent operating news"
+            query = f"{symbol} {topic} official press release HTML"
+            query_origin = "unavailable_source_recovery"
+            review["recovery_query"] = query
+            review["recovery_reason"] = "No follow-up proposed despite missing readable sources"
+        on_stage({"stage": f"news_review_{round_number}", "output": deepcopy(review)})
         if query is None:
             break
     available = [article for article in articles if article["status"] == "available"]

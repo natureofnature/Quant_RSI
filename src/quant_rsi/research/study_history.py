@@ -319,4 +319,11 @@ def mature_feedback(directory, symbol):
         "scope": "previously_issued_forecasts_observed_after_maturity; now_research_feedback",
         "notice": NOTICE,
         "entries": [e for e in view["entries"] if e["status"] == "settled"][-20:],
+        "history": {
+            "entries": [
+                {key: e[key] for key in ("study_id", "factor_ids", "forecast", "status", "reason")}
+                for e in view["entries"]
+            ],
+            "notice": "Status and chosen factors only; outcome metrics are in entries above.",
+        },
     }

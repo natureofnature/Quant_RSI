@@ -234,6 +234,7 @@ def _run(args, symbol, root, configuration, record, progress):
                 "mature_forecasts_for_feedback": len(prior_outcomes["entries"]),
                 "history_directory": str(args.history_dir),
                 "notice": prior_outcomes["notice"],
+                "prior_outcomes": prior_outcomes,
             },
         )
     progress.start("collect_news_context")
@@ -593,7 +594,7 @@ def _run(args, symbol, root, configuration, record, progress):
             "Selected issuer-news features entered the fitted feature matrix. "
             "Features cover the selected RSS corpus, not all issuer news; no sentiment is inferred."
             if news_used
-            else "News informed hypotheses and recipe proposals only; no news column was fitted."
+            else "News was supplied as hypothesis context; no news column was fitted."
         ),
         "news_factors": {
             "support": model.context(symbol)["news_feature_support"],

@@ -1,5 +1,6 @@
 """Offline public-page extraction and transport boundary tests; no network access."""
 
+import gzip
 import hashlib
 import socket
 from datetime import datetime
@@ -87,7 +88,7 @@ def test_html_prefers_article_and_pins_public_address_with_tls_hostname(transpor
     assert transport["connect"] == [("93.184.216.34", 443)]
     assert transport["tls"] == ["public.test"]
     assert transport["request"][0][1] == "/news?id=1"
-    assert transport["request"][0][2]["Accept-Encoding"] == "identity"
+    assert transport["request"][0][2]["Accept-Encoding"] == "gzip, identity"
     assert "not_verified_full_article" in result["content_extent"]
 
 
@@ -171,7 +172,8 @@ def test_redirect_budget_is_bounded(transport):
         (Response(status=403), "http_403"),
         (Response(status=302), "redirect_without_location"),
         (Response(**{"Content-Type": "application/pdf"}), "unsupported_content_type"),
-        (Response(**{"Content-Encoding": "gzip"}), "unsupported_content_encoding"),
+        (Response(**{"Content-Encoding": "br"}), "unsupported_content_encoding"),
+        (Response(**{"Content-Encoding": "gzip"}), "invalid_compressed_body"),
         (Response(**{"Content-Type": "text/plain; charset=unknown-codec"}), "unsupported_charset"),
         (Response(b"x" * (reader.MAX_BYTES + 1)), "response_too_large"),
         (Response(b"<script>Only javascript</script>"), "no_readable_text"),
@@ -193,6 +195,28 @@ def test_text_cap_is_explicit_and_hash_covers_received_body(transport):
     assert result["status"] == "available" and result["text_truncated"]
     assert len(result["text"]) == reader.MAX_TEXT
     assert result["content_sha256"] == hashlib.sha256(body).hexdigest()
+
+
+def test_gzip_body_is_bounded_and_hash_identifies_received_compressed_bytes(transport):
+    body = gzip.compress(b"<article>Issuer outlook raised.</article>")
+    transport["responses"].append(Response(body, **{"Content-Encoding": "gzip"}))
+    result = reader.read_article("https://public.test/news")
+    assert result["text"] == "Issuer outlook raised."
+    assert result["content_sha256"] == hashlib.sha256(body).hexdigest()
+    bomb = gzip.compress(b"a" * (reader.MAX_BYTES + 1))
+    transport["responses"].append(Response(bomb, **{"Content-Encoding": "gzip"}))
+    result = reader.read_article("https://public.test/oversized")
+    assert result["reason"] == "decompressed_response_too_large"
+    assert result["text"] == "" and result["content_sha256"] is None
+
+
+def test_failed_redirect_retains_actual_host_for_source_recovery(transport):
+    transport["responses"].extend(
+        [Response(status=302, Location="https://publisher.test/story"), Response(status=403)]
+    )
+    result = reader.read_article("https://gateway.test/story")
+    assert result["reason"] == "http_403"
+    assert result["final_url"] == "https://publisher.test/story"
 
 
 def test_network_failure_is_reported_without_exception_details(monkeypatch, transport):
