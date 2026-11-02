@@ -1,6 +1,7 @@
 """Pure ordered features and shared input-eligibility masks for bounded forecast recipes."""
 
 import math
+from bisect import bisect_right
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
@@ -29,33 +30,28 @@ def _history(source, closes, as_of, basis):
     )
     reasons.extend(actions)
     refs.update(item["notice_ref"] for item in action_evidence)
+    # Index only this call's visible revisions; ties remain separate evidence records.
+    memberships, quotes_by_session = {}, {}
+    for item in visible:
+        event = item["event"]
+        if event["instrument"] != instrument:
+            continue
+        if event["kind"] == "UNIVERSE_STATUS":
+            memberships.setdefault(timestamp(event["event_at"]), []).append(item)
+        elif event["kind"] == "CLOSE_QUOTE":
+            quotes_by_session.setdefault(event["session_id"], []).append(item)
+    membership_times = sorted(memberships)
     for close in closes:
         session = calendar.get(close)
         if session is None:
             reasons.append("context_calendar_close_missing")
             continue
-        memberships = [
-            item
-            for item in visible
-            if item["event"]["kind"] == "UNIVERSE_STATUS"
-            and item["event"]["instrument"] == instrument
-            and timestamp(item["event"]["event_at"]) <= close
-        ]
-        latest_at = max(
-            (timestamp(item["event"]["event_at"]) for item in memberships),
-            default=None,
-        )
-        latest = [item for item in memberships if timestamp(item["event"]["event_at"]) == latest_at]
+        position = bisect_right(membership_times, close)
+        latest = memberships[membership_times[position - 1]] if position else []
         refs.update(item["payload_ref"] for item in latest)
         if not latest or {item["event"]["status"] for item in latest} != {"active"}:
             reasons.append("history_membership_unknown_or_inactive")
-        quotes = [
-            item
-            for item in visible
-            if item["event"]["kind"] == "CLOSE_QUOTE"
-            and item["event"]["instrument"] == instrument
-            and item["event"]["session_id"] == session.session_id
-        ]
+        quotes = quotes_by_session.get(session.session_id, [])
         refs.update(item["payload_ref"] for item in quotes)
         if len(quotes) != 1 or quotes[0]["event"]["quality"] != "valid":
             reasons.append("history_quote_missing_invalid_or_conflicting")
