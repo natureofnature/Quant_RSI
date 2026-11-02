@@ -442,6 +442,7 @@ Their rules:
   payload integrity; evaluation refuses missing, altered or substituted inputs. Older
   payload-only plans require an explicit new binding before execution. A plan may declare
   `fundamentals` only when it uses an `f_` leaf.
+  Python evaluation checks source/plan binding agreement before feature construction or fitting.
 - **Availability.** Values are computed as of the session's open, so only facts usable before
   trading began are read. They are constant across the session's decision bars. Both
   sources record dates, not times, so facts become usable at 05:00 UTC on the day after the

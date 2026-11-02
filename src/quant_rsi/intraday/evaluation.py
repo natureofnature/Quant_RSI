@@ -17,6 +17,7 @@ import numpy as np
 from quant_rsi.intraday.calibration import choose_policy, row_predictions
 from quant_rsi.intraday.contracts import IntradayDevelopmentPlan, validate_timing
 from quant_rsi.intraday.features import BarSource, build_features, validate_leaves
+from quant_rsi.intraday.fundamentals import validate_fundamental_source
 from quant_rsi.intraday.model import fit, label_vector, walk_forward_folds
 from quant_rsi.intraday.simulator import simulate
 
@@ -25,6 +26,7 @@ def evaluate_development(source: BarSource, plan: IntradayDevelopmentPlan) -> di
     contract = source.contract
     validate_timing(contract, plan.timing)
     validate_leaves(contract, plan.leaves)
+    validate_fundamental_source(source, plan)
     sessions = contract.calendar.sessions
     folds = walk_forward_folds(plan.folds, len(sessions))
     table = build_features(source, plan.leaves, context_tolerance=plan.context_missing_tolerance)

@@ -153,6 +153,8 @@ In the plan, add the leaves and bind both printed digest values:
 provider, issuer and SEC profile, including its field mappings. Both file loading and
 the Python binding API verify the payload digest. Changing a mapping requires a new
 binding even when the raw SEC company facts are unchanged.
+The Python evaluation entry point also checks that a reused source matches the
+financial bindings declared by the supplied plan before fitting any model.
 
 Older payload-only plans remain readable but cannot execute fundamental leaves without
 an explicit binding. Review the retained issuer and mappings, then create a new plan

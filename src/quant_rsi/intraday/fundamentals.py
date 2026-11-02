@@ -74,8 +74,9 @@ def session_values(snapshot: dict, sessions: Sequence[MarketSession]) -> dict[st
 class FundamentalSource:
     """A bar source plus the per-session fundamental values its `f_` leaves read."""
 
-    def __init__(self, source: BarSource, fundamentals: dict[str, dict[str, dict]]):
+    def __init__(self, source: BarSource, fundamentals: dict[str, dict[str, dict]], bindings):
         self.source, self.fundamentals = source, fundamentals
+        self.fundamental_bindings = tuple(bindings)
 
     @property
     def contract(self):
@@ -86,6 +87,27 @@ class FundamentalSource:
 
     def __getattr__(self, name):
         return getattr(self.source, name)
+
+
+def _bindings(plan):
+    return tuple(
+        sorted(
+            (item.instrument, item.snapshot_sha256, item.binding_sha256)
+            for item in plan.fundamentals
+        )
+    )
+
+
+def validate_fundamental_source(source: BarSource, plan: IntradayDevelopmentPlan) -> None:
+    """A reused source must still supply the financial inputs declared by this plan."""
+    if not plan.fundamentals:
+        return
+    if any(item.binding_sha256 is None for item in plan.fundamentals):
+        raise ValueError(
+            "fundamental plan lacks binding_sha256; create an explicitly bound new plan"
+        )
+    if getattr(source, "fundamental_bindings", ()) != _bindings(plan):
+        raise ValueError("financial source bindings differ from the development plan")
 
 
 def with_fundamentals(
@@ -119,4 +141,4 @@ def with_fundamentals(
         if snapshot["symbol"] != item.instrument:
             raise ValueError(f"financial snapshot {snapshot['symbol']} is not {item.instrument}")
         values[item.instrument] = session_values(snapshot, sessions)
-    return FundamentalSource(source, values)
+    return FundamentalSource(source, values, _bindings(plan))

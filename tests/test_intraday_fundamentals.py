@@ -173,6 +173,25 @@ def test_legacy_payload_only_plan_requires_explicit_new_binding(snapshot):
     assert legacy.model_dump_json() == before
 
 
+def test_evaluation_rejects_reused_source_with_another_plan_before_fitting(snapshot, monkeypatch):
+    from quant_rsi.intraday import evaluation
+
+    financials = financial_snapshot()
+    intended = fundamental_plan(financials)
+    changed = deepcopy(financials)
+    changed["records"][-2]["value"] *= 2
+    changed["sha256"] = digest(canonical(changed["records"]))
+    other_source = with_fundamentals(snapshot, fundamental_plan(changed), [changed])
+
+    def unexpected_fit(*args, **kwargs):
+        raise AssertionError("Mismatched financial inputs must reject before fitting")
+
+    monkeypatch.setattr(evaluation, "fit", unexpected_fit)
+    for source in (snapshot, other_source):
+        with pytest.raises(ValueError, match="financial source bindings differ"):
+            evaluation.evaluate_development(source, intended)
+
+
 @pytest.mark.parametrize("change", ["provider", "symbol", "cik"])
 def test_financial_binding_rejects_unsupported_or_inconsistent_identity(change):
     from test_study_financials import snapshot as sec_snapshot
