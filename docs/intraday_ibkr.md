@@ -138,11 +138,33 @@ python -m quant_rsi.intraday evaluate --store runs/ko/store --snapshot SNAPSHOT_
   --plan runs/ko/plan_fundamentals.json --financials runs/ko/financials/snapshot.json
 ```
 
-In the plan, add the leaves and bind the printed `snapshot_sha256`:
+In the plan, add the leaves and bind both printed digest values:
 
 ```json
 "leaves": ["ret_1", "...", "f_revenue_yoy", "f_operating_margin", "f_days_since_report"],
-"fundamentals": [{"instrument": "KO", "snapshot_sha256": "FINANCIAL_SNAPSHOT_SHA256"}]
+"fundamentals": [{
+  "instrument": "KO",
+  "snapshot_sha256": "FINANCIAL_SNAPSHOT_SHA256",
+  "binding_sha256": "FINANCIAL_BINDING_SHA256"
+}]
+```
+
+`snapshot_sha256` identifies the raw facts. `binding_sha256` additionally binds the
+provider, issuer and SEC profile, including its field mappings. Both file loading and
+the Python binding API verify the payload digest. Changing a mapping requires a new
+binding even when the raw SEC company facts are unchanged.
+
+Older payload-only plans remain readable but cannot execute fundamental leaves without
+an explicit binding. Review the retained issuer and mappings, then create a new plan
+using the digests below; preserve the original plan and completed runs unchanged:
+
+```python
+from pathlib import Path
+from quant_rsi.intraday.fundamentals import financial_binding_digest, load_financial_snapshot
+
+snapshot = load_financial_snapshot(Path("runs/ko/financials/snapshot.json"))
+print({"snapshot_sha256": snapshot["sha256"],
+       "binding_sha256": financial_binding_digest(snapshot)})
 ```
 
 `collect-financials` writes with POSIX file operations, so run it on Linux (for example on the

@@ -21,13 +21,35 @@ from quant_rsi.research.study_financials import METRICS, prepare_financials
 DAYS_SINCE_REPORT = "f_days_since_report"
 
 
+def financial_binding_digest(snapshot: dict) -> str:
+    """Bind the verified payload and all metadata that changes its interpretation."""
+    provider = snapshot["provider"]
+    if provider not in {"issuer_earnings", "sec_companyfacts"}:
+        raise ValueError(f"unsupported financial provider {provider}")
+    payload = snapshot["records"] if provider == "issuer_earnings" else snapshot["companyfacts"]
+    if digest(canonical(payload)) != snapshot["sha256"]:
+        raise ValueError("financial snapshot does not match its digest")
+    profile = None if provider == "issuer_earnings" else snapshot["profile"]
+    if profile is not None and (
+        profile["symbol"] != snapshot["symbol"] or int(profile["cik"]) != int(payload["cik"])
+    ):
+        raise ValueError("financial snapshot issuer/profile identity mismatch")
+    return digest(
+        canonical(
+            dict(
+                provider=provider,
+                symbol=snapshot["symbol"],
+                payload_sha256=snapshot["sha256"],
+                profile=profile,
+            )
+        )
+    )
+
+
 def load_financial_snapshot(path: Path) -> dict:
     """A retained snapshot whose payload still matches its recorded digest."""
     snapshot = json.loads(Path(path).read_bytes())
-    issuer = snapshot["provider"] == "issuer_earnings"
-    payload = snapshot["records"] if issuer else snapshot["companyfacts"]
-    if digest(canonical(payload)) != snapshot["sha256"]:
-        raise ValueError(f"financial snapshot {path} does not match its digest")
+    financial_binding_digest(snapshot)
     return snapshot
 
 
@@ -74,7 +96,7 @@ def with_fundamentals(
         if snapshots:
             raise ValueError("financial snapshots were given but the plan uses no f_ leaves")
         return source
-    by_digest = {snapshot["sha256"]: snapshot for snapshot in snapshots}
+    by_digest = {financial_binding_digest(snapshot): snapshot for snapshot in snapshots}
     targets = set(source.contract.targets)
     bound = {item.instrument for item in plan.fundamentals}
     if bound != targets:
@@ -82,9 +104,18 @@ def with_fundamentals(
     sessions = source.contract.calendar.sessions
     values = {}
     for item in plan.fundamentals:
-        snapshot = by_digest.get(item.snapshot_sha256)
+        if item.binding_sha256 is None:
+            raise ValueError(
+                "fundamental plan lacks binding_sha256; create a new plan binding the retained "
+                "payload and its interpretation; preserve completed artifacts unchanged"
+            )
+        snapshot = by_digest.get(item.binding_sha256)
         if snapshot is None:
-            raise ValueError(f"no financial snapshot {item.snapshot_sha256} for {item.instrument}")
+            raise ValueError(
+                f"no financial snapshot binding {item.binding_sha256} for {item.instrument}"
+            )
+        if snapshot["sha256"] != item.snapshot_sha256:
+            raise ValueError("financial payload digest differs from the plan")
         if snapshot["symbol"] != item.instrument:
             raise ValueError(f"financial snapshot {snapshot['symbol']} is not {item.instrument}")
         values[item.instrument] = session_values(snapshot, sessions)

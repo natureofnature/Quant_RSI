@@ -176,6 +176,8 @@ class FundamentalInput(StrictModel):
 
     instrument: Identifier
     snapshot_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    # Older plans remain readable; execution requires binding the interpretation too.
+    binding_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class IntradayDevelopmentPlan(StrictModel):

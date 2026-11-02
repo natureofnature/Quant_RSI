@@ -437,8 +437,11 @@ do not need `allow_cross_session_lookback`. Their rules:
 Their rules:
 - **Source.** A retained financial snapshot from `collect-financials` (SEC company facts,
   or the issuer's results archive when SEC is unavailable). The plan's `fundamentals` names
-  one snapshot digest per target instrument; evaluation refuses a missing, altered or
-  substituted snapshot, and a plan may declare `fundamentals` only when it uses an `f_` leaf.
+  a payload digest and an interpretation binding per target instrument. The latter includes
+  the provider, issuer and SEC profile/field mappings. File and Python inputs both verify
+  payload integrity; evaluation refuses missing, altered or substituted inputs. Older
+  payload-only plans require an explicit new binding before execution. A plan may declare
+  `fundamentals` only when it uses an `f_` leaf.
 - **Availability.** Values are computed as of the session's open, so only facts usable before
   trading began are read. They are constant across the session's decision bars. Both
   sources record dates, not times, so facts become usable at 05:00 UTC on the day after the

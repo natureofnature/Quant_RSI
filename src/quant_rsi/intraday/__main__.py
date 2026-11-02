@@ -128,6 +128,7 @@ def _source(args, plan):
 
 
 def cmd_collect_financials(args) -> int:
+    from quant_rsi.intraday.fundamentals import financial_binding_digest
     from quant_rsi.research.study_financials import collect_financials
 
     snapshot = collect_financials(args.symbol, Path(args.output), Path(args.factor_root))
@@ -135,6 +136,7 @@ def cmd_collect_financials(args) -> int:
         {
             "snapshot": str(Path(args.output) / "snapshot.json"),
             "snapshot_sha256": snapshot["sha256"],
+            "binding_sha256": financial_binding_digest(snapshot),
             "provider": snapshot["provider"],
         }
     )
