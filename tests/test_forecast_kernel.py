@@ -13,6 +13,7 @@ from quant_rsi.forecast.forecast_kernel import (
     forecast_feature_view,
     forecast_feature_views,
     mature_forecast_label,
+    mature_forecast_labels,
     target_session,
 )
 from quant_rsi.market import market_contracts, market_data
@@ -45,8 +46,8 @@ def source(tmp_path, monkeypatch):
     monkeypatch.setenv("QUANT_RSI_WORKSPACE", str(tmp_path))
     monkeypatch.setattr(market_contracts, "trusted_now", lambda: "2026-10-26T09:00:00+00:00")
 
-    def prepare(*, notice=None, prices=None):
-        contract, events, evidence = contract_and_events(count=10)
+    def prepare(*, notice=None, prices=None, instruments=("A",)):
+        contract, events, evidence = contract_and_events(count=10, instruments=instruments)
         for row in events:
             if row["kind"] == "CLOSE_QUOTE" and row["session_id"] in (prices or {}):
                 row["price"] = prices[row["session_id"]]
@@ -198,6 +199,75 @@ def test_old_watermark_and_observed_receipts_cannot_use_historical_download(sour
         mature_forecast_label(
             snapshot, contract, "s2", "A", at, objective(), basis="observed_receipts"
         )["status"]
+        == "immature"
+    )
+
+
+@pytest.mark.parametrize("visibility", [{}, {"basis": "observed_receipts"}, {"watermark": 0}])
+def test_label_batch_matches_individual_labels_and_projects_once(source, monkeypatch, visibility):
+    from quant_rsi.forecast import forecast_kernel
+
+    contract, snapshot = source(
+        instruments=("A", "B"), notice={"action_kind": "split", "ratio": "2:1"}
+    )
+    requests = [
+        (session, instrument) for session in ("s0", "s2", "s4", "s5") for instrument in ("A", "B")
+    ]
+    cutoff, spec = "2020-10-26T16:00:00Z", objective()
+    expected = [
+        mature_forecast_label(snapshot, contract, origin, instrument, cutoff, spec, **visibility)
+        for origin, instrument in requests
+    ]
+    project = forecast_kernel.visible_revisions
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(kwargs)
+        return project(*args, **kwargs)
+
+    monkeypatch.setattr(forecast_kernel, "visible_revisions", counted)
+    actual = mature_forecast_labels(snapshot, contract, requests, cutoff, spec, **visibility)
+    assert canonical(actual) == canonical(expected)
+    assert len(calls) == 1
+
+
+def test_label_batch_preserves_lazy_visibility_and_instrument_rejection(source, monkeypatch):
+    from quant_rsi.forecast import forecast_kernel
+
+    contract, snapshot = source()
+    cutoff, spec = "2020-10-26T15:59:59Z", objective()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("an immature or invalid label should not project events")
+
+    monkeypatch.setattr(forecast_kernel, "visible_revisions", forbidden)
+    assert mature_forecast_labels(snapshot, contract, [], cutoff, spec) == []
+    labels = mature_forecast_labels(snapshot, contract, [("s2", "A"), ("s5", "A")], cutoff, spec)
+    assert [row["reason"] for row in labels] == [
+        "target_close_not_elapsed",
+        "future_label_calendar_absent",
+    ]
+    with pytest.raises(ValueError, match="outside the registered grid"):
+        mature_forecast_labels(snapshot, contract, [("s2", "missing")], cutoff, spec)
+
+
+def test_label_projection_is_not_reused_across_snapshot_or_visibility_calls(source):
+    contract, snapshot = source()
+    requests, cutoff, spec = [("s2", "A")], "2020-10-26T16:00:00Z", objective()
+    original = mature_forecast_labels(snapshot, contract, requests, cutoff, spec)
+    changed = deepcopy(snapshot)
+    quote = next(
+        row
+        for row in changed["events"]
+        if row["event"]["kind"] == "CLOSE_QUOTE" and row["event"]["session_id"] == "s7"
+    )
+    quote["event"]["price"] = "200"
+    quote["payload_ref"] = digest(canonical(quote["event"]))
+    revised = mature_forecast_labels(changed, contract, requests, cutoff, spec)
+    assert revised[0]["value"] != original[0]["value"]
+    assert mature_forecast_labels(snapshot, contract, requests, cutoff, spec) == original
+    assert (
+        mature_forecast_labels(snapshot, contract, requests, cutoff, spec, watermark=0)[0]["status"]
         == "immature"
     )
 

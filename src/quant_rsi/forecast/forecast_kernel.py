@@ -138,6 +138,42 @@ def mature_forecast_label(
     basis=None,
     watermark=None,
 ):
+    return mature_forecast_labels(
+        snapshot,
+        contract,
+        [(origin, instrument)],
+        training_cutoff,
+        objective,
+        basis=basis,
+        watermark=watermark,
+    )[0]
+
+
+def mature_forecast_labels(
+    snapshot, contract, requests, training_cutoff, objective, *, basis=None, watermark=None
+):
+    """Label a fixed snapshot/cutoff grid with one lazily computed visibility projection."""
+    visible = None
+
+    def projection(selected_basis):
+        nonlocal visible
+        if visible is None:
+            visible = visible_revisions(
+                snapshot, contract, training_cutoff, basis=selected_basis, watermark=watermark
+            )
+        return visible
+
+    return [
+        _label_from_projection(
+            contract, origin, instrument, training_cutoff, objective, basis, projection
+        )
+        for origin, instrument in requests
+    ]
+
+
+def _label_from_projection(
+    contract, origin, instrument, training_cutoff, objective, basis, projection
+):
     if instrument not in contract.instruments:
         raise ValueError("forecast label instrument is outside the registered grid")
     end = target_session(contract, origin, objective)
@@ -149,9 +185,7 @@ def mature_forecast_label(
     if timestamp(training_cutoff) < end.close_at:
         return fixed | {"status": "immature", "reason": "target_close_not_elapsed", "value": None}
     basis = basis or contract.knowledge_basis
-    visible = visible_revisions(
-        snapshot, contract, training_cutoff, basis=basis, watermark=watermark
-    )
+    visible = projection(basis)
     reasons, actions = action_assessment(
         visible, instrument, first_session.close_at, end.close_at, objective
     )

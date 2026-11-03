@@ -284,3 +284,44 @@ one snapshot encoding, and cover historical/observed visibility, receipt waterma
 corporate-action interpretation and currency refusal. Run them with
 `pytest -q tests/test_forecast_kernel.py tests/test_forecast_research.py`.
 The existing full Python and Qlib CI checks remain required before merge.
+
+
+## Forecast label projection batching (2026-11-03)
+
+After feature batching, forecast training still projected the same snapshot at the
+same training cutoff once for every label. The label grid now shares one lazy,
+call-local visibility projection. Per-label instrument validation, target maturity,
+action assessment, quotes and return calculations are unchanged. Empty or entirely
+immature grids do not project events. No projection survives a call, and no caller
+can inject prefiltered events to bypass the original visibility checks.
+
+A saved `909dd1c` training function and label implementation were compared with this
+change on the same 520-session synthetic input described above. Each implementation
+had one warmup, followed by three interleaved rounds of five calls, on one preloaded
+`momentum_3` plan. Python 3.12 numerical libraries used one thread. The old frozen
+campaign's finalization ran concurrently; this is a component measurement with
+uncontrolled host contention, not a complete workflow or test-suite measurement.
+
+| Median per call | Original function | Batched labels |
+| --- | ---: | ---: |
+| Process CPU seconds | 0.338682 | 0.210792 |
+| Elapsed seconds | 0.338768 | 0.210836 |
+
+The **37.8% process-CPU reduction** passes the predeclared 20% target. Eight
+saved-original comparisons (`momentum` and `mean_return`, windows 2–5) produced
+identical features, labels, metadata and complete training-view bytes. Two actual
+standalone `momentum_3` fits produced identical model bytes, predictions and evaluation
+output, excluding actual fit-time fields. They are validation fits, not additions to
+the frozen campaign's allowance. Model SHA-256:
+`0c85737e945cfe844f846769217eff08ebd4eddd67f5380b8f999de3a39c1c2d`.
+
+Regressions cover multiple instruments, actions, immature targets, observed-receipt
+visibility, old watermarks, one training projection and fresh calls after input
+changes. The focused command remains
+`pytest -q tests/test_forecast_kernel.py tests/test_forecast_research.py`.
+Local measurement scripts, the before-edit protocol, saved baseline functions and
+results are retained outside Git at
+`/home/nature/Learning_plan/Quant_RSI_evidence/batch_forecast_label_projections/`.
+Full Python and Qlib CI are still required before merge. Neither this measurement
+nor the older feature-batching measurement establishes a complete recursive-run
+speedup; their percentages must not be added together.

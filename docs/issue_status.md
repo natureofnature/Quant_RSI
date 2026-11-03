@@ -7,6 +7,11 @@ bindings and finite compositions to the same study. These 11 issues retain their
 unfulfilled acceptance criteria; nearby product features are not substitutes for them.
 Rows for previously closed issues are retained below as historical ownership context.
 
+The 2026-11-03 bounded-recursion follow-up records two executed policy advances,
+recovery and final replay on frozen `347b48c`. It updates #3 and the R2 execution
+boundary only; it is not a new audit of every issue. See the
+[two-advance evidence and limitations](recursive_two_advance_results.md).
+
 The 2026-11-01 prediction-horizon follow-up updates the #7 row for the connected
 study only; it is not a new audit or completion of the registered forecast objective.
 
@@ -27,9 +32,9 @@ The closure recommendations take effect only after review, required CI and merge
 
 | Issue | Disposition | Delivered evidence and remaining requirement |
 | --- | --- | --- |
-| [#1](https://github.com/natureofnature/Quant_RSI/issues/1) | Keep open | Forecasting and the stock/news/LLM/factor loop work. Two consecutive executed research-program changes, independent/prospective acceptance and matched-budget research studies remain in R2/R4/R6. |
+| [#1](https://github.com/natureofnature/Quant_RSI/issues/1) | Keep open | Forecasting and the stock/news/LLM/factor loop work. The bounded two-change R2 engineering evidence is now recorded; independent/prospective acceptance and matched-budget research studies remain in R4/R6. |
 | [#2](https://github.com/natureofnature/Quant_RSI/issues/2) | Keep open | Production registry promotion remains blocked. Study-level development selection in #56 is not protected production promotion. Requires #4 first. |
-| [#3](https://github.com/natureofnature/Quant_RSI/issues/3) | Keep open; first bounded proposer delivered | The registered schema-4 proposer reads authenticated development frontier feedback and emits a versioned `policy.window_max` patch; #17 records one executed selected-descendant advance. The issue's first-version evidence-to-policy mechanism exists, but its linked #1 R2 acceptance of two consecutive executed advances remains unaccepted. Retain this owner with #39 D rather than closing broader program evolution on one advance. |
+| [#3](https://github.com/natureofnature/Quant_RSI/issues/3) | Close the bounded first proposer acceptance | The schema-4 proposer derived two distinct `policy.window_max` patches from genuine preceding development feedback (3→4→5), followed by 21 actual fits, selected descendants, recovered execution and verified final publication/replay. #110 covers both controlled feedback boundaries. See the [frozen execution record](recursive_two_advance_results.md); this does not establish arbitrary program synthesis or research effectiveness. |
 | [#4](https://github.com/natureofnature/Quant_RSI/issues/4) | Keep open | Confirmatory mode is still blocked as uncalibrated. Development MAE/Sharpe selection supplies no dependence-aware inference or repeated-comparison error budget. |
 | [#5](https://github.com/natureofnature/Quant_RSI/issues/5) | Closed after #62 | Registered `neighbor_exploration_v1` leaves a plateau/exhausted local neighborhood via a deterministic unvisited frontier. Existing checkpoint fields and the attempt/worker budget govern it; real-worker interrupted recovery and read-only replay are tested. Legacy and schema-3 cap policies remain unchanged. |
 | [#6](https://github.com/natureofnature/Quant_RSI/issues/6) | Close the real-data objective connection | Explicit market preparation feeds retained public daily inputs into the original recursive forecast worker and cumulative authority; #17 records a completed market execution, selected model and replay. Historical availability remains an assumption, its forecast was late, and no alpha or independent validation was established. |
@@ -55,7 +60,9 @@ The closure recommendations take effect only after review, required CI and merge
   worker-seconds, advanced once and then sealed with no further patch. Its original
   missing evidence was restored explicitly before late issuance; the failed command
   and qualified outcome remain in the original record. This is not a new run on
-  today's revision or proof of two consecutive advances.
+  today's revision or proof of two consecutive advances. The separate
+  [2026-11-03 synthetic execution](recursive_two_advance_results.md) supplies that
+  bounded two-advance evidence, including the retained recovery failure and late forecast.
 - **Architecture (#24):** [current overview](../README.md#architecture),
   [factor layers](factor_layers.md), [bounded discovery](factor_discovery.md),
   [workflow guide](research_workflow.md) and [AGENTS](../AGENTS.md).
@@ -91,7 +98,7 @@ cannot be manufactured by more fixtures or by closing planning RFCs.
   data, label-maturity and training contracts, not just additional output fields.
 - #12: applicable multiple-testing/uncertainty diagnostics and predefined cost stress;
   existing descriptive Sharpe and trial counts do not implement them.
-- #3: actual execution of two feedback-derived mechanism changes remains unaccepted.
-  Opting into a fixed exploration algorithm is not proposer self-modification.
+- #3's bounded first proposer acceptance is recorded in the two-advance results.
+  General program synthesis and research-policy effectiveness remain outside this slice.
 - #1/#39: retain umbrella acceptance, including real-use cost and independent/prospective
   evidence. No issue is closed merely because its requirement was moved to a roadmap.
