@@ -131,14 +131,23 @@ def test_comparison_gain_must_strictly_exceed_original_threshold(comparison_scor
     assert response["reason"] == "unsupported_terminal_frontier_feedback"
 
 
-def test_valid_semantic_counterfactual_changes_real_decision_without_forged_history():
-    plan = plan_value(threshold=1.0)
-    unsupported = frontier_packet(plan, (-8.0, -6.0, -4.0, -5.0))
-    supported = frontier_packet(plan, (-8.0, -6.0, -4.0, -5.1))
+@pytest.mark.parametrize("cap,prefix", [(3, (-8.0, -6.0, -4.0)), (4, (-10.0, -8.0, -6.0, -4.0))])
+def test_valid_semantic_counterfactual_changes_real_decision_without_forged_history(cap, prefix):
+    plan = plan_value(cap=cap, threshold=1.0)
+    unsupported = frontier_packet(plan, (*prefix, -5.0))
+    supported = frontier_packet(plan, (*prefix, -5.1))
     assert frontier.validate_registered_evidence(unsupported[1], unsupported[2]) == plan
     assert frontier.validate_registered_evidence(supported[1], supported[2]) == plan
     assert frontier.expected_change(*unsupported)["outcome"] == "no_patch"
-    assert frontier.expected_change(*supported)["outcome"] == "patch"
+    response = frontier.expected_change(*supported)
+    assert response["outcome"] == "patch"
+    assert response["patch"]["value"] == cap + 1
+    assert unsupported[1]["base_package_ref"] == supported[1]["base_package_ref"]
+    assert unsupported[2]["entries"][:-1] == supported[2]["entries"][:-1]
+    assert (
+        unsupported[2]["entries"][-1]["parent_checkpoint_ref"]
+        == supported[2]["entries"][-1]["parent_checkpoint_ref"]
+    )
     assert unsupported[0] != supported[0]
     assert unsupported[1]["evidence_ref"] != supported[1]["evidence_ref"]
 
@@ -254,10 +263,14 @@ def test_descriptor_does_not_bypass_original_authenticated_trace(mutation):
         frontier.expected_change(*bind(evidence, request["base_package_ref"]))
 
 
+@pytest.mark.parametrize(
+    "cap,scores",
+    [(3, (-4.0, -3.0, -2.0, -3.5)), (4, (-5.0, -4.0, -3.0, -2.0, -3.5))],
+)
 def test_protected_only_changes_do_not_affect_response_or_trigger_artifact_reads(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, cap, scores
 ):
-    args = frontier_packet(plan_value())
+    args = frontier_packet(plan_value(cap=cap), scores)
     protected = tmp_path / "protected-only.json"
     protected.write_text('{"score": 100}')
     read_bytes = Path.read_bytes
@@ -279,6 +292,8 @@ def test_protected_only_changes_do_not_affect_response_or_trigger_artifact_reads
 
     monkeypatch.setattr(ArtifactStore, "get", forbidden)
     first = frontier.expected_change(*args)
+    assert first["outcome"] == "patch"
+    assert first["patch"]["value"] == cap + 1
     protected.write_text('{"score": -100, "outcome": "different"}')
     assert frontier.expected_change(*args) == first
 
