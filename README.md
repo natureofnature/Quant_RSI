@@ -58,8 +58,11 @@ it is saved with the template, task, report and forecast history.
 Save these settings as a template and optionally enable recurring cycles. Scheduling
 requires the workbench server to stay running; closing the browser is fine.
 The durable queue, history and **Continue study** controls survive reopening the
-same workspace. Comparison tables keep development metrics separate from matured
-forecast outcomes. API credentials stay in the server environment.
+same workspace. Use **Use settings** on a historical task to prepare an editable new study;
+**Continue study** instead retries retained work. **Compare two retained studies**
+shows development and terminal metrics side by side and explains mismatched samples,
+prices or execution policies before computing differences. Comparison tables keep
+development metrics separate from matured forecast outcomes. API credentials stay in the server environment.
 The form can enable **publication-dated financial factors** and, by default for new form
 submissions, **research only on new evidence**. Unchanged prices, selected issuer news,
 quarterly filings and matured outcomes skip the study before paid calls; collection

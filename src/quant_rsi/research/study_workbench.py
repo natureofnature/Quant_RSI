@@ -33,7 +33,7 @@ class Workbench:
         self.summary_cache = {}
 
     def task(self, task_id):
-        if not re.fullmatch(r"[0-9a-f]{24}", task_id):
+        if not isinstance(task_id, str) or not re.fullmatch(r"[0-9a-f]{24}", task_id):
             raise ValueError("Invalid task ID")
         task = self.tasks / task_id
         if not (task / "task.json").is_file():
@@ -259,6 +259,23 @@ class Workbench:
         self.tick()
         return self.item(task)
 
+    def study_settings(self, task_id):
+        from quant_rsi.research.study_task_views import settings_from_task
+
+        return settings_from_task(self.task(task_id))
+
+    def compare(self, left_id, right_id):
+        from quant_rsi.research.study_task_views import compare_retained_tasks
+
+        if left_id == right_id:
+            raise ValueError("Choose two different completed research tasks")
+        tasks = [self.task(task_id) for task_id in (left_id, right_id)]
+        for task in tasks:
+            item = self.item(task)
+            if item["status"] != "completed" or item.get("action", "research") != "research":
+                raise ValueError("Comparison requires completed research tasks")
+        return compare_retained_tasks(*tasks)
+
     def overview(self):
         rows = []
         for item in self.listing():
@@ -396,6 +413,8 @@ def make_server(workbench, token, port=0):
                     self.respond(
                         200, render(constellation(directory, stock_symbol(symbol))), "text/html"
                     )
+                elif re.fullmatch(r"tasks/[0-9a-f]{24}/settings", route):
+                    self.respond(200, workbench.study_settings(route.split("/")[1]))
                 elif re.fullmatch(r"tasks/[0-9a-f]{24}/(state)?", route):
                     task = workbench.task(route.split("/")[1])
                     state = read_state(task / "study")
@@ -454,6 +473,11 @@ def make_server(workbench, token, port=0):
                 if not 0 < length <= 4096:
                     raise ValueError("Invalid request size")
                 options = json.loads(self.rfile.read(length))
+                if route == "comparisons":
+                    if not isinstance(options, dict) or set(options) != {"left", "right"}:
+                        raise ValueError("Select two retained studies")
+                    self.respond(200, workbench.compare(options["left"], options["right"]))
+                    return
                 if route == "tasks":
                     result = workbench.start(options)
                 elif (

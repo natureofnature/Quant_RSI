@@ -48,7 +48,7 @@ This slice does not complete the overall usability goal. Automated form and HTTP
 checks are not browser visual acceptance, and local configuration checks are not
 connection tests.
 
-### 2. Results and repeated use — remaining
+### 2. Results and repeated use — implementation
 
 - Choose retained studies and compare only compatible instruments, horizons,
   periods and policies, explaining any incompatibility rather than hiding it.
@@ -57,8 +57,27 @@ connection tests.
 - Start an editable new study from an old task without mutating its artifacts.
 - Show next actions for missing service configuration, missing data and resumable
   failures; make fresh-run versus retained-work recovery explicit.
-- Verify these journeys through the real local HTTP/worker path and a browser
-  when one is available. Measure steps to repeat a hypothesis and locate a result.
+The workbench now provides **Use settings** on research tasks. It reads the
+retained configuration, opens an editable form, and never automatically queues a
+run or enables a schedule. **Queue research** creates a fresh task; old artifacts
+stay unchanged. Existing unchanged-evidence controls still apply. This takes two
+explicit actions to repeat settings, with no parameter re-entry or terminal
+command once the workbench is open. Continue study remains the separate operation
+for retrying retained work. Runtime-change errors direct users to a fresh study.
+
+**Compare two retained studies** shows the settings, selected factors, retained
+input counts and development/terminal metrics. It checks the symbol, input mode,
+horizon, information mode, forecast observations, actual account price path,
+metric units and complete execution policy before computing right-minus-left
+values. Missing evidence or incompatible results produce reasons and no numerical
+differences. Undefined risk metrics remain unavailable. Retained input counts are
+not an automatic data-quality approval, and matched accounts do not establish
+independent validation or fair research-budget matching.
+
+HTTP and real offline worker tests cover these paths, including byte-for-byte
+preservation of the original study after copying settings and completing a new
+run. Full-script Node tests cover editable reuse, comparison rendering and failure
+actions. Browser visual acceptance remains outstanding when no browser is available.
 
 ### 3. Service and data setup — remaining
 
