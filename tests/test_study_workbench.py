@@ -161,3 +161,50 @@ def test_http_origin_token_inputs_and_history(tmp_path):
         finally:
             server.shutdown()
             thread.join(timeout=5)
+
+
+def test_form_mode_switch_and_old_template_clear_stale_windows():
+    import shutil
+    import subprocess
+    from importlib.resources import files
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is needed for the optional form behavior check")
+    html = files("quant_rsi.research").joinpath("study_workbench.html").read_text()
+    helpers = html[html.index("function dateOptions(") : html.index("function options(")]
+    script = (
+        """
+const assert = require('node:assert/strict');
+const fields = {};
+for (const key of ['research_mode','rounds','max_fits','latest_fit','walk_forward_folds',
+                   'train_start','train_end','development_start','development_end',
+                   'terminal_start','terminal_end']) fields[key] = {value:'',type:'text'};
+fields.research_mode.value = 'incremental';
+const elements = {'start-form':{elements:fields}, 'incremental-hint':{}, 'date-windows':{}};
+const $ = id => elements[id];
+"""
+        + helpers
+        + """
+syncResearchMode(true);
+assert.equal(fields.rounds.value, 3);
+assert.equal(fields.max_fits.max, 3);
+assert.equal(fields.latest_fit.value, 'selected');
+assert.equal(fields.walk_forward_folds.disabled, true);
+loadStudyOptions(elements['start-form'], {research_mode:'incremental',rounds:2,max_fits:2,
+    latest_fit:'refit',train_dates:['2025-01-01','2025-03-01'],future_option:'ignored'});
+assert.equal(fields.max_fits.value, 2);
+assert.equal(fields.latest_fit.value, 'refit');
+const form = {get:key=>fields[key]?.value||''};
+assert.deepEqual(dateOptions(form).train_dates, ['2025-01-01','2025-03-01']);
+loadStudyOptions(elements['start-form'], {rounds:2,max_fits:2});
+assert.equal(fields.research_mode.value, 'legacy');
+assert.equal(fields.train_start.value, '');
+assert.equal(fields.train_start.disabled, true);
+assert.equal(fields.walk_forward_folds.disabled, false);
+assert.equal(elements['date-windows'].hidden, true);
+assert.equal(dateOptions(form).train_dates, null);
+"""
+    )
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr

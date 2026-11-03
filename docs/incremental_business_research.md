@@ -19,8 +19,27 @@ Codex uses the existing CLI login. The existing API, DeepSeek and Cursor transpo
 also use the incremental response contract. For offline wiring, use
 `--llm simulated --prices synthetic --news simulated --related simulated` and omit
 `--historical-sessions`. Offline results are fixtures, not evidence about KO.
-The CLI-created run uses the same live UI and HTML/Markdown reports. The workbench
-form does not yet expose the new mode or date controls.
+The browser workbench (`quant-rsi research-ui --workspace /tmp/quant-rsi-workbench`)
+exposes the same loop: select **Fixed baseline + business increments**, enable the
+financial or industry inputs needed by the question, then queue the study. Switching
+to this mode sets three rounds / three research fits, reuses the selected model for
+the latest forecast, and disables time-window diagnostics. Explicitly chosen smaller
+budgets or an additional publication refit remain supported. Optional model
+comparisons remain outside the research-fit budget.
+
+**Fixed date windows** accepts start/end pairs for training, development and terminal
+feature origins; blank pairs use the CLI defaults. Invalid or overlapping pairs are
+rejected before enqueueing. Availability and mature-label sufficiency are checked
+against the collected calendar before any LLM call or model fit. Choose enough
+**Minimum price history** for the requested dates; date inputs do not fetch an
+arbitrary historical interval.
+
+Templates, queued tasks, evidence checks and restarted workbenches preserve the mode
+and windows. Changing them makes a new research configuration eligible even when
+market evidence is unchanged. Old templates retain flexible revision mode. The
+browser uses retrospective information; use the CLI with retained inputs for
+`--information-mode retained`. The run opens the same live UI and HTML/Markdown
+reports.
 
 The loop is:
 
