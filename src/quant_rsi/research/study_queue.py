@@ -4,6 +4,7 @@ import json
 import re
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write, canonical
@@ -26,6 +27,10 @@ def study_options(options):
         "model": "lightgbm",
         "compare_models": False,
         "latest_fit": "refit",
+        "research_mode": "legacy",
+        "train_dates": None,
+        "development_dates": None,
+        "terminal_dates": None,
         "data": "daily",
         "llm_model": "",
         "news_research": True,
@@ -44,11 +49,14 @@ def study_options(options):
     }
     if not isinstance(options, dict) or set(options) - defaults.keys():
         raise ValueError("Unexpected study options")
+    if options.get("research_mode") == "incremental":
+        defaults.update(rounds=3, latest_fit="selected")
     result = defaults | options
     result["question"] = research_question(result["question"])
     for key, allowed in (
         ("llm", {"codex", "api", "simulated", "deepseek", "cursor"}),
         ("model", {"lightgbm", "ridge"}),
+        ("research_mode", {"legacy", "incremental"}),
         ("latest_fit", {"refit", "selected"}),
         ("financials_source", {"auto", "sec", "issuer"}),
         ("data", {"daily", "synthetic"}),
@@ -95,6 +103,31 @@ def study_options(options):
         if result[key] is not None and type(result[key]) is not int:
             raise ValueError("Research limits must be integers")
     validate_limits(result["rounds"], result["max_fits"], result["patience"])
+    incremental = result["research_mode"] == "incremental"
+    if incremental and (result["rounds"] > 3 or result["max_fits"] > 3):
+        raise ValueError("Incremental research permits at most three research fits")
+    if incremental and result["walk_forward_folds"]:
+        raise ValueError("Incremental research uses fixed windows; disable time-window diagnostics")
+    previous_end = None
+    for partition in ("train", "development", "terminal"):
+        dates = result[partition + "_dates"]
+        if dates is None:
+            continue
+        if not incremental:
+            raise ValueError("Date windows require incremental research")
+        if (
+            not isinstance(dates, list)
+            or len(dates) != 2
+            or any(
+                not isinstance(day, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day)
+                for day in dates
+            )
+        ):
+            raise ValueError("Each date window needs a start and end in YYYY-MM-DD format")
+        start, end = (date.fromisoformat(day) for day in dates)
+        if start > end or (previous_end is not None and start <= previous_end):
+            raise ValueError("Date windows must be ordered and must not overlap")
+        previous_end = end
     return result
 
 
@@ -122,6 +155,7 @@ def study_arguments(task, workspace, symbol, options, *, batch_id=None):
     for key, flag in (
         ("llm", "llm"),
         ("model", "model"),
+        ("research_mode", "research-mode"),
         ("latest_fit", "latest-fit"),
         ("data", "prices"),
         ("rounds", "rounds"),
@@ -134,6 +168,9 @@ def study_arguments(task, workspace, symbol, options, *, batch_id=None):
     ):
         if options.get(key) is not None:
             arguments += ["--" + flag, str(options[key])]
+    for partition in ("train", "development", "terminal"):
+        if options.get(partition + "_dates"):
+            arguments += ["--" + partition + "-dates", *options[partition + "_dates"]]
     if options["data"] == "synthetic":
         arguments += ["--news", "simulated", "--related", "simulated"]
     if options["llm"] == "cursor":

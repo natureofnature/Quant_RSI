@@ -39,6 +39,11 @@ quant-rsi research-ui --workspace /tmp/quant-rsi-workbench
 Enter a watchlist (for example `KO, XOM, AAPL`), choose the researcher, model,
 rounds, fit budget and MAE/Sharpe selection, then queue a cycle. Each stock gets
 an observation task followed by a study; one failure does not block the next stock.
+Select **Fixed baseline + business increments** to keep a price/volatility/peer
+baseline fixed while testing up to two business hypotheses. Enable the relevant
+financial or industry inputs; optional training/development/terminal date windows
+and the mode are saved in templates. See [incremental research](docs/incremental_business_research.md)
+for the three-fit budget and retrospective information limits.
 An optional **Research question** focuses news discovery and both hypothesis rounds;
 it is saved with the template, task, report and forecast history.
 Save these settings as a template and optionally enable recurring cycles. Scheduling

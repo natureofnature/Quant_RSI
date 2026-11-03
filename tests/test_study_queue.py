@@ -248,3 +248,88 @@ def test_observation_failure_is_recorded_without_fake_outcomes(tmp_path, monkeyp
     assert run_task(task) == 1
     assert not (task / "observation.json").exists()
     assert json.loads((task / "worker.json").read_bytes())["error"] == "Price source unavailable"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"research_mode": "unknown"},
+        {"research_mode": "incremental", "rounds": 4},
+        {"research_mode": "incremental", "max_fits": 4},
+        {"research_mode": "incremental", "walk_forward_folds": 2},
+        {"train_dates": ["2025-01-01", "2025-02-01"]},
+        {"research_mode": "incremental", "train_dates": ["2025-01-01", ""]},
+        {"research_mode": "incremental", "train_dates": "2025-01-01"},
+        {"research_mode": "incremental", "train_dates": ["2025-02-30", "2025-03-01"]},
+        {"research_mode": "incremental", "train_dates": ["2025-02-01", "2025-01-01"]},
+        {
+            "research_mode": "incremental",
+            "train_dates": ["2025-01-01", "2025-02-01"],
+            "terminal_dates": ["2025-02-01", "2025-03-01"],
+        },
+    ],
+)
+def test_incremental_options_rejected_before_enqueue(tmp_path, change):
+    workbench = Workbench(tmp_path)
+    with pytest.raises(ValueError):
+        workbench.batch(["KO"], OFFLINE | change)
+    assert workbench.listing() == []
+
+
+def test_incremental_template_real_worker_preserves_mode_and_windows(tmp_path):
+    from quant_rsi.research.demo import load_catalog
+    from quant_rsi.research.demo_model import LightGBMDemo
+
+    dates = LightGBMDemo(load_catalog()).data.dates
+    options = OFFLINE | {
+        "research_mode": "incremental",
+        "financials": True,
+        "train_dates": [dates[30], dates[65]],
+        "development_dates": [dates[70], dates[95]],
+        "terminal_dates": [dates[100], dates[115]],
+    }
+    workbench = Workbench(tmp_path)
+    plan = workbench.save_plan(template(symbols=["KO"], options=options))
+    assert plan["options"]["rounds"] == plan["options"]["max_fits"] == 3
+    assert plan["options"]["latest_fit"] == "selected"
+    batch = workbench.run_plan(plan["id"])
+    # A later edit cannot silently change the queued task's frozen research settings.
+    workbench.save_plan(template(symbols=["KO"]), plan["id"])
+    finish_queue(workbench)
+    task = workbench.task(batch["tasks"][-1]["id"])
+    item = workbench.item(task)
+    assert item["status"] == "completed", item.get("error")
+    result = json.loads((task / "study/result.json").read_bytes())
+    assert result["configuration"]["research_mode"] == "incremental"
+    assert result["configuration"]["latest_fit"] == "selected"
+    for key in ("train_dates", "development_dates", "terminal_dates"):
+        assert result["configuration"][key] == options[key]
+    attempts = result["iterations"]["attempts"]
+    assert 2 <= len(attempts) <= 3
+    assert len(attempts[0]["factor_ids"]) >= 2
+    overview = Workbench(tmp_path).overview()
+    row = next(t for t in overview["tasks"] if t["id"] == task.name)
+    assert row["research_mode"] == "incremental"
+    assert row["train_dates"] == options["train_dates"]
+    # Old callers and explicit budget/publication choices keep their behavior.
+    assert study_options(OFFLINE)["rounds"] == 2
+    explicit = study_options(options | {"rounds": 2, "max_fits": 2, "latest_fit": "refit"})
+    assert explicit["max_fits"] == 2 and explicit["latest_fit"] == "refit"
+
+
+def test_mode_and_windows_change_evidence_fingerprint(tmp_path):
+    from quant_rsi.research.study_trigger import refresh_evidence
+
+    workbench = Workbench(tmp_path)
+    fingerprints = []
+    for change in (
+        {},
+        {"research_mode": "incremental"},
+        {"research_mode": "incremental", "train_dates": ["2025-01-01", "2025-02-01"]},
+    ):
+        options = study_options(OFFLINE | {"rounds": 2, "latest_fit": "selected"} | change)
+        task = workbench._enqueue("KO", options)
+        manifest = json.loads((task / "task.json").read_bytes())
+        receipt, _ = refresh_evidence(task, manifest)
+        fingerprints.append(receipt["fingerprint"])
+    assert len(set(fingerprints)) == 3
