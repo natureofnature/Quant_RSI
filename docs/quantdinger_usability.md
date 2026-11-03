@@ -48,7 +48,7 @@ This slice does not complete the overall usability goal. Automated form and HTTP
 checks are not browser visual acceptance, and local configuration checks are not
 connection tests.
 
-### 2. Results and repeated use — remaining
+### 2. Results and repeated use — implementation
 
 - Choose retained studies and compare only compatible instruments, horizons,
   periods and policies, explaining any incompatibility rather than hiding it.
@@ -57,19 +57,62 @@ connection tests.
 - Start an editable new study from an old task without mutating its artifacts.
 - Show next actions for missing service configuration, missing data and resumable
   failures; make fresh-run versus retained-work recovery explicit.
-- Verify these journeys through the real local HTTP/worker path and a browser
-  when one is available. Measure steps to repeat a hypothesis and locate a result.
+The workbench now provides **Use settings** on research tasks. It reads the
+retained configuration, opens an editable form, and never automatically queues a
+run or enables a schedule. **Queue research** creates a fresh task; old artifacts
+stay unchanged. Existing unchanged-evidence controls still apply. This takes two
+explicit actions to repeat settings, with no parameter re-entry or terminal
+command once the workbench is open. Continue study remains the separate operation
+for retrying retained work. Runtime-change errors direct users to a fresh study.
 
-### 3. Service and data setup — remaining
+**Compare two retained studies** shows the settings, selected factors, retained
+input counts and development/terminal metrics. It checks the symbol, input mode,
+horizon, information mode, forecast observations, actual account price path,
+metric units and complete execution policy before computing right-minus-left
+values. Missing evidence or incompatible results produce reasons and no numerical
+differences. Undefined risk metrics remain unavailable. Retained input counts are
+not an automatic data-quality approval, and matched accounts do not establish
+independent validation or fair research-budget matching.
 
-- Offer explicit model connection testing separate from research, with usage
-  implications visible and failures scrubbed of credentials.
-- Reduce terminal-only configuration steps while keeping keys out of task
-  manifests, reports and browser responses; preserve session-based Codex use.
-- Bring existing input checks into the setup flow with source, freshness,
-  coverage, unavailable factors and actionable failure states.
-- Verify one configured-service public-data research journey, then one deliberate
-  provider/data failure and recovery. A synthetic run does not satisfy this gate.
+HTTP and real offline worker tests cover these paths, including byte-for-byte
+preservation of the original study after copying settings and completing a new
+run. Full-script Node tests cover editable reuse, comparison rendering and failure
+actions. Browser visual acceptance remains outstanding when no browser is available.
+
+### 3. Service and data setup
+
+Implemented: browser setup for Codex/OpenAI API/DeepSeek, workspace model defaults
+and optional private API keys, and explicit connection tests on the existing
+serial queue. Keys are saved in a mode-0600 file, never returned by the HTTP API,
+and injected only into new workers without changing the server environment.
+Removing a workspace key falls back to a configured environment key. Codex keeps
+its CLI session. Saved model defaults are applied explicitly to the study form.
+
+Connection tests issue one tool-free call through the existing transport, with a
+60-second provider timeout, no automatic retry, and no data collection or fits.
+The UI labels possible service usage and shows timestamps, sanitized outcomes and
+reported tokens. A successful test is not a permanent availability guarantee.
+The existing **Check inputs** action is the next setup step before real research;
+its report retains source, freshness, coverage and unavailable-factor diagnostics.
+
+Local acceptance on November 3, 2026 used the real Codex session and loopback HTTP
+routes at `63faae1`. An unavailable model failed as intended; a subsequent default
+model connection test succeeded. A KO input check completed in about 83 seconds
+without LLM calls or fits. The public-data study then completed in about 227 seconds:
+six model-service calls (including two searches), two LightGBM fits, and a business
+increment adding `business.inventory_revenue_growth_spread` to the fixed baseline.
+The historical settings route returned the completed task's configuration without
+queuing another study. Evidence was retained outside the checkout; this was not a
+browser interaction test or a deployed QuantDinger comparison.
+
+The run establishes workflow execution, not predictive quality. Development MAE
+changed from 2.8231 to 2.8227, while unchanged-price MAE was 1.0460. Inspection of
+these retained results exposed Decimal-string account metrics being displayed as
+unavailable; the comparison reader now converts finite numeric strings, with
+regression checks for net return, drawdown and buy-and-hold values. Undefined risk
+statistics remain unavailable. The paid research was not repeated for this display
+fix. Browser visual acceptance remains separate from the full-script DOM tests;
+no browser surface, including the in-app browser, was available in this session.
 
 Keep this list tied to observed friction. Broader portfolio construction, live
 execution and SaaS operations are separate capabilities; their existence in

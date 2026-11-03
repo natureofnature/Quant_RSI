@@ -16,7 +16,7 @@ from quant_rsi.research.study_workbench import Workbench, make_server
 def test_setup_checks_are_local_and_never_return_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "secret-sentinel-never-return")
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-    monkeypatch.setattr(study_onboarding.shutil, "which", lambda name: None)
+    monkeypatch.setattr(study_onboarding.shutil, "which", lambda name, **kwargs: None)
     monkeypatch.setattr(study_onboarding, "find_spec", lambda name: object())
     workbench = Workbench(tmp_path)
     server = make_server(workbench, "setup-test")
@@ -108,7 +108,7 @@ def test_cost_change_is_new_evidence_and_old_callers_keep_defaults(tmp_path):
     assert fingerprints[0] != fingerprints[1]
 
 
-def test_full_workbench_script_applies_starter_without_running_or_scheduling(tmp_path):
+def run_workbench_script(assertions, extra=None):
     import re
     import shutil
     import subprocess
@@ -128,6 +128,7 @@ def test_full_workbench_script_applies_starter_without_running_or_scheduling(tmp
             "starters": study_onboarding.starter_studies(),
         },
     }
+    payload.update(extra or {})
     harness = (
         "const fixture="
         + json.dumps(payload)
@@ -148,6 +149,7 @@ const fields=Object.fromEntries(fixture.names.map(name=>{const value=fixture.def
     type:typeof value==='boolean'?'checkbox':'text'}];}));
 fields.symbols.value='KO';fields.enabled.checked=true;
 nodes['start-form'].elements=fields;
+global.Node=Element;
 global.document={getElementById:id=>nodes[id],createElement:tag=>new Element(tag)};
 global.FormData=class {constructor(form){this.fields=form.elements;}
   get(name){const f=this.fields[name];return !f||f.disabled?null:f.value;}
@@ -157,12 +159,21 @@ global.setInterval=()=>0;
 const requests=[];
 global.fetch=async(path,opts)=>{requests.push({path,...opts});let data={};
   if(path==='setup')data=fixture.setup;
+  if(path.endsWith('/settings'))data=fixture.taskSettings;
+  if(path==='comparisons')data=fixture.comparison;
   if(path==='tasks')data={tasks:[]};
   if(path==='plans')data={plans:[]};
   if(path==='overview')data={tasks:[],histories:{}};
   return {ok:true,json:async()=>data};};
 """
     )
+    result = subprocess.run(
+        [node, "-"], input=harness + script + assertions, capture_output=True, text=True, timeout=10
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_full_workbench_script_applies_starter_without_running_or_scheduling():
     assertions = r"""
 (async()=>{
   await new Promise(setImmediate);
@@ -186,7 +197,4 @@ global.fetch=async(path,opts)=>{requests.push({path,...opts});let data={};
   assert.equal(submitted.options.llm,'simulated');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 """
-    result = subprocess.run(
-        [node, "-"], input=harness + script + assertions, capture_output=True, text=True, timeout=10
-    )
-    assert result.returncode == 0, result.stderr
+    run_workbench_script(assertions)

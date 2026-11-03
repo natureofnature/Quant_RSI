@@ -56,9 +56,10 @@ def starter_studies():
     ]
 
 
-def local_services():
+def local_services(environment=None):
     """Never return credentials, invoke a provider or equate presence with connectivity."""
-    codex = bool(shutil.which("codex"))
+    environment = os.environ if environment is None else environment
+    codex = bool(shutil.which("codex", path=environment.get("PATH")))
     providers = [
         {"id": "simulated", "available": True, "detail": "No credentials or service calls."},
         {
@@ -73,7 +74,7 @@ def local_services():
         },
     ]
     for key, variable in (("api", "OPENAI_API_KEY"), ("deepseek", "DEEPSEEK_API_KEY")):
-        configured = bool(os.environ.get(variable, "").strip())
+        configured = bool(environment.get(variable, "").strip())
         providers.append(
             {
                 "id": key,
@@ -82,7 +83,7 @@ def local_services():
                     f"{variable} is configured. "
                     "Credentials, model access and connectivity are unverified."
                     if configured
-                    else f"Set {variable} in the server environment and restart the workbench."
+                    else f"Configure {variable} in Service settings or in the server environment."
                 ),
             }
         )
