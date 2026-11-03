@@ -244,3 +244,43 @@ missing quotes, delayed availability and shifted calendars. Seven regression cas
 also cover equal-time membership evidence, contradictory statuses, delayed membership,
 quote conflicts, revision receipt boundaries and absent calendar closes. Required
 full CI remains the merge gate; neither timing nor output equivalence replaces it.
+
+## Forecast training-view batching measurement (2026-11-03)
+
+The forecast training path still built each historical feature view separately.
+Recursive authorization and replay repeat this path, including for the training-mean
+baseline. Each individual view consequently rehashed the entire input snapshot.
+Forecast training now uses the existing synchronous batch implementation: it hashes
+the snapshot once, still resolves visibility for each decision, and hashes each
+completed view once before expanding its instrument rows. Currency, quote basis,
+receipt-watermark and objective checks remain in force. No cache survives the call.
+
+A retained engineering input contained 520 invented daily sessions and one instrument,
+with a training cutoff at index 360. Seed 7 generated returns as
+`r[t] = 0.85 * r[t-5] + Normal(0, 0.006)` (missing initial lags are zero); closes were
+`100 * exp(cumsum(r))`, serialized to eight decimal places, with no corporate actions
+by construction. This is synthetic data, not an exchange calendar or market result.
+
+Three interleaved calls per implementation compared a saved `347b48c` training function
+with the batch implementation in the same Python 3.12 process, on the same preloaded
+input and `momentum_3` plan. Numerical libraries used one thread. An unrelated recovery
+process was active; host contention and caches were uncontrolled. Timings cover only
+`training_view`, excluding input loading, model fitting and complete recursive replay.
+
+| Median per call | Original function | Batched function |
+| --- | ---: | ---: |
+| Process CPU seconds | 1.1905 | 0.3935 |
+| Elapsed seconds | 1.1910 | 0.3937 |
+
+The **66.9% process-CPU reduction** exceeds the predeclared 20% target for this input.
+It is not a full-suite or end-to-end workflow speedup claim. Four saved-original
+comparisons (`momentum` and `mean_return`, windows 2 and 3) produced identical feature
+arrays, labels, metadata and complete training-view bytes. Two actual `momentum_3`
+LightGBM fits also produced identical model bytes, predictions and evaluation output;
+only their actual fit timestamps differ. These checks do not establish predictive gain.
+
+The focused regressions compare batched training with fresh individual views, require
+one snapshot encoding, and cover historical/observed visibility, receipt watermarks,
+corporate-action interpretation and currency refusal. Run them with
+`pytest -q tests/test_forecast_kernel.py tests/test_forecast_research.py`.
+The existing full Python and Qlib CI checks remain required before merge.

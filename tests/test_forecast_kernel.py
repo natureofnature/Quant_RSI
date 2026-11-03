@@ -11,6 +11,7 @@ from quant_rsi.forecast.forecast_contracts import ForecastObjective
 from quant_rsi.forecast.forecast_kernel import (
     forecast_errors,
     forecast_feature_view,
+    forecast_feature_views,
     mature_forecast_label,
     target_session,
 )
@@ -123,6 +124,24 @@ def test_target_uses_fifth_registered_session_and_exact_maturity(source):
     assert at["status"] == "mature"
     assert at["target_session"] == "s7"
     assert target_session(contract, "s5", spec) is None
+
+
+@pytest.mark.parametrize("visibility", [{}, {"basis": "observed_receipts"}, {"watermark": 0}])
+def test_forecast_batch_preserves_decision_visibility_and_currency_guard(source, visibility):
+    contract, snapshot = source(notice=cash_notice())
+    spec = objective([interpreted(snapshot)])
+    factor = FactorSpec(op="momentum", window=2)
+    decisions = [("s2", "2020-10-21T16:00:00Z"), ("s4", "2020-10-23T16:00:00Z")]
+    expected = [
+        forecast_feature_view(snapshot, contract, session, as_of, factor, spec, **visibility)
+        for session, as_of in decisions
+    ]
+    batch = forecast_feature_views(snapshot, contract, decisions, factor, spec, **visibility)
+    assert canonical(batch) == canonical(expected)
+    with pytest.raises(ValueError, match="currency/basis"):
+        forecast_feature_views(
+            snapshot, contract.model_copy(update={"currency": "USD"}), decisions, factor, spec
+        )
 
 
 def test_missing_target_quote_does_not_roll_to_next_session(source):

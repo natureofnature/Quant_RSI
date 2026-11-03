@@ -5,7 +5,7 @@ import math
 from decimal import Decimal, InvalidOperation
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.market.asof import make_feature_view, session_index
+from quant_rsi.market.asof import make_feature_views, session_index
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.market.market_data import knowledge_time, visible_revisions
 
@@ -99,13 +99,27 @@ def action_assessment(visible, instrument, start_at, end_at, objective):
 def forecast_feature_view(
     snapshot, contract, session_id, as_of, factor, objective, *, basis=None, watermark=None
 ):
-    if contract.currency != objective.currency or contract.price_basis != "raw":
-        raise ValueError("forecast quote currency/basis differs from the registered source")
-    return make_feature_view(
+    return forecast_feature_views(
         snapshot,
         contract,
-        session_id,
-        as_of,
+        [(session_id, as_of)],
+        factor,
+        objective,
+        basis=basis,
+        watermark=watermark,
+    )[0]
+
+
+def forecast_feature_views(
+    snapshot, contract, decisions, factor, objective, *, basis=None, watermark=None
+):
+    """Build a synchronous batch with a fresh snapshot identity for this call."""
+    if contract.currency != objective.currency or contract.price_basis != "raw":
+        raise ValueError("forecast quote currency/basis differs from the registered source")
+    return make_feature_views(
+        snapshot,
+        contract,
+        decisions,
         factor,
         basis=basis,
         watermark=watermark,
