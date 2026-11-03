@@ -1,13 +1,16 @@
 """Workbench queue inputs and a small worker around the existing study CLI."""
 
 import json
+import math
 import re
 import sys
 import time
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write, canonical
+from quant_rsi.market.market_contracts import SideCosts, decimal_text
 from quant_rsi.research.demo import research_question
 from quant_rsi.research.study_history import collection_snapshot, history_view, observe_prices
 from quant_rsi.research.study_iterations import validate_limits
@@ -46,6 +49,10 @@ def study_options(options):
         "historical_sessions": None,
         "walk_forward_folds": 0,
         "question": "",
+        "initial_cash": "10000",
+        "commission_bps": "5",
+        "slippage_bps": "5",
+        "threshold": 0.0,
     }
     if not isinstance(options, dict) or set(options) - defaults.keys():
         raise ValueError("Unexpected study options")
@@ -128,6 +135,18 @@ def study_options(options):
         if start > end or (previous_end is not None and start <= previous_end):
             raise ValueError("Date windows must be ordered and must not overlap")
         previous_end = end
+    for key in ("initial_cash", "commission_bps", "slippage_bps"):
+        if not isinstance(result[key], str):
+            raise ValueError("Capital and costs must be decimal strings")
+    result["initial_cash"] = decimal_text(result["initial_cash"], positive=True)
+    if Decimal(result["initial_cash"]) % Decimal("0.01"):
+        raise ValueError("Initial USD capital must have cent precision")
+    costs = SideCosts(
+        commission_bps=result["commission_bps"], tax_bps="0", slippage_bps=result["slippage_bps"]
+    )
+    result["commission_bps"], result["slippage_bps"] = costs.commission_bps, costs.slippage_bps
+    if type(result["threshold"]) not in (int, float) or not math.isfinite(result["threshold"]):
+        raise ValueError("Signal threshold must be a finite number")
     return result
 
 
@@ -155,6 +174,10 @@ def study_arguments(task, workspace, symbol, options, *, batch_id=None):
     for key, flag in (
         ("llm", "llm"),
         ("model", "model"),
+        ("initial_cash", "initial-cash"),
+        ("commission_bps", "commission-bps"),
+        ("slippage_bps", "slippage-bps"),
+        ("threshold", "threshold"),
         ("research_mode", "research-mode"),
         ("latest_fit", "latest-fit"),
         ("data", "prices"),

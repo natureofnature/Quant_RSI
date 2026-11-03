@@ -372,6 +372,10 @@ def make_server(workbench, token, port=0):
                         files("quant_rsi.research").joinpath("study_workbench.html").read_text(),
                         "text/html",
                     )
+                elif route == "setup":
+                    from quant_rsi.research.study_onboarding import local_services, starter_studies
+
+                    self.respond(200, {"services": local_services(), "starters": starter_studies()})
                 elif route == "tasks":
                     self.respond(200, {"tasks": workbench.listing()})
                 elif route == "plans":

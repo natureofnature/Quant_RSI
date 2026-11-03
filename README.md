@@ -36,6 +36,15 @@ To start studies from the browser and return to previous tasks, open the local w
 quant-rsi research-ui --workspace /tmp/quant-rsi-workbench
 ```
 
+Use **Choose a starting point** for an offline example, a public-market study,
+or Codex business research. Applying a starter only fills the form. Local setup
+checks show missing dependencies or credentials without making model calls;
+configured credentials do not mean connectivity has been verified.
+The launch summary shows the fit ceiling, initial capital and per-side costs.
+**Models, budget, costs & dates** contains the advanced controls; all selected
+assumptions are retained in queued tasks and saved templates. See the
+[QuantDinger usability comparison and delivery plan](docs/quantdinger_usability.md).
+
 Enter a watchlist (for example `KO, XOM, AAPL`), choose the researcher, model,
 rounds, fit budget and MAE/Sharpe selection, then queue a cycle. Each stock gets
 an observation task followed by a study; one failure does not block the next stock.
