@@ -40,6 +40,17 @@ Use **Choose a starting point** for an offline example, a public-market study,
 or Codex business research. Applying a starter only fills the form. Local setup
 checks show missing dependencies or credentials without making model calls;
 configured credentials do not mean connectivity has been verified.
+**Service settings & connection test** saves a default model and optional API key
+for this workspace. Codex keeps using the server's CLI login. Keys are stored in
+`.provider-settings.json` with mode `0600` (not encrypted), never returned to the
+browser or copied into task records. Keep the workspace private and exclude this
+file from shared archives. A blank key keeps the saved value; removal falls back
+to any server environment key. Workers read the workspace settings when dispatched.
+**Use in study form** applies the saved provider/model without starting research.
+**Test saved connection** explicitly queues one tool-free model call, which may
+consume service usage, with a 60-second provider timeout. Task history shows its
+timestamp, result and reported tokens; it does not test data coverage or predictive
+quality. Use **Check inputs** before queuing a real-data study.
 The launch summary shows the fit ceiling, initial capital and per-side costs.
 **Models, budget, costs & dates** contains the advanced controls; all selected
 assumptions are retained in queued tasks and saved templates. See the
@@ -62,7 +73,7 @@ same workspace. Use **Use settings** on a historical task to prepare an editable
 **Continue study** instead retries retained work. **Compare two retained studies**
 shows development and terminal metrics side by side and explains mismatched samples,
 prices or execution policies before computing differences. Comparison tables keep
-development metrics separate from matured forecast outcomes. API credentials stay in the server environment.
+development metrics separate from matured forecast outcomes.
 The form can enable **publication-dated financial factors** and, by default for new form
 submissions, **research only on new evidence**. Unchanged prices, selected issuer news,
 quarterly filings and matured outcomes skip the study before paid calls; collection

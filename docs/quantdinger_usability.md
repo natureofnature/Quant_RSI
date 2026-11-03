@@ -79,16 +79,26 @@ preservation of the original study after copying settings and completing a new
 run. Full-script Node tests cover editable reuse, comparison rendering and failure
 actions. Browser visual acceptance remains outstanding when no browser is available.
 
-### 3. Service and data setup — remaining
+### 3. Service and data setup
 
-- Offer explicit model connection testing separate from research, with usage
-  implications visible and failures scrubbed of credentials.
-- Reduce terminal-only configuration steps while keeping keys out of task
-  manifests, reports and browser responses; preserve session-based Codex use.
-- Bring existing input checks into the setup flow with source, freshness,
-  coverage, unavailable factors and actionable failure states.
-- Verify one configured-service public-data research journey, then one deliberate
-  provider/data failure and recovery. A synthetic run does not satisfy this gate.
+Implemented: browser setup for Codex/OpenAI API/DeepSeek, workspace model defaults
+and optional private API keys, and explicit connection tests on the existing
+serial queue. Keys are saved in a mode-0600 file, never returned by the HTTP API,
+and injected only into new workers without changing the server environment.
+Removing a workspace key falls back to a configured environment key. Codex keeps
+its CLI session. Saved model defaults are applied explicitly to the study form.
+
+Connection tests issue one tool-free call through the existing transport, with a
+60-second provider timeout, no automatic retry, and no data collection or fits.
+The UI labels possible service usage and shows timestamps, sanitized outcomes and
+reported tokens. A successful test is not a permanent availability guarantee.
+The existing **Check inputs** action is the next setup step before real research;
+its report retains source, freshness, coverage and unavailable-factor diagnostics.
+
+Acceptance still requires one configured-service public-data research journey
+and a deliberate provider/data failure and recovery. Synthetic fixtures and CLI
+doubles do not satisfy that gate. Browser visual acceptance remains separate
+from the full-script DOM tests.
 
 Keep this list tied to observed friction. Broader portfolio construction, live
 execution and SaaS operations are separate capabilities; their existence in

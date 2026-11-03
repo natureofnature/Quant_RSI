@@ -18,6 +18,12 @@ from quant_rsi.core.artifacts import atomic_write, canonical
 from quant_rsi.research.study_history import history_view
 from quant_rsi.research.study_queue import stock_symbol, study_arguments, study_options, watchlist
 from quant_rsi.research.study_resume import run_lock
+from quant_rsi.research.study_services import (
+    effective_environment,
+    save_service_settings,
+    service_settings,
+    validate_settings,
+)
 from quant_rsi.research.study_ui import _read_json, page, read_state
 
 
@@ -86,6 +92,7 @@ class Workbench:
             "reason": worker.get("reason"),
             "finished_at": worker.get("finished_at"),
             "observation_reason": _read_json(task / "observation.json", {}).get("reason"),
+            "connection": _read_json(task / "connection.json", None),
         }
 
     def listing(self):
@@ -114,8 +121,9 @@ class Workbench:
                     stdin=subprocess.DEVNULL,
                     start_new_session=True,
                     pass_fds=(fd,),
+                    env=effective_environment(self.root),
                 )
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
             atomic_write(task / "worker.json", canonical({"status": "failed", "error": str(exc)}))
         finally:
             # Do not LOCK_UN: the child owns the same open file description.
@@ -135,12 +143,25 @@ class Workbench:
             "plan_id": plan_id,
             "batch_id": batch_id,
             "force": force,
-            "arguments": study_arguments(task, self.root, symbol, options, batch_id=batch_id),
+            "arguments": []
+            if action == "check_provider"
+            else study_arguments(task, self.root, symbol, options, batch_id=batch_id),
         }
         if action == "check_inputs":
             manifest["arguments"].append("--check-inputs")
         atomic_write(task / "task.json", canonical(manifest))
         return task
+
+    def check_provider(self, options):
+        if not isinstance(options, dict) or set(options) != {"provider", "model"}:
+            raise ValueError("Choose a provider and model to test")
+        provider = validate_settings(options)
+        config = study_options(
+            {"llm": provider, "llm_model": options["model"].strip(), "news_research": False}
+        )
+        task = self._enqueue("SETUP", config, action="check_provider")
+        self.tick()
+        return self.item(task)
 
     def start(self, options):
         if not isinstance(options, dict):
@@ -392,7 +413,14 @@ def make_server(workbench, token, port=0):
                 elif route == "setup":
                     from quant_rsi.research.study_onboarding import local_services, starter_studies
 
-                    self.respond(200, {"services": local_services(), "starters": starter_studies()})
+                    self.respond(
+                        200,
+                        {
+                            "services": local_services(effective_environment(workbench.root)),
+                            "starters": starter_studies(),
+                            "settings": service_settings(workbench.root),
+                        },
+                    )
                 elif route == "tasks":
                     self.respond(200, {"tasks": workbench.listing()})
                 elif route == "plans":
@@ -473,12 +501,17 @@ def make_server(workbench, token, port=0):
                 if not 0 < length <= 4096:
                     raise ValueError("Invalid request size")
                 options = json.loads(self.rfile.read(length))
+                if route == "service-settings":
+                    self.respond(200, {"settings": save_service_settings(workbench.root, options)})
+                    return
                 if route == "comparisons":
                     if not isinstance(options, dict) or set(options) != {"left", "right"}:
                         raise ValueError("Select two retained studies")
                     self.respond(200, workbench.compare(options["left"], options["right"]))
                     return
-                if route == "tasks":
+                if route == "provider-checks":
+                    result = workbench.check_provider(options)
+                elif route == "tasks":
                     result = workbench.start(options)
                 elif (
                     route in {"batches", "checks"}

@@ -250,7 +250,11 @@ def run_task(task):
         atomic_write(task / "worker.json", canonical(state))
 
     try:
-        if manifest.get("action") == "observe":
+        if manifest.get("action") == "check_provider":
+            from quant_rsi.research.study_services import check_connection
+
+            code = check_connection(task, manifest)
+        elif manifest.get("action") == "observe":
             observe_task(task, manifest)
             code = 0
         else:

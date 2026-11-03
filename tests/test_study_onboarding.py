@@ -16,7 +16,7 @@ from quant_rsi.research.study_workbench import Workbench, make_server
 def test_setup_checks_are_local_and_never_return_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "secret-sentinel-never-return")
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-    monkeypatch.setattr(study_onboarding.shutil, "which", lambda name: None)
+    monkeypatch.setattr(study_onboarding.shutil, "which", lambda name, **kwargs: None)
     monkeypatch.setattr(study_onboarding, "find_spec", lambda name: object())
     workbench = Workbench(tmp_path)
     server = make_server(workbench, "setup-test")
