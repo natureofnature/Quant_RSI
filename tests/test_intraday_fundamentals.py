@@ -1,6 +1,7 @@
 """Fundamental (`f_`) intraday leaves: as-of-open values, binding and refusal rules."""
 
 import json
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -12,6 +13,7 @@ from quant_rsi.intraday.__main__ import main
 from quant_rsi.intraday.features import FUNDAMENTAL_LEAVES, build_features, validate_leaves
 from quant_rsi.intraday.fundamentals import (
     FundamentalSource,
+    financial_binding_digest,
     load_financial_snapshot,
     session_values,
     with_fundamentals,
@@ -64,7 +66,13 @@ def snapshot(tmp_path_factory):
 def fundamental_plan(financials, leaves=("ret_1", "f_revenue_yoy", "f_days_since_report")):
     return plan(
         leaves=list(leaves),
-        fundamentals=[{"instrument": "KO", "snapshot_sha256": financials["sha256"]}],
+        fundamentals=[
+            {
+                "instrument": "KO",
+                "snapshot_sha256": financials["sha256"],
+                "binding_sha256": financial_binding_digest(financials),
+            }
+        ],
     )
 
 
@@ -131,6 +139,71 @@ def test_binding_refuses_missing_substituted_or_unused_snapshots(snapshot, tmp_p
     path.write_bytes(canonical(financials))
     with pytest.raises(ValueError, match="does not match its digest"):
         load_financial_snapshot(path)
+    with pytest.raises(ValueError, match="does not match its digest"):
+        with_fundamentals(snapshot, bound, [financials])
+
+
+def test_sec_mapping_changes_require_a_different_binding(snapshot, tmp_path):
+    from test_study_financials import snapshot as sec_snapshot
+
+    financials = sec_snapshot()
+    financials["provider"] = "sec_companyfacts"
+    bound = fundamental_plan(financials)
+    changed = deepcopy(financials)
+    changed["profile"]["fields"]["revenue"] = ["OperatingIncomeLoss"]
+    assert changed["sha256"] == financials["sha256"]
+    assert financial_binding_digest(changed) != financial_binding_digest(financials)
+    path = tmp_path / "changed-mapping.json"
+    path.write_bytes(canonical(changed))
+    loaded = load_financial_snapshot(path)
+    with pytest.raises(ValueError, match="no financial snapshot binding"):
+        with_fundamentals(snapshot, bound, [loaded])
+    with_fundamentals(snapshot, fundamental_plan(loaded), [loaded])
+
+
+def test_legacy_payload_only_plan_requires_explicit_new_binding(snapshot):
+    financials = financial_snapshot()
+    legacy = plan(
+        leaves=["ret_1", "f_revenue_yoy"],
+        fundamentals=[{"instrument": "KO", "snapshot_sha256": financials["sha256"]}],
+    )
+    before = legacy.model_dump_json()
+    with pytest.raises(ValueError, match="lacks binding_sha256"):
+        with_fundamentals(snapshot, legacy, [financials])
+    assert legacy.model_dump_json() == before
+
+
+def test_evaluation_rejects_reused_source_with_another_plan_before_fitting(snapshot, monkeypatch):
+    from quant_rsi.intraday import evaluation
+
+    financials = financial_snapshot()
+    intended = fundamental_plan(financials)
+    changed = deepcopy(financials)
+    changed["records"][-2]["value"] *= 2
+    changed["sha256"] = digest(canonical(changed["records"]))
+    other_source = with_fundamentals(snapshot, fundamental_plan(changed), [changed])
+
+    def unexpected_fit(*args, **kwargs):
+        raise AssertionError("Mismatched financial inputs must reject before fitting")
+
+    monkeypatch.setattr(evaluation, "fit", unexpected_fit)
+    for source in (snapshot, other_source):
+        with pytest.raises(ValueError, match="financial source bindings differ"):
+            evaluation.evaluate_development(source, intended)
+
+
+@pytest.mark.parametrize("change", ["provider", "symbol", "cik"])
+def test_financial_binding_rejects_unsupported_or_inconsistent_identity(change):
+    from test_study_financials import snapshot as sec_snapshot
+
+    financials = sec_snapshot()
+    financials["provider"] = "sec_companyfacts"
+    if change == "provider":
+        financials["provider"] = "unregistered"
+    else:
+        financials["profile"][change] = "PEP" if change == "symbol" else 2
+    with pytest.raises(ValueError, match="unsupported financial provider|identity mismatch"):
+        financial_binding_digest(financials)
 
 
 def test_plans_declare_fundamentals_exactly_when_f_leaves_are_used(snapshot):
@@ -158,3 +231,23 @@ def test_evaluate_command_binds_the_financial_snapshot(tmp_path, capsys):
     assert report["leaves"] == leaves and len(report["folds"]) == 2
     with pytest.raises(ValueError, match="no financial snapshot"):
         main([*command, "--plan", str(plan_path)])
+
+
+def test_collect_command_prints_both_plan_bindings(snapshot, tmp_path, monkeypatch, capsys):
+    from quant_rsi.research import study_financials
+
+    financials = financial_snapshot()
+    monkeypatch.setattr(study_financials, "collect_financials", lambda *args: financials)
+    assert main(["collect-financials", "--symbol", "KO", "--output", str(tmp_path)]) == 0
+    result = json.loads(capsys.readouterr().out)
+    bound = plan(
+        leaves=["ret_1", "f_revenue_yoy"],
+        fundamentals=[
+            dict(
+                instrument="KO",
+                snapshot_sha256=result["snapshot_sha256"],
+                binding_sha256=result["binding_sha256"],
+            )
+        ],
+    )
+    with_fundamentals(snapshot, bound, [financials])
