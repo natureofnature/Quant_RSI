@@ -332,6 +332,19 @@ def visual_output(stage, output, previous, symbol):
             "extra_fits": output["extra_fits"],
             "note": output["notice"] + f" Additional fits: {output['extra_fits']}.",
         }
+    if stage == "cost_stress":
+        from quant_rsi.research.study_cost_stress import cost_stress_rows
+
+        unavailable = [
+            f"{name}: {segment['reason']}"
+            for name, segment in output["segments"].items()
+            if segment["status"] != "completed"
+        ]
+        return {
+            "kind": "cost_stress",
+            "rows": cost_stress_rows(output),
+            "note": " ".join([output["notice"], *unavailable]),
+        }
     if stage == "model_comparison":
         from quant_rsi.research.study_model_comparison import comparison_rows
 

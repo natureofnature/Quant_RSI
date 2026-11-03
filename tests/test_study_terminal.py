@@ -128,10 +128,23 @@ def test_terminal_changes_do_not_change_research_prompts_selection_or_accounts(
     first_terminal = runs[0]["terminal_evaluation"]
     second_terminal = runs[1]["terminal_evaluation"]
     assert first_terminal["evaluation"]["metrics"] != second_terminal["evaluation"]["metrics"]
+    assert (
+        runs[0]["study"]["cost_stress"]["segments"]["development"]
+        == runs[1]["study"]["cost_stress"]["segments"]["development"]
+    )
+    assert (
+        runs[0]["study"]["cost_stress"]["segments"]["terminal"]
+        != runs[1]["study"]["cost_stress"]["segments"]["terminal"]
+    )
     for run in runs:
         terminal = run["terminal_evaluation"]
         assert terminal["selected_round"] == run["iterations"]["selected_round"]
-        assert [e["stage"] for e in run["trace"]][-2:] == ["terminal_evaluation", "summary"]
+        assert [e["stage"] for e in run["trace"]][-3:] == [
+            "terminal_evaluation",
+            "summary",
+            "cost_stress",
+        ]
+        assert run["study"]["cost_stress"]["extra_fits"] == 0
         for trial in run["iterations"]["attempts"]:
             assert trial["prediction"]["strategy"]["period"]["end"] < terminal["origin_sessions"][0]
         assert run["runtime"]["counts"]["model_stages_completed"] == 3
