@@ -189,3 +189,96 @@ def test_quote_that_rounds_to_zero_is_rejected_by_account_contract():
     data.opens[:] = data.closes[:] = 1e-14
     with pytest.raises(ValueError, match="must be positive"):
         evaluate_strategy(data, "KO", [prediction(data)])
+
+
+@pytest.mark.parametrize("cost", ["5", "0", "400"])
+def test_cost_stress_replays_fixed_predictions_and_preserves_bounds(monkeypatch, cost):
+    from quant_rsi.core.artifacts import canonical, digest
+    from quant_rsi.research import study_cost_stress
+
+    data = market()
+    rows = [prediction(data, i) for i in range(3)]
+    policy = dict(
+        commission_bps=cost,
+        slippage_bps=cost,
+        initial_cash="10000",
+        threshold=0.0,
+        horizon_sessions=5,
+    )
+    baseline = evaluate_strategy(data, "KO", rows, **policy)
+    selected = {"factor_ids": ["momentum_3"], "development": {"rows": rows}, "strategy": baseline}
+    before = canonical(selected)
+    replays = []
+
+    def counted(data, symbol, predictions, **settings):
+        assert canonical(predictions) == canonical(rows)
+        replays.append(settings)
+        return evaluate_strategy(data, symbol, predictions, **settings)
+
+    monkeypatch.setattr(study_cost_stress, "evaluate_strategy", counted)
+    result = study_cost_stress.evaluate_cost_stress(
+        data, "KO", selected, None, selected_round=2, policy=policy
+    )
+    assert canonical(selected) == before
+    assert result["extra_fits"] == 0 and result["selected_round"] == 2
+    assert result["segments"]["terminal"]["status"] == "unavailable"
+    segment = result["segments"]["development"]
+    assert segment["prediction_rows_sha256"] == digest(canonical(rows))
+    scenarios = segment["scenarios"]
+    assert scenarios[0]["account"] == baseline
+    assert len(replays) == (1 if cost == "400" else 2)
+    for scenario in scenarios:
+        if scenario["status"] == "completed":
+            account = scenario["account"]
+            assert account["period"] == baseline["period"]
+            assert account["strategy"] == account["buy_and_hold"]
+            assert account["account_rules"]["buy_costs"]["commission_bps"] == str(
+                int(cost) * scenario["multiplier"]
+            )
+    table = study_cost_stress.cost_stress_rows(result)
+    assert len(table) == 6
+    if cost == "5":
+        # Commission uses the slipped notional; each component rounds to cents.
+        assert [
+            row["account"]["strategy"]["metrics"]["fees"]["commission"] for row in scenarios
+        ] == ["4.95", "9.91", "14.87"]
+        assert all(row["daily_return_count"] == 7 for row in table)
+    elif cost == "0":
+        assert all(row["sharpe_ratio"] is None for row in table)
+        assert all(row["risk_status"] == "zero_volatility" for row in table)
+    else:
+        assert scenarios[-1]["status"] == "unavailable"
+        assert scenarios[-1]["reason"] == "scaled_cost_above_supported_1000_bps_bound"
+        assert table[-1]["net_return"] is None
+
+
+def test_cost_stress_replays_exit_and_reentry_with_asymmetric_rates():
+    from quant_rsi.research.study_cost_stress import evaluate_cost_stress
+
+    data = market()
+    rows = [prediction(data, index, score) for index, score in enumerate((0.1, -0.1, 0.1))]
+    policy = dict(
+        commission_bps="2",
+        slippage_bps="7",
+        initial_cash="10000",
+        threshold=0.0,
+        horizon_sessions=5,
+    )
+    selected = {
+        "factor_ids": ["momentum_3"],
+        "development": {"rows": rows},
+        "strategy": evaluate_strategy(data, "KO", rows, **policy),
+    }
+    result = evaluate_cost_stress(data, "KO", selected, None, selected_round=1, policy=policy)
+    for scenario in result["segments"]["development"]["scenarios"]:
+        account = scenario["account"]
+        multiplier = scenario["multiplier"]
+        for side in ("buy_costs", "sell_costs"):
+            assert account["account_rules"][side]["commission_bps"] == str(2 * multiplier)
+            assert account["account_rules"][side]["slippage_bps"] == str(7 * multiplier)
+        assert [fill["side"] for fill in account["strategy"]["fills"]] == ["buy", "sell", "buy"]
+        assert len(account["buy_and_hold"]["fills"]) == 1
+        assert Decimal(account["strategy"]["metrics"]["fees"]["commission"]) > 0
+        assert Decimal(account["strategy"]["metrics"]["fees"]["slippage"]) > Decimal(
+            account["strategy"]["metrics"]["fees"]["commission"]
+        )

@@ -25,6 +25,7 @@ from quant_rsi.research.demo_proposals import FactorProposal
 from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer
+from quant_rsi.research.study_cost_stress import MULTIPLIERS, evaluate_cost_stress
 from quant_rsi.research.study_estimators import model_configuration
 from quant_rsi.research.study_factor_profiles import load_study_catalog
 from quant_rsi.research.study_guidance import (
@@ -211,6 +212,7 @@ def _configuration(args):
         walk_forward_fit_budget=folds,
         publication_fit_budget=int(args.prices == "daily" and args.latest_fit == "refit"),
         generated_recipes="bounded_price_news_and_business_expressions",
+        cost_stress_multipliers=list(MULTIPLIERS),
     )
     return symbol, root, configuration
 
@@ -1274,6 +1276,31 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             f" Publication refit: {publication['status']}, {publication['extra_fits']} additional "
             "fit outside the research budget. " + publication["notice"]
         )
+    progress.start("cost_stress")
+    chosen = selection["selected_round"]
+    stress_inputs = {
+        "selected_round": chosen,
+        "selected": attempts[chosen - 1]["prediction"],
+        "terminal": result.get("terminal_evaluation"),
+        "policy": {
+            "commission_bps": args.commission_bps,
+            "slippage_bps": args.slippage_bps,
+            "initial_cash": args.initial_cash,
+            "threshold": args.threshold,
+            "horizon_sessions": model.horizon,
+        },
+    }
+    stress = cache.call(
+        "cost_stress",
+        stress_inputs,
+        lambda: evaluate_cost_stress(model.data, symbol, **stress_inputs),
+    )
+    result["study"]["cost_stress"] = stress
+    _write(root / "cost_stress.json", stress)
+    event = {"stage": "cost_stress", "output": stress}
+    record(event)
+    result["trace"].append(event)
+
     # Freeze measured research time for the reports, but do not announce success yet.
     result["runtime"] = progress.snapshot("completed")
     cache.call("final_result", symbol, lambda: {"result": result, "prices": history_prices})
