@@ -15,6 +15,21 @@ the report; no frontend install is needed. Node outputs include news cards, fact
 interactive prediction/NAV charts and metric tables, with raw JSON available on demand.
 See the [live UI guide](docs/connected_research_study.md#live-research-ui).
 
+For **fixed baseline + LLM business increments**, use the same entry point:
+
+```bash
+quant-rsi research-study KO --research-mode incremental --financials \
+  --historical-sessions 252 --llm codex \
+  --question "Does inventory growth relative to revenue add information beyond price controls?" \
+  --output /tmp/ko-incremental-business
+```
+
+This mode freezes the controls and common sample, allows up to two business
+increments, and budgets at most three research fits including the baseline.
+Retain/withdraw/stop actions do not refit. Optional date ranges and retained
+historical context are documented in the [incremental research guide](docs/incremental_business_research.md).
+
+
 To start studies from the browser and return to previous tasks, open the local workbench:
 
 ```bash

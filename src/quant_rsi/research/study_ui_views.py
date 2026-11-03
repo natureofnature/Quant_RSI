@@ -383,6 +383,19 @@ def visual_output(stage, output, previous, symbol):
             "facts": {key: value for key, value in output.items() if key != "notice"},
             "note": output.get("notice"),
         }
+    if re.fullmatch(r"round_\d+_increment", stage):
+        return {
+            "kind": "facts",
+            "facts": {
+                "action": output["action"],
+                "additional_fits": output["extra_fits"],
+                "reason": output.get("reason", output.get("hypothesis", {}).get("hypothesis")),
+                "business_increments": ", ".join(
+                    output.get("hypothesis", {}).get("incremental_factor_ids", [])
+                )
+                or "None",
+            },
+        }
     if stage == "terminal_evaluation":
         return _terminal_view(output)
     match = re.fullmatch(

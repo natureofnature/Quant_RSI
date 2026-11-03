@@ -28,7 +28,8 @@ def _reuse_deadline(lifetime):
 
 def render_study(result):
     steps = {event["stage"]: event["output"] for event in result["trace"]}
-    first, second = (steps[key] for key in ("first_prediction", "second_prediction"))
+    first = steps["first_prediction"]
+    second = steps.get("second_prediction", first)
     iterations = result.get("iterations")
     if iterations:
         second = iterations["attempts"][-1]["prediction"]
@@ -163,6 +164,73 @@ def render_study(result):
                 ]
                 for item in iterations["attempts"]
             ],
+        )
+    plan = result["study"].get("incremental_plan")
+    if plan:
+        section("Fixed baseline and business increments", plan["baseline_note"])
+        table(
+            ["Role", "Executed inputs"],
+            [
+                ["Fixed baseline", ", ".join(plan["baseline_ids"])],
+                [
+                    "Eligible business inputs",
+                    ", ".join(plan["candidate_input_ids"])
+                    or "None: missing/disabled/unusable business data",
+                ],
+            ],
+        )
+        table(
+            ["Attempt", "Business increment", "Price MAE", "Delta vs B", "Selected"],
+            [
+                [
+                    item["round"],
+                    ", ".join(item["hypothesis"].get("incremental_factor_ids", []))
+                    or "Baseline only",
+                    _number(item["development_metrics"]["mae_price"]),
+                    _number(
+                        item["development_metrics"]["mae_price"]
+                        - first["development"]["metrics"]["mae_price"]
+                    ),
+                    item["round"] == iterations["selected_round"],
+                ]
+                for item in iterations["attempts"]
+            ],
+        )
+        table(
+            ["Decision", "Hypothesis / reason", "Additional fits"],
+            [
+                [d["action"], d.get("reason") or d["hypothesis"]["hypothesis"], d["extra_fits"]]
+                for d in iterations.get("incremental_decisions", [])
+            ],
+        )
+        windows = result["study"]["research_windows"]
+        section(
+            "Frozen time and information boundaries",
+            windows["notice"]
+            + " LLM context: "
+            + windows["information_mode"]
+            + "; research cutoff: "
+            + str(windows["research_cutoff"] or "current retrospective material"),
+        )
+        table(
+            ["Partition", "Origin range", "Last target", "Rows", "Excluded boundary origins"],
+            [
+                [
+                    name,
+                    (part["origin_sessions"][0] + " → " + part["origin_sessions"][-1])
+                    if part["origin_sessions"]
+                    else "Disabled",
+                    part["target_sessions"][-1] if part["target_sessions"] else "N/A",
+                    len(part["origin_sessions"]),
+                    ", ".join(windows["excluded_boundary_origins"][name]) or "None",
+                ]
+                for name, part in windows["partitions"].items()
+            ],
+        )
+        section(
+            "Historical material coverage",
+            steps["news"].get("coverage_status", "See retained news evidence")
+            + ". Missing eligible material is not replaced by current search in retained mode.",
         )
     profile = result["study"].get("factor_profile", [])
     previous = continuity(
@@ -516,7 +584,10 @@ def render_study(result):
             "established; search snippets do not establish that an article was read.",
         )
     section("Initial hypothesis", steps["initial_hypothesis"]["hypothesis"])
-    section("Revision after feedback", steps["revised_hypothesis"]["hypothesis"])
+    section(
+        "Revision after feedback",
+        steps.get("revised_hypothesis", steps["initial_hypothesis"])["hypothesis"],
+    )
     memory = result["study"].get("factor_memory", {})
     if memory.get("entries"):
         section("Recipes from previous studies", memory["notice"])
@@ -554,7 +625,7 @@ def render_study(result):
         [
             [label, factor["factor_id"], json.dumps(factor["recipe"], sort_keys=True)]
             for label, key in (("Initial", "initial_factors"), ("Revised", "revised_factors"))
-            for factor in steps[key]
+            for factor in steps.get(key, [])
         ],
     )
     dev = second["development"]

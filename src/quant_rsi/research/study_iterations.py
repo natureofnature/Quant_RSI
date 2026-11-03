@@ -29,6 +29,8 @@ def iterate(
 ):
     validate_limits(rounds, fit_budget, patience)
     attempts = []
+    incremental_decisions = []
+    plan = context.get("incremental_plan")
     incumbent = None
     no_progress = 0
     feedback = None
@@ -70,17 +72,67 @@ def iterate(
             feedback = call(
                 "feedback" if number == 2 else f"round_{number}_feedback", collect_feedback
             )
-        hypothesis = call(
-            f"{prefix}_hypothesis",
-            hypothesize,
-            deepcopy(context),
-            deepcopy(library),
-            **(
-                {"previous": deepcopy(incumbent["hypothesis"]), "feedback": deepcopy(feedback)}
-                if incumbent is not None
-                else {}
-            ),
-        )
+        if plan and number == 1:
+            from quant_rsi.research.study_incremental import baseline_hypothesis
+
+            hypothesis = call(f"{prefix}_hypothesis", baseline_hypothesis, plan)
+        else:
+            hypothesis = call(
+                f"{prefix}_hypothesis",
+                hypothesize,
+                deepcopy(context),
+                deepcopy(library),
+                **(
+                    {"previous": deepcopy(incumbent["hypothesis"]), "feedback": deepcopy(feedback)}
+                    if incumbent is not None
+                    else {}
+                ),
+            )
+            if plan:
+                from quant_rsi.research.study_incremental import (
+                    normalize_hypothesis,
+                    recipe_set,
+                )
+
+                try:
+                    hypothesis = normalize_hypothesis(hypothesis, library)
+                except ValueError as exc:
+                    decision = {
+                        "action": "rejected",
+                        "reason": str(exc),
+                        "hypothesis": hypothesis,
+                        "extra_fits": 0,
+                    }
+                    incremental_decisions.append(
+                        call(f"round_{number}_increment", lambda decision=decision: decision)
+                    )
+                    stop_reason = "unavailable_increment"
+                    break
+                action = hypothesis["action"]
+                decision = {"action": action, "hypothesis": deepcopy(hypothesis), "extra_fits": 0}
+                if action != "test":
+                    if action == "withdraw":
+                        incumbent = attempts[0]
+                    incremental_decisions.append(
+                        call(f"round_{number}_increment", lambda decision=decision: decision)
+                    )
+                    stop_reason = "increment_" + action
+                    break
+                extended = extend_library(library, hypothesis)
+                definitions = {d["factor_id"]: d for d in extended["definitions"]}
+                # Compare recipes, not new names or descriptions masquerading as new work.
+                recipes = recipe_set([definitions[key] for key in hypothesis["factor_ids"]])
+                if any(recipes == item.get("executable_recipes") for item in attempts):
+                    decision["action"] = "no_op"
+                    incremental_decisions.append(
+                        call(f"round_{number}_increment", lambda decision=decision: decision)
+                    )
+                    stop_reason = "unchanged_increment"
+                    break
+                decision["extra_fits"] = 1
+                incremental_decisions.append(
+                    call(f"round_{number}_increment", lambda decision=decision: decision)
+                )
         if context.get("allow_factor_proposals"):
             library = call(f"{prefix}_factor_library", extend_library, library, hypothesis)
         factors = call(f"{prefix}_factors", resolve_factors, library, hypothesis)
@@ -106,6 +158,10 @@ def iterate(
                 "retained": sorted(prior_ids & set(ids)),
             },
         }
+        if plan:
+            from quant_rsi.research.study_incremental import recipe_set
+
+            attempt["executable_recipes"] = recipe_set(factors)
         attempts.append(attempt)
         if accepted:
             incumbent, no_progress = attempt, 0
@@ -130,6 +186,7 @@ def iterate(
             stop_reason = "no_progress_limit"
             break
     return {
+        **({"incremental_decisions": incremental_decisions} if plan else {}),
         "attempts": attempts,
         "selected_round": incumbent["round"],
         "completed_fits": len(attempts),

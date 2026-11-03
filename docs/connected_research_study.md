@@ -18,6 +18,11 @@ compositions. `--factor-root` changes the factor configuration root; explicit `-
 bypasses profile resolution. Source availability is checked on the common research
 sample, and unsupported inputs stay pending. See [factor execution and provenance](factor_layers.md#execution-in-the-connected-study).
 
+For a fixed baseline with LLM-selected business increments, see
+[fixed controls, three-fit research and time boundaries](incremental_business_research.md).
+The new mode is opt-in through `--research-mode incremental`; defaults below describe
+legacy mode unless stated otherwise.
+
 ## Local workbench and recovery
 
 ```bash
