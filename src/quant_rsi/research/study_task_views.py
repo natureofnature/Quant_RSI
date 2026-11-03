@@ -51,6 +51,16 @@ def _finite(value):
     return type(value) in (int, float) and math.isfinite(value)
 
 
+def _metric_number(value):
+    # Account contracts serialize Decimal values as strings; display them as numbers.
+    if isinstance(value, str):
+        try:
+            value = float(value)
+        except ValueError:
+            return None
+    return value if _finite(value) else None
+
+
 def _segment(result, inputs, prediction, name):
     if name == "development":
         evaluation, strategy = prediction.get("development"), prediction.get("strategy")
@@ -124,7 +134,7 @@ def _segment(result, inputs, prediction, name):
         "period": period,
         "currency": evaluation.get("currency"),
         "metrics": {
-            key: value if _finite(value) else None
+            key: _metric_number(value)
             for key, value in {
                 "mae_price": metrics.get("mae_price"),
                 "unchanged_price_mae": baseline.get("mae_price"),

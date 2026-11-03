@@ -50,7 +50,9 @@ def selected(result):
     ]
 
 
-@pytest.mark.parametrize("missing_risk", [None, float("nan"), float("inf")])
+@pytest.mark.parametrize(
+    "missing_risk", [None, float("nan"), float("inf"), "NaN", "Infinity", "unavailable", True]
+)
 def test_identical_retained_evidence_and_undefined_risk(pair, missing_risk):
     w, (left, right) = pair
     edit(
@@ -65,6 +67,21 @@ def test_identical_retained_evidence_and_undefined_risk(pair, missing_risk):
     json.dumps(result, allow_nan=False)
     assert result["comparison"]["terminal"]["comparable"]
     assert result["studies"][0]["input_coverage"]["retained_price_sessions"] > 0
+    original = json.loads((left / "study/result.json").read_bytes())
+    for segment in ("development", "terminal"):
+        strategy = (
+            selected(original)["strategy"]
+            if segment == "development"
+            else original["terminal_evaluation"]["strategy"]
+        )
+        metrics = result["studies"][0]["segments"][segment]["metrics"]
+        for name in ("net_return", "max_drawdown"):
+            assert isinstance(strategy["strategy"]["metrics"][name], str)
+            assert metrics[name] == float(strategy["strategy"]["metrics"][name])
+            assert result["comparison"][segment]["differences"][name] == 0
+        assert metrics["buy_and_hold_return"] == float(
+            strategy["buy_and_hold"]["metrics"]["net_return"]
+        )
 
 
 @pytest.mark.parametrize(

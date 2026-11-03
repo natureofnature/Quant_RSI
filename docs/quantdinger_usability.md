@@ -95,10 +95,24 @@ reported tokens. A successful test is not a permanent availability guarantee.
 The existing **Check inputs** action is the next setup step before real research;
 its report retains source, freshness, coverage and unavailable-factor diagnostics.
 
-Acceptance still requires one configured-service public-data research journey
-and a deliberate provider/data failure and recovery. Synthetic fixtures and CLI
-doubles do not satisfy that gate. Browser visual acceptance remains separate
-from the full-script DOM tests.
+Local acceptance on November 3, 2026 used the real Codex session and loopback HTTP
+routes at `63faae1`. An unavailable model failed as intended; a subsequent default
+model connection test succeeded. A KO input check completed in about 83 seconds
+without LLM calls or fits. The public-data study then completed in about 227 seconds:
+six model-service calls (including two searches), two LightGBM fits, and a business
+increment adding `business.inventory_revenue_growth_spread` to the fixed baseline.
+The historical settings route returned the completed task's configuration without
+queuing another study. Evidence was retained outside the checkout; this was not a
+browser interaction test or a deployed QuantDinger comparison.
+
+The run establishes workflow execution, not predictive quality. Development MAE
+changed from 2.8231 to 2.8227, while unchanged-price MAE was 1.0460. Inspection of
+these retained results exposed Decimal-string account metrics being displayed as
+unavailable; the comparison reader now converts finite numeric strings, with
+regression checks for net return, drawdown and buy-and-hold values. Undefined risk
+statistics remain unavailable. The paid research was not repeated for this display
+fix. Browser visual acceptance remains separate from the full-script DOM tests;
+no browser surface, including the in-app browser, was available in this session.
 
 Keep this list tied to observed friction. Broader portfolio construction, live
 execution and SaaS operations are separate capabilities; their existence in
