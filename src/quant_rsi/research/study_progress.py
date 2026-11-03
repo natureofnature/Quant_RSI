@@ -9,9 +9,10 @@ from quant_rsi.core.artifacts import atomic_write
 
 
 class StudyProgress:
-    def __init__(self, root, llm_mode, quiet=False, previous_attempts=()):
+    def __init__(self, root, llm_mode, quiet=False, previous_attempts=(), fixed_baseline=False):
         self.root, self.llm_mode, self.quiet = root, llm_mode, quiet
         self.previous_attempts = list(previous_attempts)
+        self.fixed_baseline = fixed_baseline
         self.started = time.monotonic()
         self.ended = None
         self.active = None
@@ -56,6 +57,7 @@ class StudyProgress:
         groups = {
             "llm_requests": lambda name: (
                 self.llm_mode != "simulated"
+                and not (self.fixed_baseline and name == "initial_hypothesis")
                 and (
                     name in {"initial_hypothesis", "revised_hypothesis", "extract_guidance"}
                     or (name.startswith("round_") and name.endswith("_hypothesis"))

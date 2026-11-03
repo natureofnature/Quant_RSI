@@ -169,11 +169,27 @@ def main(argv: list[str] | None = None) -> int:
                 type=Path,
                 help="shared EIA resource cache; use a fresh directory for each research cycle",
             )
+            demo.add_argument(
+                "--research-mode", choices=("legacy", "incremental"), default="legacy"
+            )
+            demo.add_argument(
+                "--information-mode", choices=("retrospective", "retained"), default="retrospective"
+            )
+            demo.add_argument(
+                "--research-cutoff", help="timezone-aware cutoff for retained LLM evidence"
+            )
+            for partition in ("train", "development", "terminal"):
+                demo.add_argument(
+                    f"--{partition}-dates",
+                    nargs=2,
+                    metavar=("START", "END"),
+                    help="inclusive feature-origin dates on the retained calendar",
+                )
             demo.add_argument("--model", choices=("lightgbm", "ridge"), default="lightgbm")
             demo.add_argument(
                 "--latest-fit",
                 choices=("refit", "selected"),
-                default="refit",
+                default=None,
                 help="daily prices: refit on mature labels (one extra fit), or reuse research fit",
             )
             demo.add_argument(
@@ -235,9 +251,9 @@ def main(argv: list[str] | None = None) -> int:
             demo.add_argument(
                 "--rounds",
                 type=int,
-                default=2,
+                default=None,
                 choices=range(2, 11),
-                help="maximum research fits, including the initial fit (default: 2)",
+                help="maximum research fits including baseline (default: legacy 2, incremental 3)",
             )
             demo.add_argument(
                 "--max-fits",

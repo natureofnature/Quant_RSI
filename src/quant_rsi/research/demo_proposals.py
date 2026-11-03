@@ -104,7 +104,10 @@ def extend_library(library, hypothesis):
     result = deepcopy(library)
     definitions = {item["factor_id"]: item for item in result["definitions"]}
     proposals = hypothesis.get("proposed_factors", [])
-    if not isinstance(proposals, list) or not 1 <= len(proposals) <= 3:
+    if (
+        not isinstance(proposals, list)
+        or not (0 if library.get("incremental_plan") else 1) <= len(proposals) <= 3
+    ):
         raise ValueError("Study hypotheses require one to three bounded factor proposals")
     ids = []
     for proposal in proposals:
@@ -116,7 +119,7 @@ def extend_library(library, hypothesis):
         if identity in definitions and definitions[identity]["recipe"] != definition["recipe"]:
             raise ValueError("Proposed factor conflicts with an existing definition")
         definitions.setdefault(identity, definition)
-    if not set(ids).intersection(hypothesis["factor_ids"]):
+    if not library.get("incremental_plan") and not set(ids).intersection(hypothesis["factor_ids"]):
         raise ValueError("Select at least one proposed factor for execution")
     news_proposals = hypothesis.get("proposed_news_factors", [])
     if not isinstance(news_proposals, list) or len(news_proposals) > 2:
