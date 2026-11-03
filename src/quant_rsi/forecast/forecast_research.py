@@ -9,6 +9,7 @@ from quant_rsi.core.schemas import FactorSpec
 from quant_rsi.forecast.forecast_kernel import (
     forecast_errors,
     forecast_feature_view,
+    forecast_feature_views,
     mature_forecast_label,
     target_session,
 )
@@ -29,15 +30,16 @@ def training_view(data, plan, factor):
         raise ValueError("forecast data differs from the bound plan")
     cutoff = data.decision_at(plan.data.train_cutoff)
     rows, x, y, used, available = [], [], [], set(), []
-    for index in range(factor.window, plan.data.train_cutoff):
-        view = forecast_feature_view(
-            data.snapshot,
-            data.contract,
-            data.dates[index],
-            data.decision_at(index),
-            factor,
-            plan.objective,
-        )
+    indices = range(factor.window, plan.data.train_cutoff)
+    views = forecast_feature_views(
+        data.snapshot,
+        data.contract,
+        [(data.dates[index], data.decision_at(index)) for index in indices],
+        factor,
+        plan.objective,
+    )
+    for index, view in zip(indices, views, strict=True):
+        view_ref = digest(canonical(view))
         for feature in view["rows"]:
             label = mature_forecast_label(
                 data.snapshot,
@@ -56,7 +58,7 @@ def training_view(data, plan, factor):
                 dict(
                     session_id=data.dates[index],
                     instrument=feature["instrument"],
-                    feature_view_ref=digest(canonical(view)),
+                    feature_view_ref=view_ref,
                     feature=feature,
                     label=label,
                     training_eligible=eligible,

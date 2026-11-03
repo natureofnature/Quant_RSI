@@ -198,3 +198,44 @@ def test_mean_benchmark_uses_the_model_training_mask(forecast_plan):
     ]
     assert evidence["eligible_grid"][0]["session_id"] == "s5"
     assert evidence["eligible_grid"][-1]["session_id"] == "s35"
+
+
+@pytest.mark.parametrize("op", ["momentum", "mean_return"])
+def test_training_batch_matches_fresh_views_and_hashes_snapshot_once(
+    forecast_plan, monkeypatch, op
+):
+    import numpy as np
+
+    from quant_rsi.core.schemas import FactorSpec
+    from quant_rsi.evaluation.local_research import LocalResearchData, export_local_data
+    from quant_rsi.forecast import forecast_research
+    from quant_rsi.market import asof
+
+    data = LocalResearchData.from_json(export_local_data(forecast_plan.development.data))
+    factor = FactorSpec(op=op, window=5)
+
+    def individually(snapshot, contract, decisions, factor, objective):
+        return [
+            forecast_research.forecast_feature_view(
+                snapshot, contract, session, as_of, factor, objective
+            )
+            for session, as_of in decisions
+        ]
+
+    with monkeypatch.context() as reference:
+        reference.setattr(forecast_research, "forecast_feature_views", individually)
+        expected = forecast_research.training_view(data, forecast_plan.development, factor)
+
+    snapshot_encodings = []
+
+    def encode(value):
+        if value is data.snapshot:
+            snapshot_encodings.append(value["receipt_watermark"])
+        return canonical(value)
+
+    monkeypatch.setattr(asof, "canonical", encode)
+    actual = forecast_research.training_view(data, forecast_plan.development, factor)
+    np.testing.assert_array_equal(actual[0], expected[0])
+    np.testing.assert_array_equal(actual[1], expected[1])
+    assert canonical(actual[2:]) == canonical(expected[2:])
+    assert snapshot_encodings == [data.snapshot["receipt_watermark"]]
