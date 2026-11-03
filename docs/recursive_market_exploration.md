@@ -91,6 +91,13 @@ quant-rsi trajectory status
 ```
 
 Use `trajectory resume --steps 1` to reconcile and continue the same trajectory.
+Here `--steps` limits controller transitions, not completed generations or model
+fits. A transition may authorize a stage or advance a pending paired round; one
+successful invocation does not establish a mechanism change. Follow `status`,
+`generation`, `pending`, and the confirmed execution counts in the returned report.
+To continue the registered trajectory through multiple transitions, use
+`trajectory resume --steps 100`; the original stage, generation and worker budgets
+still apply, and a sealed trajectory stops before that transition limit.
 Inspect each result; a finite run may stop without advancing. Source recovery uses
 `research resume "$QUANT_RSI_WORKSPACE/source" --steps 1`. Retain the original
 workspace, authority and IDs. Missing authority or changed frozen configuration
@@ -116,6 +123,15 @@ The market exposure is `historical_market_exploration`. Historical provider
 availability is an explicit assumption; first-seen receipts remain intact.
 Engineering fixtures use the separately declared `engineering_fixture` exposure.
 Neither mode establishes statistical promotion or profitability.
+
+The controlled tests in `tests/test_forecast_frontier_policy.py` cover feedback
+dependence at both caps, 3 and 4. At each cap, changing one development observation
+across the registered improvement threshold changes the real proposer's decision
+from no patch to a one-step expansion. The comparison retains the same package and
+the complete checkpoint/history preceding that observation. Separate tests change
+protected-only data, prohibit non-implementation artifact reads, and require the
+response to remain identical at both caps. These are internally consistent unit
+traces, not executed worker evidence; they do not replace the two-generation run.
 
 ## Seal, replay and report evidence
 
