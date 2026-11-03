@@ -133,6 +133,10 @@ protected-only data, prohibit non-implementation artifact reads, and require the
 response to remain identical at both caps. These are internally consistent unit
 traces, not executed worker evidence; they do not replace the two-generation run.
 
+The [frozen two-advance execution record](recursive_two_advance_results.md) now
+provides the corresponding synthetic worker, recovery and final replay evidence.
+Its historical forecast and development errors are not predictive acceptance.
+
 ## Seal, replay and report evidence
 
 After the original trajectory is SEALED, use its actual selected source to seal and

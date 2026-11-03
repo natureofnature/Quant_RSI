@@ -224,6 +224,16 @@ def test_training_batch_matches_fresh_views_and_hashes_snapshot_once(
 
     with monkeypatch.context() as reference:
         reference.setattr(forecast_research, "forecast_feature_views", individually)
+        reference.setattr(
+            forecast_research,
+            "mature_forecast_labels",
+            lambda snapshot, contract, requests, cutoff, objective: [
+                forecast_research.mature_forecast_label(
+                    snapshot, contract, origin, instrument, cutoff, objective
+                )
+                for origin, instrument in requests
+            ],
+        )
         expected = forecast_research.training_view(data, forecast_plan.development, factor)
 
     snapshot_encodings = []
@@ -234,8 +244,19 @@ def test_training_batch_matches_fresh_views_and_hashes_snapshot_once(
         return canonical(value)
 
     monkeypatch.setattr(asof, "canonical", encode)
+    from quant_rsi.forecast import forecast_kernel
+
+    project = forecast_kernel.visible_revisions
+    label_projections = []
+
+    def project_labels(*args, **kwargs):
+        label_projections.append(args[2])
+        return project(*args, **kwargs)
+
+    monkeypatch.setattr(forecast_kernel, "visible_revisions", project_labels)
     actual = forecast_research.training_view(data, forecast_plan.development, factor)
     np.testing.assert_array_equal(actual[0], expected[0])
     np.testing.assert_array_equal(actual[1], expected[1])
     assert canonical(actual[2:]) == canonical(expected[2:])
     assert snapshot_encodings == [data.snapshot["receipt_watermark"]]
+    assert label_projections == [data.decision_at(forecast_plan.development.data.train_cutoff)]

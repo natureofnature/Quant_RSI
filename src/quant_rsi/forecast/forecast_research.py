@@ -11,6 +11,7 @@ from quant_rsi.forecast.forecast_kernel import (
     forecast_feature_view,
     forecast_feature_views,
     mature_forecast_label,
+    mature_forecast_labels,
     target_session,
 )
 from quant_rsi.market.asof import _view_predictor, qualifications
@@ -38,17 +39,23 @@ def training_view(data, plan, factor):
         factor,
         plan.objective,
     )
+    labels = iter(
+        mature_forecast_labels(
+            data.snapshot,
+            data.contract,
+            [
+                (data.dates[index], feature["instrument"])
+                for index, view in zip(indices, views, strict=True)
+                for feature in view["rows"]
+            ],
+            cutoff,
+            plan.objective,
+        )
+    )
     for index, view in zip(indices, views, strict=True):
         view_ref = digest(canonical(view))
         for feature in view["rows"]:
-            label = mature_forecast_label(
-                data.snapshot,
-                data.contract,
-                data.dates[index],
-                feature["instrument"],
-                cutoff,
-                plan.objective,
-            )
+            label = next(labels)
             eligible = feature["status"] == "eligible" and label["status"] == "mature"
             # Return intervals are (origin close, target close]; touching the first
             # evaluation origin is allowed, crossing it is not.
