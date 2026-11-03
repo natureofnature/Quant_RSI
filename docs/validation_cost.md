@@ -198,3 +198,49 @@ and account results. Automated regressions cover batch/individual equality, fres
 hashes and visibility after changed input, watermark rejection, output independence,
 and one-call versus fresh-per-view model decoding. Full required CI remains the merge
 gate; focused timings do not replace it or establish a whole-suite speedup.
+
+## Visible-history indexing measurement (2026-11-02)
+
+Profiling the enhanced two-profile workflow attributed about 48 seconds of a
+149-second instrumented run to feature-view construction. History extraction scanned
+the entire visible event list separately for every calendar close. The optimization
+indexes quotes by session and membership evidence by effective time within each call.
+Binary search finds the latest applicable membership time, preserving every tied
+record and every conflicting quote. Visibility, revisions and corporate-action
+assessment are still recomputed on each call; no evidence-validity cache is introduced.
+
+The unchanged workload was
+`tests/test_enhanced_forecast_workflow.py::test_two_profiles_share_one_grant_and_terminal_repeats_are_read_only`.
+It prepares KO and SOXL engineering profiles, exercises shared accounting and repeated
+terminal operations, and uses an offline worker substitute. These timings do not
+measure actual model training or connected-study performance.
+
+| Local measurement | Before (`225cfee`) | After (`5937944`) |
+| --- | ---: | ---: |
+| Elapsed seconds | 110.2630 | 90.3440 |
+| Child user CPU seconds | 94.1539 | 75.3539 |
+| Child system CPU seconds | 3.7549 | 4.5136 |
+| Pytest outcome | 1 passed | 1 passed |
+| Source changed during run | false | false |
+
+The observed **18.1% elapsed-time reduction** exceeds the predeclared 10% target for
+this workload. This is one before/after pair on the same Linux/Python 3.12 host with
+fresh processes and workspaces, the same dependencies, one numerical thread and no
+concurrent local study. Host contention and OS caches were uncontrolled; repeated
+measurements would be needed to estimate variability. Instrumented profiling was
+excluded from the pair. This is not a whole-suite speedup claim.
+
+Run the measured workload on each installed checkout with a fresh output directory:
+
+```bash
+python examples/profile_validation.py --output /tmp/quant-rsi-history-cost \
+  --cache-note 'Record host contention and cache conditions for this run' \
+  tests/test_enhanced_forecast_workflow.py::test_two_profiles_share_one_grant_and_terminal_repeats_are_read_only
+```
+
+A saved-original comparison verified byte-identical canonical outputs for 120 complete
+feature views and 20 common masks across both knowledge bases, future-price changes,
+missing quotes, delayed availability and shifted calendars. Seven regression cases
+also cover equal-time membership evidence, contradictory statuses, delayed membership,
+quote conflicts, revision receipt boundaries and absent calendar closes. Required
+full CI remains the merge gate; neither timing nor output equivalence replaces it.
