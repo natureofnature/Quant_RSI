@@ -106,6 +106,40 @@ def _configuration(args):
     from quant_rsi.research.study_walk_forward import price_history_sessions
 
     args.question = research_question(getattr(args, "question", ""))
+    incremental = getattr(args, "research_mode", "legacy") == "incremental"
+    args.rounds = args.rounds if args.rounds is not None else (3 if incremental else 2)
+    args.latest_fit = args.latest_fit or ("selected" if incremental else "refit")
+    restricted = getattr(args, "information_mode", "retrospective") == "retained"
+    if not incremental and (
+        restricted
+        or getattr(args, "research_cutoff", None)
+        or any(
+            getattr(args, name + "_dates", None) for name in ("train", "development", "terminal")
+        )
+    ):
+        raise ValueError("Date ranges and retained information mode require incremental research")
+    if incremental:
+        if args.rounds > 3 or (args.max_fits is not None and args.max_fits > 3):
+            raise ValueError(
+                "Incremental mode permits at most three research fits including baseline"
+            )
+        if getattr(args, "walk_forward_folds", 0):
+            raise ValueError(
+                "Incremental mode uses fixed windows; disable walk-forward diagnostics"
+            )
+        if restricted and args.news_research:
+            raise ValueError("Retained mode cannot use current news search or guidance extraction")
+        if (
+            restricted
+            and args.prices == "daily"
+            and (not args.prices_dir or not (args.prices_dir / "collection_receipt.json").is_file())
+        ):
+            raise ValueError("Retained mode requires --prices-dir with retained historical prices")
+        if restricted and getattr(args, "external_drivers", False):
+            raise ValueError("Retained mode has no receipt-proven external-driver view yet")
+        if getattr(args, "research_cutoff", None) and not restricted:
+            raise ValueError("--research-cutoff requires --information-mode retained")
+
     symbol = TypeAdapter(InstrumentId).validate_python(args.symbol.strip().upper())
     horizon = getattr(args, "horizon_sessions", 5)
     folds = getattr(args, "walk_forward_folds", 0)
@@ -172,8 +206,8 @@ def _configuration(args):
         fit_budget=fit_budget,
         comparison_fit_budget=int(compare_external)
         + int(getattr(args, "compare_models", False))
-        + int(getattr(args, "financials", False))
-        + int(getattr(args, "external_drivers", False)),
+        + int(getattr(args, "financials", False) and not incremental)
+        + int(getattr(args, "external_drivers", False) and not incremental),
         walk_forward_fit_budget=folds,
         publication_fit_budget=int(args.prices == "daily" and args.latest_fit == "refit"),
         generated_recipes="bounded_price_news_and_business_expressions",
@@ -186,7 +220,13 @@ def _run_study(args, symbol, root, configuration, *, resume=False):
     if not resume:
         _write(root / "config.json", configuration)
     last_stage = "initialization"
-    progress = StudyProgress(root, args.llm, quiet=args.quiet, previous_attempts=cache.previous)
+    progress = StudyProgress(
+        root,
+        args.llm,
+        quiet=args.quiet,
+        previous_attempts=cache.previous,
+        fixed_baseline=configuration.get("research_mode") == "incremental",
+    )
     cache.progress = progress
     if getattr(args, "ui", False) and not getattr(args, "check_inputs", False):
         from quant_rsi.research.study_ui import start_view
@@ -322,6 +362,15 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         horizon_sessions=getattr(args, "horizon_sessions", 5),
         walk_forward_folds=folds,
     )
+    incremental_plan = None
+    window_plan = None
+    incremental = getattr(args, "research_mode", "legacy") == "incremental"
+    restricted = getattr(args, "information_mode", "retrospective") == "retained"
+    if incremental:
+        from quant_rsi.research.study_windows import configure_windows
+
+        window_plan = configure_windows(model, args)
+        _write(root / "research_windows.json", window_plan)
     _write(root / "walk_forward_plan.json", model.walk_forward_plan)
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
@@ -338,7 +387,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         else None
     )
     prior_outcomes = None
-    if args.history_dir and not getattr(args, "check_inputs", False):
+    if args.history_dir and not restricted and not getattr(args, "check_inputs", False):
         progress.start("observe_prior_forecasts")
         if history_prices:
             observe_prices(args.history_dir, symbol, history_prices)
@@ -372,6 +421,13 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     snapshot_path = getattr(args, "news_snapshot", None)
 
     def collect_current_news():
+        if restricted:
+            from quant_rsi.research.study_windows import retained_news
+
+            retained = load_archive(args.news_archive) if args.news_archive else []
+            if snapshot_path:
+                retained.append(load_snapshot(snapshot_path, symbol, limit=args.news_limit))
+            return retained_news(retained, window_plan["research_cutoff"], symbol, args.news_limit)
         if snapshot_path:
             return load_snapshot(snapshot_path, symbol, limit=args.news_limit)
         if args.news == "issuer-rss":
@@ -394,14 +450,18 @@ def _run(args, symbol, root, configuration, record, progress, cache):
 
     def collect_snapshots():
         snapshots = load_archive(archive)
+        if restricted and snapshot_path:
+            retained = load_snapshot(snapshot_path, symbol, limit=args.news_limit)
+            if retained not in snapshots:
+                snapshots.append(retained)
         if args.prices == "daily" and any(
             snapshot["provider"] != "issuer_rss" for snapshot in snapshots
         ):
             raise ValueError("Simulated news history cannot enter a daily-price study")
-        if args.news == "issuer-rss":
+        if args.news == "issuer-rss" and not restricted:
             retain_snapshot(archive, current_news)
             snapshots = load_archive(archive)
-        elif args.prices == "synthetic" and not snapshots:
+        elif args.prices == "synthetic" and not snapshots and not restricted:
             snapshots = simulated_history(model.data, symbol, guidance=args.news_research)
         return snapshots
 
@@ -454,12 +514,25 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 return simulated_financials(symbol, cutoffs, required)
             directory = args.financials_dir or root / "financials"
             try:
+                if restricted and (
+                    not args.financials_dir or not (directory / "snapshot.json").is_file()
+                ):
+                    raise ValueError("Retained financial research requires --financials-dir")
                 snapshot = collect_financials(
                     symbol,
                     directory,
                     args.factor_root,
                     getattr(args, "financials_source", "auto"),
                 )
+                if restricted:
+                    from quant_rsi.market.market_contracts import timestamp
+
+                    if not snapshot.get("received_at") or timestamp(
+                        snapshot["received_at"]
+                    ) > timestamp(window_plan["research_cutoff"]):
+                        raise ValueError(
+                            "Financial snapshot was not retained by the research cutoff"
+                        )
                 return prepare_financials(snapshot, cutoffs, required)
             except (OSError, ValueError, KeyError) as exc:
                 attempts = directory / "source_attempts.json"
@@ -616,6 +689,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             directory=args.related_prices_dir or root / "related_prices",
             enabled=args.related_prices,
             simulated_suggestions=args.llm == "simulated",
+            **({"retained_only": True} if restricted else {}),
         )
         value["columns"] = {
             key: [float(x) if math.isfinite(x) else None for x in column]
@@ -666,7 +740,11 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     from quant_rsi.market.market_contracts import trusted_now
     from quant_rsi.research.study_factor_memory import reuse_recipes
 
-    model.library["recipe_as_of"] = cache.call("recipe_as_of", symbol, trusted_now)
+    model.library["recipe_as_of"] = cache.call(
+        "recipe_as_of",
+        symbol,
+        lambda: window_plan["research_cutoff"] if restricted else trusted_now(),
+    )
     model.library, factor_memory = reuse_recipes(
         model.library, (prior_outcomes or {}).get("factor_memory", [])
     )
@@ -674,6 +752,14 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         _write(root / "factor_memory.json", factor_memory)
         progress.start("restore_factor_recipes")
         progress.finish("restore_factor_recipes", factor_memory)
+
+    if incremental:
+        from quant_rsi.research.study_incremental import freeze_plan, simulated_increment
+
+        incremental_plan = freeze_plan(model)
+        _write(root / "incremental_plan.json", incremental_plan)
+        if args.llm == "simulated":
+            hypothesis = simulated_increment
 
     hypothesis_number = 0
 
@@ -687,7 +773,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         )
 
     def context(target):
-        return model.context(target) | {
+        value = model.context(target) | {
             "research_question": configuration["question"],
             "prior_outcomes": {
                 k: v
@@ -707,6 +793,13 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 "scope": "development_only",
             },
         }
+
+        if incremental:
+            from quant_rsi.research.study_windows import restrict_context
+
+            value["incremental_plan"] = incremental_plan
+            value = restrict_context(value, model, window_plan)
+        return value
 
     def predict(context, factors, proposal):
         prediction = model.predict(context, factors, proposal)
@@ -785,6 +878,20 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             selection["reason"] = (
                 f"Selected round {chosen} by strict {args.selection_metric} improvement on the "
                 "same development window; ties and missing metrics retain the incumbent."
+            )
+        if incremental:
+            selection.update(
+                selected_attempt=f"round_{chosen}",
+                selected_factor_ids=list(selected["factor_ids"]),
+                revision_accepted=chosen != 1,
+                reason=(
+                    "Business increment withdrawn; reuse the fixed baseline without refitting."
+                    if iterations["stop_reason"] == "increment_withdraw"
+                    else (
+                        f"Selected round {chosen} by frozen {args.selection_metric}; "
+                        "ties retain the incumbent."
+                    )
+                ),
             )
         selection["forecast_note"] = "Latest forecast uses the selected fitted model; no refit."
         published = latest_fit if latest_fit is not None else selected
@@ -885,14 +992,14 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     result["notice"] = (
         f"Connected research study with {model.price_provider} prices and "
         f"real {model.model_label} training at a {model.horizon}-session horizon. "
-        f"Hypotheses: {steps['initial_hypothesis']['provider']}; "
+        f"Hypotheses: {args.llm if incremental else steps['initial_hypothesis']['provider']}; "
         f"news: {steps['news']['provider']}; "
         f"relationships: {steps['related_stocks']['provider']}. "
         "All attempts use the same retrospective development window; no independent gain "
         "is established. Inspect source coverage and the separate unobserved latest forecast."
     )
     result["configuration"] = configuration
-    final_prefix = "revised" if len(attempts) == 2 else f"round_{len(attempts)}"
+    final_prefix = {1: "initial", 2: "revised"}.get(len(attempts), f"round_{len(attempts)}")
     news_definitions = [
         item
         for item in steps[f"{final_prefix}_factor_library"]["definitions"]
@@ -976,11 +1083,28 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             "has no observed outcome."
         ),
     }
+    if incremental:
+        if external is not None:
+            result["study"]["external_data"] = {
+                k: v for k, v in external.items() if k not in {"columns", "evidence"}
+            }
+        result["study"]["incremental_plan"] = incremental_plan
+        result["study"]["research_windows"] = window_plan
+        result["study"]["financial_data"] = {
+            k: v for k, v in (business or {}).items() if k not in {"columns", "evidence"}
+        }
+        result["study"]["incremental_decisions"] = result["iterations"].get(
+            "incremental_decisions", []
+        )
+        result["study"]["conclusion"] += (
+            " Fixed baseline plus business increments; "
+            "default family-removal diagnostics suppressed."
+        )
     if "terminal_evaluation" in result:
         result["study"]["conclusion"] += (
             " " + terminal_summary(result["terminal_evaluation"])["text"]
         )
-    if getattr(args, "financials", False):
+    if getattr(args, "financials", False) and not incremental:
         from quant_rsi.research.financial_comparison import compare_financials
 
         chosen = selection["selected_round"]
@@ -1014,7 +1138,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         record(event)
         result["trace"].append(event)
 
-    if external is not None:
+    if external is not None and not incremental:
         result["study"]["external_data"] = {
             k: v for k, v in external.items() if k not in {"columns", "evidence"}
         }

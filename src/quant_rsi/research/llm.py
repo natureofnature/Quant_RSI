@@ -11,6 +11,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -53,6 +54,13 @@ class NewsStudyHypothesis(StudyHypothesis):
     proposed_news_factors: list[NewsFactorProposal] = Field(min_length=1, max_length=2)
 
 
+class IncrementalHypothesis(StudyHypothesis):
+    action: Literal["test", "retain", "withdraw", "stop"]
+    factor_ids: list[str] = Field(max_length=2)
+    evidence_news_ids: list[str] = Field(max_length=20)
+    proposed_factors: list[FactorProposal] = Field(max_length=0)
+
+
 @dataclass(frozen=True)
 class LLMHypothesizer:
     """Use CLI login or an API key; every revision receives its inputs explicitly."""
@@ -77,7 +85,10 @@ class LLMHypothesizer:
     def __call__(self, context, library, *, previous=None, feedback=None):
         study = context.get("allow_factor_proposals", False)
         response_type = StudyHypothesis if study else Hypothesis
-        news_study = study and "news_feature_support" in context
+        incremental = bool(context.get("incremental_plan"))
+        if incremental:
+            response_type = IncrementalHypothesis
+        news_study = study and not incremental and "news_feature_support" in context
         if news_study:
             response_type = NewsStudyHypothesis
         schema = response_type.model_json_schema()
@@ -109,6 +120,21 @@ class LLMHypothesizer:
             ]
         news_ids = [item["id"] for item in context["news"]["items"]]
         schema["properties"]["evidence_news_ids"]["items"]["enum"] = news_ids
+        incremental_rules = (
+            "INCREMENTAL MODE: The engine owns immutable baseline_ids and automatically "
+            "includes them. factor_ids contains only zero to two INCREMENTAL features. "
+            "Use candidate_input_ids or bounded business expressions over these inputs. "
+            "Do not select baseline IDs, new price or news recipes, or out-of-domain inputs. "
+            "action=test requires a nonempty increment. action=retain, withdraw or stop "
+            "requires empty factor_ids and proposed_business_factors, and causes no fit. "
+            "Withdraw returns to the existing baseline; retain/stop keep the incumbent. "
+            "Repeated unchanged executable recipes cause no fit. Missing evidence is a gap; "
+            "evidence_news_ids may be empty. Do not fabricate news. State missing variables "
+            "in question_map even when stopping. Read information_contract: retrospective "
+            "material was not known at historical prediction time; retained mode only "
+            "restricts supplied evidence, not your pretrained knowledge. "
+        )
+
         prompt = (
             "You are the hypothesis stage of a stock research demonstration. "
             "context.research_question, when nonempty, is the user's requested research focus. "
@@ -178,12 +204,17 @@ class LLMHypothesizer:
             "development selection, not independent validation. "
             "Simulated model mode uses fixed simulated contributions. "
             + (
-                "Propose one to three executable numeric price recipes using only the allowed "
-                "operators and windows (1..30); no Python, formulas or extra operators. "
-                "Each proposal has op, window, description; its ID is research.<op>_<window>, "
-                "for example research.momentum_10. Select at least one proposal in factor_ids; "
-                "other selected IDs must exist in the supplied catalog. "
-                "Bound catalog factors retain definition ownership and exact source bindings. "
+                (
+                    "Propose no price recipes: proposed_factors must be []. "
+                    if incremental
+                    else "Propose one to three executable numeric price recipes "
+                    "using only the allowed "
+                    "operators and windows (1..30); no Python, formulas or extra operators. "
+                    "Each proposal has op, window, description; its ID is research.<op>_<window>, "
+                    "for example research.momentum_10. Select at least one proposal in factor_ids; "
+                    "other selected IDs must exist in the supplied catalog. "
+                )
+                + "Bound catalog factors retain definition ownership and exact source bindings. "
                 "Instrument-owned factor_expression recipes combine the named bindings shown "
                 "in their input_factor_ids; they are configured hypotheses, not learned causal "
                 "relationships. Prefer relevant supplied bindings/compositions over duplicating "
@@ -219,7 +250,7 @@ class LLMHypothesizer:
                 "multiply nodes use two preceding node names in inputs and leaf=null. "
                 "Use at most seven nodes and depth three; the final node is the output. "
                 "Every binding must be used. IDs are business.<name>. You may select these "
-                "new IDs in factor_ids along with the required price proposal. For example, "
+                "new IDs in factor_ids. Follow this mode's selection rules. For example, "
                 "inventory_yoy minus revenue_yoy tests relative growth, not inventory turnover "
                 "or causality. Respect the original periods and availability of each source. "
                 "External EIA variables are weekly US industry inventory changes, not company "
@@ -263,6 +294,7 @@ class LLMHypothesizer:
                 if news_study
                 else ""
             )
+            + (incremental_rules if incremental else "")
             + "\nINPUT_JSON:\n"
             + json.dumps(
                 {
@@ -279,7 +311,8 @@ class LLMHypothesizer:
             result = response_type.model_validate_json(raw).model_dump()
         except ValidationError:
             raise ValueError("LLM returned an invalid hypothesis JSON object") from None
-        select_factors(extend_library(library, result) if study else library, result)
+        if not incremental:
+            select_factors(extend_library(library, result) if study else library, result)
         if study and context.get("research_question") and not result["question_map"]:
             raise ValueError("Research question requires an explicit question map")
         for claim in result.get("question_map", []):
@@ -290,7 +323,11 @@ class LLMHypothesizer:
         research_ids = context["news"].get("research_evidence_ids", [])
         if research_ids and not set(result["evidence_news_ids"]).intersection(research_ids):
             raise ValueError("Active research hypothesis must cite a retrieved article")
-        if previous and set(result["factor_ids"]) == set(previous["factor_ids"]):
+        if (
+            not incremental
+            and previous
+            and set(result["factor_ids"]) == set(previous["factor_ids"])
+        ):
             raise ValueError("LLM did not revise the factor selection; demo stopped")
         return {
             **result,

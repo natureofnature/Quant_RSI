@@ -63,6 +63,7 @@ def prepare_related_prices(
     directory,
     enabled=True,
     simulated_suggestions=False,
+    retained_only=False,
 ):
     """Collect at most three symbols once; failures remain visible and never imputed."""
     candidates = [(symbol, "configured_context") for symbol in related.get("stocks", [])]
@@ -111,6 +112,8 @@ def prepare_related_prices(
                     "note": "Invented prices; not market evidence or measured relationships.",
                 }
             else:
+                if retained_only and not (directory / symbol / "collection_receipt.json").is_file():
+                    raise ValueError("No retained peer prices; current collection disabled")
                 peer_data, evidence = load_daily_prices(
                     symbol, directory / symbol, historical_sessions=len(data.dates)
                 )
