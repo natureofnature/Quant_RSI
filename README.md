@@ -63,7 +63,9 @@ re-selection never renews the deadline, and old reports and feature values remai
 This connects configured company relationships, issuer news, daily prices, two
 Codex hypothesis calls and two real LightGBM fits. Open `/tmp/ko-study/report.html`
 for prediction baselines, initial/revised strategies versus buy-and-hold, costs,
-Sharpe, volatility, maximum drawdown and the latest forecast. Use a new output path
+Sharpe, volatility, maximum drawdown and the latest forecast. The report also
+compares the selected strategy and buy-and-hold at configured, double and triple
+commission/slippage costs, with no additional model fits. Use a new output path
 for each study. Before research, the study reserves 10 terminal observations. After
 development selection, it evaluates the chosen fitted model once on that interval,
 with separate forecast and costed strategy tables. Risk statistics remain short-sample

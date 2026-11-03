@@ -78,6 +78,30 @@ def test_offline_entry_saves_report_and_complete_account_loop(tmp_path):
         steps["first_prediction"]["strategy"]["buy_and_hold"]
         == steps["second_prediction"]["strategy"]["buy_and_hold"]
     )
+    from quant_rsi.core.artifacts import canonical, digest
+    from quant_rsi.research.study_ui_views import visual_output
+
+    stress = result["study"]["cost_stress"]
+    assert json.loads((root / "cost_stress.json").read_text()) == stress
+    assert result["configuration"]["cost_stress_multipliers"] == [1, 2, 3]
+    assert stress["extra_fits"] == 0
+    assert result["runtime"]["counts"]["model_stages_completed"] == 2
+    chosen = result["iterations"]["selected_round"]
+    selected = result["iterations"]["attempts"][chosen - 1]["prediction"]
+    for name, original in (("development", selected), ("terminal", result["terminal_evaluation"])):
+        segment = stress["segments"][name]
+        assert segment["scenarios"][0]["account"] == original["strategy"]
+        rows = original["development" if name == "development" else "evaluation"]["rows"]
+        assert segment["prediction_rows_sha256"] == digest(canonical(rows))
+        assert all(
+            scenario["account"]["period"] == original["strategy"]["period"]
+            for scenario in segment["scenarios"]
+        )
+    assert "Transaction-cost stress" in html
+    assert "Transaction-cost stress" in (root / "report.md").read_text()
+    view = visual_output("cost_stress", stress, {}, "KO")
+    assert view["kind"] == "cost_stress" and len(view["rows"]) == 12
+    assert {row["window"] for row in view["rows"]} == {"development", "terminal"}
     before = (root / "result.json").read_bytes()
     assert main(command(root, "--llm", "simulated")) == 1
     assert (root / "result.json").read_bytes() == before

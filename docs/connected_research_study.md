@@ -1966,6 +1966,31 @@ and `summary.selection` identify the chosen attempt, scores, factors and decisio
 Trying a revised recipe is distinct from accepting it. Selection on these reused
 development observations is not independent confirmation, even when the score improves.
 
+
+### Transaction-cost stress
+
+Every completed study also replays the selected predictions with the configured,
+double and triple commission/slippage rates. These three multipliers are fixed in
+`config.json` before research. The live **Cost stress** output and final report show
+strategy and same-stock buy-and-hold net return, annualized daily Sharpe, daily sample
+count and maximum drawdown for each scenario. Development and reserved terminal
+windows remain separate. `cost_stress.json` retains the account rules, orders, fills,
+valuations, prediction-row hashes and scenario results.
+
+The configured-cost accounts are reused exactly. Higher-cost accounts run the same
+signals and prices through the existing next-open account simulator with the same
+initial cash and threshold. Cost-dependent sizing and cent rounding still apply;
+this is not multiplication of the original fee total. Higher costs need not produce
+a monotonic return ranking when holdings change. No model is retrained, and the
+diagnostic does not change factor selection, LLM feedback or the latest forecast.
+
+Zero configured costs remain zero at every multiplier. A scaled commission or
+slippage rate above the supported 1,000 bps bound is reported as unavailable, never
+clipped. Disabled terminal evaluation and missing/undefined risk metrics remain
+visible. Failed replay can be resumed using the existing study checkpoints without
+repeating completed fits. These short hypothetical comparisons do not establish
+statistical robustness, correct for repeated trials, or complete issue #12.
+
 ## Progress and research cost
 
 The CLI prints each running/completed stage and its elapsed seconds to **stderr**;

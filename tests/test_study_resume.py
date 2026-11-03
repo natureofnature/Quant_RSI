@@ -219,3 +219,29 @@ def test_failed_managed_collection_retries_fresh_and_preserves_receipt(tmp_path,
     assert main(["research-resume", str(root)]) == 0
     assert len(calls) == 2 and calls[1].parent == root / "price_retries"
     assert (root / "prices/collection_receipt.json").read_bytes() == original
+
+
+def test_cost_stress_failure_resumes_without_new_training(tmp_path, monkeypatch):
+    root = tmp_path / "study"
+    train = lgb.train
+    fits = []
+
+    def counted(*args, **kwargs):
+        fits.append(True)
+        return train(*args, **kwargs)
+
+    monkeypatch.setattr(lgb, "train", counted)
+    stress = study.evaluate_cost_stress
+
+    def fail(*args, **kwargs):
+        raise ValueError("Injected cost replay failure")
+
+    monkeypatch.setattr(study, "evaluate_cost_stress", fail)
+    assert main(command(root, "--llm", "simulated", "--no-history", "--no-ui")) == 1
+    assert len(fits) == 2
+    monkeypatch.setattr(study, "evaluate_cost_stress", stress)
+    assert main(["research-resume", str(root)]) == 0
+    assert len(fits) == 2
+    result = json.loads((root / "result.json").read_text())
+    assert result["study"]["cost_stress"]["extra_fits"] == 0
+    assert result["study"]["cost_stress"]["status"] == "completed"

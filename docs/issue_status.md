@@ -43,7 +43,7 @@ The closure recommendations take effect only after review, required CI and merge
 | [#9](https://github.com/natureofnature/Quant_RSI/issues/9) | Keep open | Connected reports include costed target buy-and-hold. The older registered research utility still uses its cash comparator; a predeclared investable-index primary utility is a distinct change. |
 | [#10](https://github.com/natureofnature/Quant_RSI/issues/10) | Keep open | Study reports include daily-return Sharpe and #56 permits preselected Sharpe adoption. The requested C2/C5 risk-adjusted utility and explicit risk eligibility gates remain unimplemented. |
 | [#11](https://github.com/natureofnature/Quant_RSI/issues/11) | Keep open | Forecast comparison/discovery uses common chronological folds. #64 reserves a terminal window for the selected connected-study model without refitting. The older C2/C5 walk-forward split contracts are not replaced by those interfaces; current-news/LLM studies remain retrospective. |
-| [#12](https://github.com/natureofnature/Quant_RSI/issues/12) | Keep open | Complete trial histories and descriptive risk metrics exist. Applicable overfitting diagnostics, dependence-aware uncertainty and predefined cost stress still need a scoped protocol; ordinary Sharpe alone is not a correction for multiple trials. |
+| [#12](https://github.com/natureofnature/Quant_RSI/issues/12) | Keep open | Complete trial histories and descriptive risk metrics exist. The connected study now reports fixed post-selection 1×/2×/3× cost scenarios without refitting. Registered C2/C5 robustness diagnostics, applicable overfitting corrections and dependence-aware uncertainty remain outstanding; ordinary Sharpe or a cost table does not correct for multiple trials. |
 | [#24](https://github.com/natureofnature/Quant_RSI/issues/24) | Close as architecture/integration specification | README diagrams, terminology, capability matrix, current AGENTS instructions and executable bounded source/factor slices are maintained. Implementation/scientific residuals remain in #1, #2, #3, #4, #5, #8 and #39, rather than being marked completed by a diagram. |
 | [#28](https://github.com/natureofnature/Quant_RSI/issues/28) | Close its selected first A/B/C slice | KO retained-corpus search → versioned evidence-backed title extraction → seven-day count → paired B0/N1 worker, with common masks, allowance/recovery and explicit missingness, is implemented. Current web search is a separate study-context path. General quantity/full-text historical features remain in #8/#39 B, and confirmation in #4. |
 | [#39](https://github.com/natureofnature/Quant_RSI/issues/39) | Closed planning RFC; residual acceptance remains under #1 and specific gaps | The connected workflow, shared/local factors, continuous feedback (#66), guidance extraction/features (#67), and complete real KO/XOM configurations (#68) are delivered. The optional actual Qlib workflow compares the selected common inputs and native costed accounts. Broader engine/research-policy studies, real prospective outcomes and remaining usage/cost acceptance are not established by these integrations. |
@@ -96,8 +96,9 @@ cannot be manufactured by more fixtures or by closing planning RFCs.
   in the older C2/C5 path; buy-and-hold/Sharpe product reports do not close these issues.
 - #7/#8: weighted horizon execution and learned factor hierarchies require additional
   data, label-maturity and training contracts, not just additional output fields.
-- #12: applicable multiple-testing/uncertainty diagnostics and predefined cost stress;
-  existing descriptive Sharpe and trial counts do not implement them.
+- #12: applicable multiple-testing/uncertainty diagnostics and the registered C2/C5
+  diagnostic protocol. Connected-study cost stress, descriptive Sharpe and trial counts
+  do not complete this broader requirement.
 - #3's bounded first proposer acceptance is recorded in the two-advance results.
   General program synthesis and research-policy effectiveness remain outside this slice.
 - #1/#39: retain umbrella acceptance, including real-use cost and independent/prospective

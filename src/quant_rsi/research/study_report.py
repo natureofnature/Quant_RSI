@@ -1041,6 +1041,44 @@ def render_study(result):
                     for name, m in pooled.items()
                 ],
             )
+    stress = result["study"].get("cost_stress")
+    if stress:
+        from quant_rsi.research.study_cost_stress import cost_stress_rows
+
+        section("Transaction-cost stress", stress["notice"])
+        table(
+            [
+                "Window",
+                "Costs · commission/slippage bps",
+                "Account",
+                "Net return",
+                "Sharpe / daily N",
+                "Max drawdown",
+                "Status",
+            ],
+            [
+                [
+                    row["window"],
+                    f"{row['multiplier']}× · {row['commission_bps']}/{row['slippage_bps']}",
+                    row["account"],
+                    _number(row["net_return"], percent=True),
+                    _number(row["sharpe_ratio"])
+                    + " / "
+                    + str(
+                        row["daily_return_count"]
+                        if row["daily_return_count"] is not None
+                        else "N/A"
+                    ),
+                    _number(row["max_drawdown"], percent=True),
+                    row["reason"] or row["risk_status"] or row["status"],
+                ]
+                for row in cost_stress_rows(stress)
+            ],
+        )
+        for name, segment in stress["segments"].items():
+            if segment["status"] != "completed":
+                section(f"Cost stress: {name}", segment["reason"])
+
     comparison = result["study"].get("model_comparison")
     if comparison:
         from quant_rsi.research.study_model_comparison import comparison_rows
