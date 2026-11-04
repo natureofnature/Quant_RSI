@@ -12,6 +12,44 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "examples/profile_validation.py"
 
 
+def test_critical_selection_defers_only_named_modules_and_full_keeps_every_module(tmp_path):
+    functions = runpy.run_path(str(SCRIPT))
+    select = functions["select_tests"]
+    select.__globals__["ROOT"] = tmp_path
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    for name in ("test_controller.py", "test_trajectory.py", "new_feature_test.py"):
+        (tests / name).write_text("def test_example(): pass\n")
+    critical, deferred = select([], "critical")
+    assert critical == ["tests/new_feature_test.py", "tests/test_controller.py"]
+    assert set(deferred) == {"tests/test_trajectory.py"}
+    full, deferred = select([], "full")
+    assert full == critical + ["tests/test_trajectory.py"]
+    assert deferred == {}
+    explicit = ["tests/test_trajectory.py::test_example"]
+    assert select(explicit, "critical") == (explicit, {})
+
+
+def test_extended_manifest_names_existing_modules_and_retains_primary_safety_coverage():
+    functions = runpy.run_path(str(SCRIPT))
+    for name in functions["EXTENDED_MODULES"]:
+        assert (ROOT / "tests" / f"{name}.py").is_file()
+    critical, _ = functions["select_tests"]([], "critical")
+    for name in (
+        "test_study_discovery",
+        "test_discovery_review_regressions",
+        "test_study_resume",
+        "test_forecast_features",
+        "test_forecast_settlement",
+        "test_candidate_factor_runtime",
+        "test_provider_process",
+        "test_controller",
+        "test_research",
+        "test_study_ui",
+    ):
+        assert f"tests/{name}.py" in critical
+
+
 def test_slow_modules_are_separated_without_splitting_or_losing_selected_tests():
     shard = runpy.run_path(str(SCRIPT))["grouped_shards"]
     heavy = "tests/test_enhanced_forecast_workflow.py"
@@ -66,6 +104,8 @@ def test_profile_keeps_selected_module_fixture_together_and_records_all_results(
     assert metadata["source"]["files"]["examples/profile_validation.py"]
     assert metadata["environment"]["OMP_NUM_THREADS"] == "1"
     assert metadata["loaded_package"] == str(ROOT / "src/quant_rsi/__init__.py")
+    assert metadata["suite"] == summary["suite"] == "focused"
+    assert metadata["deferred_modules"] == {}
     assert summary["source_changed"] is False
     for index in range(2):
         assert (tmp_path / f"profile/shard-{index}.xml").exists()
