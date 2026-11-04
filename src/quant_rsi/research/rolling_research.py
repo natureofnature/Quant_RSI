@@ -202,12 +202,15 @@ def verify_news_dependency(candidates, columns, definitions, required):
         depends = False
         for source in sources:
             values = columns[source]
-            for replacement in (np.zeros_like(values), np.arange(len(values), dtype=float) % 7):
+            for replacement in (np.zeros_like(values), 1 + np.arange(len(values), dtype=float) % 7):
                 probe = np.where(np.isfinite(values), replacement, np.nan)
                 changed = compute_factor(definition, columns | {source: probe}, definitions)[
                     required
                 ]
-                if not np.allclose(original, changed, rtol=1e-10, atol=1e-12, equal_nan=True):
+                comparable = np.isfinite(original) & np.isfinite(changed)
+                if np.any(
+                    ~np.isclose(original[comparable], changed[comparable], rtol=1e-10, atol=1e-12)
+                ):
                     depends = True
                     break
             if depends:

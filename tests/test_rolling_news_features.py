@@ -199,3 +199,35 @@ def test_unqueried_month_gap_remains_nan_despite_matches():
     )
     assert np.isnan(columns["news.policy_risk"][0])
     assert audit[0]["row_evidence_ids"] == [[]]
+
+
+def test_news_ratio_cancellation_cannot_claim_dependency_from_invalid_probes():
+    from quant_rsi.research.rolling_research import verify_news_dependency
+
+    candidate = {
+        "name": "cancelled_ratio",
+        "description": "News ratio cancels, leaving price",
+        "inputs": [
+            {"name": "news", "factor_id": "news.x"},
+            {"name": "price", "factor_id": "price.close"},
+        ],
+        "expression": {
+            "schema_version": 2,
+            "nodes": [
+                {"name": "n", "op": "leaf", "leaf": "news"},
+                {"name": "p", "op": "leaf", "leaf": "price"},
+                {"name": "ratio", "op": "divide", "inputs": ["n", "n"]},
+                {"name": "result", "op": "multiply", "inputs": ["p", "ratio"]},
+            ],
+        },
+    }
+    columns = {
+        "news.x": np.array([1.0, 2.0, 3.0, 4.0]),
+        "price.close": np.array([10.0, 11.0, 12.0, 13.0]),
+    }
+    definitions = [
+        {"factor_id": "news.x", "unit": "count"},
+        {"factor_id": "price.close", "unit": "price"},
+    ]
+    with pytest.raises(ValueError, match="does not numerically depend"):
+        verify_news_dependency([candidate], columns, definitions, np.arange(4))
