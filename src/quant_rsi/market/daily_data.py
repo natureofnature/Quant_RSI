@@ -543,7 +543,11 @@ def collect_daily(
         calendar_body = _download(calendar_url, calendar_path, downloads)
         holidays, early = (_nasdaq_calendar if nasdaq else _calendar)(calendar_body)
         historical_sources = []
-        covered = sum(datetime.fromtimestamp(t, EASTERN).year >= min(holidays) for t in timestamps)
+        covered = sum(
+            datetime.fromtimestamp(t, EASTERN).year >= min(holidays)
+            and (as_of is None or datetime.fromtimestamp(t, EASTERN) <= as_of)
+            for t in timestamps
+        )
         if (
             covered <= historical_sessions
             and 2025 not in holidays
@@ -634,7 +638,10 @@ def collect_daily(
             unsupported = [key for key in unsupported if key in kept_actions]
         # Yahoo supplies no event revision counter. Version the immutable source
         # by its evidence instead of overwriting revision zero in an older import.
-        source_version = _sha(canonical({"response_ref": _sha(raw), "calendar_ref": calendar_ref}))
+        source_evidence = {"response_ref": _sha(raw), "calendar_ref": calendar_ref}
+        if as_of is not None:
+            source_evidence["price_cutoff"] = as_of.isoformat()
+        source_version = _sha(canonical(source_evidence))
         contract = {
             "schema_version": 1,
             "source_id": (

@@ -53,6 +53,20 @@ def test_asof_still_rejects_missing_completed_session(tmp_path, monkeypatch):
         )
 
 
+def test_distinct_cutoffs_bind_distinct_source_versions(tmp_path, monkeypatch):
+    install(monkeypatch, chart("2026-11-03"), now="2026-11-04T12:00:00+00:00")
+    results = [
+        daily_data.collect_daily(
+            "SOXL",
+            tmp_path / str(day),
+            as_of=datetime.fromisoformat(f"2026-{day}T23:59:59-04:00"),
+        )
+        for day in ("10-31", "11-01")
+    ]
+    assert results[0]["origin_session_id"] == results[1]["origin_session_id"]
+    assert results[0]["contract"]["source_id"] != results[1]["contract"]["source_id"]
+
+
 @pytest.mark.parametrize(
     "cutoff",
     ["2026-10-31", datetime(2026, 10, 31), datetime.fromisoformat("2026-11-05T00:00:00+00:00")],
