@@ -3,6 +3,9 @@
 import json
 from html import escape
 
+from quant_rsi.core.artifacts import canonical
+from quant_rsi.research.discovery_factors import DiscoveryFactor
+
 
 def render_discovery(result):
     discovery = result["discovery"]
@@ -50,24 +53,65 @@ def render_discovery(result):
         ],
     )
     candidates = []
+    revisions = []
     for m in decisions:
-        for c in m["decision"].get("candidates", []):
+        for index, c in enumerate(m["decision"].get("candidates", [])):
+            try:
+                proposal = DiscoveryFactor.model_validate_json(canonical(c))
+                view = proposal.model_dump(mode="json")
+            except (ValueError, TypeError):
+                view = {
+                    "name": c.get("name", "Invalid candidate"),
+                    "description": "Invalid definition; see the recorded lineage diagnostic.",
+                    "evidence_ids": [],
+                    "inputs": [],
+                    "expression": {"nodes": []},
+                }
             candidates.append(
                 [
-                    c["name"],
-                    c["description"],
-                    ", ".join(c.get("evidence_ids", [])),
-                    ", ".join(i["factor_id"] for i in c["inputs"]),
+                    view["name"],
+                    view["description"],
+                    ", ".join(view["evidence_ids"]),
+                    ", ".join(i["factor_id"] for i in view["inputs"]),
                     " → ".join(
                         n["op"] + (f"({n['window']})" if n.get("window") else "")
-                        for n in c["expression"]["nodes"]
+                        for n in view["expression"]["nodes"]
                     ),
+                ]
+            )
+            lineage = m.get("candidate_lineage", [])
+            row = lineage[index] if index < len(lineage) else {}
+            recipe_ref = row.get("recipe_ref")
+            if not recipe_ref:
+                try:
+                    recipe_ref = DiscoveryFactor.model_validate_json(canonical(c)).recipe_ref
+                except (ValueError, TypeError):
+                    recipe_ref = "Unavailable (invalid definition)"
+            parents = c.get("parent_recipe_refs", [])
+            parent_text = (
+                ", ".join(str(ref) for ref in parents)
+                if isinstance(parents, (tuple, list))
+                else str(parents)
+            )
+            revisions.append(
+                [
+                    c.get("name", "Invalid candidate"),
+                    recipe_ref,
+                    parent_text
+                    or ("None declared" if "parent_recipe_refs" in c else "Unspecified (legacy)"),
+                    row.get("status", "legacy_unspecified"),
+                    row.get("reason", "Historical records are not assigned inferred parents."),
                 ]
             )
     table(
         "Evidence → candidate → inputs → expression",
         ["Candidate", "Mechanism", "Evidence", "Inputs", "Expression"],
         candidates,
+    )
+    table(
+        "Candidate revisions",
+        ["Candidate", "Recipe reference", "Parent recipe references", "Lineage status", "Reason"],
+        revisions,
     )
     acquisitions = [m for m in records if m.get("kind") == "acquire"]
     bundles = {

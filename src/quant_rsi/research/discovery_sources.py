@@ -687,12 +687,15 @@ def discovery_decision(llm, context):
     """Tool-free decision provider; acquisition/search are explicit workflow actions."""
     from quant_rsi.research.discovery_factors import DiscoveryFactor, operator_descriptions
 
-    class Decision(StrictModel):
+    class DecisionEnvelope(StrictModel):
         action: Literal["test", "revise", "survey", "acquire", "retain", "withdraw", "stop"]
         reason: str = Field(min_length=1, max_length=3000)
-        candidates: tuple[DiscoveryFactor, ...] = Field(max_length=8)
+        candidates: tuple[dict, ...] = Field(max_length=8)
         data_requests: tuple[DataRequest, ...] = Field(max_length=4)
         query: str | None
+
+    class Decision(DecisionEnvelope):
+        candidates: tuple[DiscoveryFactor, ...] = Field(max_length=8)
 
     prompt = _prompt(
         "Choose the next research action using evidence and measured feedback. The catalog is "
@@ -706,7 +709,12 @@ def discovery_decision(llm, context):
         "For a range request its literal lower and upper bounds as separate input leaves, then "
         "compose any derived measurement with supported DSL operators and declared inputs. "
         "Prefer one literal measurement when the derivation lacks a supported constant/operator. "
-        "A test/revise action uses available inputs. Explain "
+        "A test/revise action uses available inputs. "
+        "A candidate's parent_recipe_refs names the earlier candidates it revises or replaces, "
+        "not numerical dependencies. Use only recipe_ref IDs in context.visible_candidates; "
+        "new hypotheses use an empty array. A revise action must declare at least one parent "
+        "for every candidate. Do not infer parentage from all consumed feedback or use self "
+        "references. Use test for an unrelated new hypothesis. Explain "
         "which consumed memory/evidence motivates this action. No improvement is required. "
         "Use stop/retain when no justified next action remains. Never reset budgets, "
         "alter samples, "
@@ -714,7 +722,12 @@ def discovery_decision(llm, context):
         "All five fields must be present; use empty arrays/null for inapplicable fields.",
         {"context": context, "operators": operator_descriptions()},
     )
-    result = Decision.model_validate_json(llm.structured(prompt, strict_schema(Decision)))
+    # The provider receives the full schema, but a completed proposal with invalid
+    # candidate semantics belongs in research feedback. Let the outer loop persist
+    # and diagnose it instead of treating it as a transport failure and losing work.
+    result = DecisionEnvelope.model_validate_json(llm.structured(prompt, strict_schema(Decision)))
+    for candidate in result.candidates:
+        candidate.setdefault("parent_recipe_refs", [])
     if result.action in {"test", "revise"} and not result.candidates:
         raise ValueError("A test decision needs candidate definitions")
     if result.action == "acquire" and not result.data_requests:
@@ -831,6 +844,8 @@ def simulated_discovery_sources(prediction_times, *, call=None, usage_path=None)
 
 def simulated_discovery_decision(context):
     """Deterministic engineering trajectory, explicitly not autonomous discovery evidence."""
+    from quant_rsi.research.discovery_factors import DiscoveryFactor
+
     evidence_ids = [a["id"] for a in context.get("evidence", []) if a.get("id")][:8]
     prior = [
         row
@@ -866,6 +881,13 @@ def simulated_discovery_decision(context):
         "inputs": [{"name": "demand", "factor_id": "acquired.reported_demand"}],
         "expression": {"schema_version": 2, "nodes": nodes},
         "evidence_ids": evidence_ids,
+        "parent_recipe_refs": [
+            DiscoveryFactor.model_validate_json(
+                canonical(prior[-1]["spec"]["candidate"])
+            ).recipe_ref
+        ]
+        if prior
+        else [],
     }
     action = {
         "action": "test" if not prior else "revise",

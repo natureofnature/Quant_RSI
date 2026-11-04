@@ -8,6 +8,7 @@ from test_study_discovery import arguments
 from quant_rsi.cli import main
 from quant_rsi.research import study_discovery
 from quant_rsi.research.demo_model import LightGBMDemo
+from quant_rsi.research.discovery_factors import DiscoveryFactor
 
 
 def test_invented_evidence_cannot_enter_a_discovery_fit(tmp_path, monkeypatch):
@@ -67,6 +68,12 @@ def test_completed_development_feedback_is_reused_without_forecast_maturity(tmp_
     assert all(row["prior_study"]["symbol"] == "KO" for row in reused)
     assert all(row["experiment_context"]["metric"] == "mae" for row in reused)
     assert all(row["experiment_context"]["comparison_key"] for row in reused)
+    expected_parents = {
+        DiscoveryFactor.model_validate_json(json.dumps(row["spec"]["candidate"])).recipe_ref
+        for row in old["discovery"]["memory"]
+        if row["kind"] == "experiment" and row["spec"].get("candidate")
+    }
+    assert {row["recipe_ref"] for row in captured[0]["visible_candidates"]} == expected_parents
 
 
 def test_latest_price_publication_does_not_enter_development_feedback(tmp_path, monkeypatch):

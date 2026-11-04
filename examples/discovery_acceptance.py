@@ -21,6 +21,9 @@ CONTEXT_FIELDS = {
     "information_mode",
     "research_cutoff",
     "prediction_times",
+    "requested_data_period",
+    "source_limits",
+    "iteration",
     "definitions",
     "catalog",
     "survey_candidates",
@@ -52,7 +55,7 @@ def paired_contexts(plan):
         removed = set(plan.get("removed_evidence_ids", []))
         if not removed or not removed <= ids:
             raise ValueError("Removed evidence IDs must exist in the original inputs")
-        left.update(memory=[], prior_memory=[], consumed_memory_refs=[])
+        left.update(memory=[], prior_memory=[], consumed_memory_refs=[], visible_candidates=[])
         right = deepcopy(left)
         right["evidence"] = [item for item in right["evidence"] if item["id"] not in removed]
         cleanup = {

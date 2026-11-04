@@ -129,6 +129,20 @@ Candidate names do not establish novelty. The normalized recipe identity removes
 node names, binding aliases and supported commutative ordering. Exact input versions and
 experiment identities are retained separately for reproduction.
 
+New candidate proposals also carry `parent_recipe_refs`: explicit recipe identities
+of the earlier candidates being revised or replaced. This is research lineage, not a
+numerical dependency. The decision receives an index of candidates present in its
+admitted Memory; unknown, invisible and self references are rejected before acquisition
+or fitting. A new `revise` response must name a parent for each candidate. Unrelated
+hypotheses use `test` with an empty parent list.
+
+Parent metadata does not change semantic recipe identities or bypass duplicate-fit
+checks. Each declaration, including rejected or numerically duplicate proposals, remains
+in the decision record and the report's **Candidate revisions** table. Historical records
+without this field remain readable and are labeled unspecified; their parentage is not
+invented or written back into preserved runs. See the [RFC evidence map](rfc119_acceptance.md)
+for the distinction between historical execution records and current lineage validation.
+
 ## Data, time and comparison rules
 
 Acquisition retains source excerpts, URLs, publication/receipt/version timestamps,
@@ -185,10 +199,11 @@ Real-service exploration records remain separate from that fixture:
 | KO attempt 03 | The first Codex decision timed out before fitting. Resume refused after source changes, preserving the original runtime identity. |
 | KO attempt 04, runtime commit `2d19657` | An initial RSS failure resumed on the unchanged runtime. Codex acquired two literal quarterly operating measurements and synthesized a five-session change in the pricing/volume gap. The resulting column entered a real fit. After reading its actual feedback, Codex revised it to the persistent gap level and fitted again. Both candidates used the same acquired inputs and fixed samples. |
 | Preregistered news ablation, one Codex pair | **Inconclusive.** Removing the earnings/guidance headline changed the cited evidence, but both arms still proposed a pricing/volume gap. Retained earnings context and pretrained knowledge are alternative explanations. |
+| News-body ablation, two preregistered Codex pairs at `a4431c6` | **Pass under the declared qualitative information-use criterion.** Both original arms cite concrete operating facts and request volume/price-mix measurements; both removal arms turn to dividend amounts and a dividend/price expression. All four calls completed without retries. No acquisition or fitting ran in these pairs. The [evidence map](rfc119_acceptance.md#news-body-paired-observation-e7) preserves the plan, independent assessment and limitations; the earlier headline-only result remains inconclusive. |
 | Preregistered synthetic-feedback intervention, one Codex pair | The favorable branch retained the proposed pricing/volume investigation; the unfavorable branch explicitly cited the worse synthetic MAE and proposed a temporal currency-impact measurement. This meets the declared qualitative action-sensitivity criterion, without establishing statistical causality or predictive benefit. |
 
 Paired plans, effective input contexts and all outputs were retained before assessment.
-Synthetic feedback never entered authentic study memory. The single-pair observations do
+Synthetic feedback never entered authentic study memory. These bounded observations do
 not establish general reliability. The harness is `examples/discovery_acceptance.py`;
 each plan fixes the provider, maximum pairs, intervention and observable criteria before
 any calls. Its default result is inconclusive until an explicit evidence review is recorded.

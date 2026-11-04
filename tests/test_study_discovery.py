@@ -68,8 +68,14 @@ def test_discovery_acquired_lineage_real_fits_and_frozen_rows(tmp_path, monkeypa
         m for m in records if m["kind"] == "experiment" and m["spec"]["kind"] == "candidate"
     )
     assert first_feedback["ref"] in second["consumed_memory_refs"]
+    parent_ref = features[0]["definition"]["recipe_ref"]
+    assert second["decision"]["candidates"][0]["parent_recipe_refs"] == [parent_ref]
+    assert second["candidate_lineage"][0]["status"] == "accepted"
+    assert features[1]["definition"]["parent_recipe_refs"] == [parent_ref]
     assert result["terminal_evaluation"]["status"] == "completed"
     assert "Executed feature values" in (root / "report.html").read_text()
+    assert "Candidate revisions" in (root / "report.html").read_text()
+    assert parent_ref in (root / "report.html").read_text()
     # The runner independently verifies source-bound alignment, not just provider claims.
     corrupt = deepcopy(acquisition)
     corrupt["columns"]["acquired.reported_demand"][40] = 999.0

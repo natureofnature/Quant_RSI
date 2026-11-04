@@ -17,6 +17,7 @@ from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.factors.expressions import Name, SeriesFactorExpression, evaluate_series
 from quant_rsi.factors.price_adapters import CandidatePriceRecipe, evaluate_price_adapter
+from quant_rsi.market.market_contracts import Hash
 
 SURVEY_BINDINGS = {
     "qlib.kmid": {"open": "price.open", "close": "price.close"},
@@ -190,6 +191,8 @@ class DiscoveryFactor(StrictModel):
     inputs: tuple[DiscoveryInput, ...] = Field(min_length=1, max_length=12)
     expression: SeriesFactorExpression
     evidence_ids: tuple[str, ...] = Field(default=(), max_length=20)
+    # Research revisions/replacements, not numerical expression dependencies.
+    parent_recipe_refs: tuple[Hash, ...] = Field(default=(), max_length=8)
 
     @model_validator(mode="after")
     def bindings(self):
@@ -197,6 +200,10 @@ class DiscoveryFactor(StrictModel):
         leaves = {node.leaf for node in self.expression.nodes if node.op == "leaf"}
         if len(names) != len(set(names)) or set(names) != leaves:
             raise ValueError("Every unique input binding must be used by the expression")
+        if len(self.parent_recipe_refs) != len(set(self.parent_recipe_refs)):
+            raise ValueError("Parent recipe references must be unique")
+        if self.recipe_ref in self.parent_recipe_refs:
+            raise ValueError("A candidate cannot be its own parent")
         return self
 
     @property
@@ -220,7 +227,7 @@ class DiscoveryFactor(StrictModel):
         ):
             raise ValueError("Noncausal reference-only inputs cannot enter forecasting")
         unit = _expression_unit(self, sources)
-        return {
+        definition = {
             "factor_id": f"discovery.{self.name}",
             "description": self.description,
             "kind": "numeric",
@@ -238,6 +245,9 @@ class DiscoveryFactor(StrictModel):
             "missing_inputs": sorted(set(missing)),
             "availability_reason": "needs_input" if missing else "bound_expression",
         }
+        if self.parent_recipe_refs:
+            definition["parent_recipe_refs"] = list(self.parent_recipe_refs)
+        return definition
 
 
 def _expression_unit(proposal, sources):
