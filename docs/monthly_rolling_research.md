@@ -150,8 +150,10 @@ article IDs; a balance headline matching both baskets contributes zero. Zero
 means no match in the retrieved corpus, **not no world event**. News inputs and
 candidate expressions must vary on the actual training rows. Declared news inputs
 must be used in candidates; a price-only proposal is rejected in news-research
-mode. Missing evidence, unsupported recipes and constant inputs retain the fixed
-forecast with explicit rejection details. A retained decision reuses its earlier
+mode. Each candidate is screened independently. Missing evidence, unsupported
+recipes, constant inputs and exact duplicate model columns are rejected with
+reasons; valid candidates still enter one joint model. If none survive, the fixed
+forecast is retained. Correlated but distinct columns are not automatically removed. A retained decision reuses its earlier
 recipe and recomputes it on the next window. The report lists actual training
 values/ranges, source IDs, hypotheses, coverage and the number of monthly models
 that really used news inputs.
@@ -185,3 +187,31 @@ captured headlines may yield zero. Intermediate expression lags cannot bypass
 these unavailable values. For bounded LLM context, at most 12 recent headlines per
 month plus incumbent cited evidence are shown; numerical inputs use the full
 eligible corpus and the report records omitted-context counts.
+
+## Joint multi-factor pools
+
+Use `--max-candidates 16 --max-news-inputs 32` to let each decision propose up to
+16 jointly trained candidates and 32 news input recipes. Supported limits are
+1–32 candidates and 1–64 news inputs; defaults preserve two candidates and twice
+the candidate limit for inputs. Fixed baseline columns are additional. These are
+capacity limits, not guarantees that evidence supports that many factors.
+
+The report records proposed/accepted counts, per-candidate rejection reasons,
+actual model columns, and LightGBM split counts/gain or standardized Ridge
+coefficients. These describe model use, not reliability or causal importance.
+Different expressions of the same topic do not necessarily add information.
+
+To compare pools without collecting a different news corpus, add
+`--news-history /tmp/soxx-monthly-news/news_history` alongside `--news-research`.
+The acquisition must match the requested symbol, search query and full date range.
+Raw RSS hashes, requests, receipts, monthly coverage and parsed items are checked
+without network access; verified evidence is copied to the new output directory.
+The original files and receipt times remain unchanged. Tampering, missing files
+or mismatched requests fail explicitly. Snapshot identity and both limits are
+bound into resume configuration; changing them requires a fresh output directory.
+
+For example, extend the command above with `--max-candidates 16
+--max-news-inputs 32 --llm-timeout 600 --news-history /tmp/soxx-monthly-news/news_history`
+and a fresh output directory. Larger structured proposals can take longer than
+the default provider timeout. Failed calls remain recorded; adding features does
+not itself establish a forecast advantage.

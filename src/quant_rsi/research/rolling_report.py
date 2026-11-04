@@ -229,6 +229,44 @@ def render_rolling(result):
             ],
         )
     )
+    if any(f.get("candidate_pool") for f in folds):
+        table(
+            "Candidate pool screening",
+            [
+                "Month",
+                "Limit",
+                "Proposed",
+                "Accepted",
+                "Actual model columns",
+                "Rejected / unavailable",
+            ],
+            [
+                [
+                    f["month"],
+                    f.get("candidate_pool", {}).get("limit"),
+                    f.get("candidate_pool", {}).get("proposed"),
+                    f.get("candidate_pool", {}).get("accepted"),
+                    len(f.get("fits", {}).get("adaptive", {}).get("factor_ids", [])),
+                    f.get("candidate_rejections", []),
+                ]
+                for f in folds
+            ],
+        )
+        table(
+            "Actual model feature usage",
+            ["Month", "Arm", "Feature", "Fit-specific usage"],
+            [
+                [f["month"], arm, identity, usage]
+                for f in folds
+                for arm, fit in f.get("fits", {}).items()
+                for identity, usage in fit.get("feature_usage", {}).items()
+            ],
+        )
+        parts.append(
+            "<p>Feature usage describes this fitted model; it does not establish a reliable factor "
+            "or causal effect. Exact duplicate columns are screened on the admitted sample; "
+            "correlated but distinct columns are retained.</p>"
+        )
     table(
         "Research decisions and evidence gaps",
         ["Month", "Candidate status", "Historical news", "Decision", "Fits / actual factors"],

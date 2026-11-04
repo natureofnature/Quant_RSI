@@ -26,8 +26,15 @@ class MonthlyDecision(StrictModel):
     action: Literal["retain", "replace", "withdraw"]
     basis: Literal["price_only", "news"]
     reason: str = Field(min_length=1, max_length=3000)
-    candidates: tuple[DiscoveryFactor, ...] = Field(max_length=2)
-    news_inputs: tuple[NewsInput, ...] = Field(default=(), max_length=4)
+    candidates: tuple[DiscoveryFactor, ...] = Field(max_length=32)
+    news_inputs: tuple[NewsInput, ...] = Field(default=(), max_length=64)
+
+
+class DecisionEnvelope(MonthlyDecision):
+    """Parse the outer response before validating individual pool members."""
+
+    candidates: tuple[dict, ...] = Field(max_length=32)
+    news_inputs: tuple[dict, ...] = Field(default=(), max_length=64)
 
 
 def feature_library(data, peers):
@@ -73,7 +80,17 @@ def feature_library(data, peers):
     return columns, definitions, baseline
 
 
-def decision_context(symbol, fold, definitions, incumbent, news, feedback, news_inputs=()):
+def decision_context(
+    symbol,
+    fold,
+    definitions,
+    incumbent,
+    news,
+    feedback,
+    news_inputs=(),
+    max_candidates=2,
+    max_news_inputs=None,
+):
     # Bounded, month-stratified context; numerical features use the full eligible corpus.
     groups = {}
     for item in news["items"]:
@@ -84,6 +101,8 @@ def decision_context(symbol, fold, definitions, incumbent, news, feedback, news_
     news = news | {"items": selected, "context_omitted_count": len(news["items"]) - len(selected)}
     return {
         "symbol": symbol,
+        "max_candidates": max_candidates,
+        "max_news_inputs": max_news_inputs if max_news_inputs is not None else 2 * max_candidates,
         "information_cutoff": fold["information_cutoff"],
         "training_window": fold["training_window"],
         "forecast_target": fold["target_session"],
@@ -106,11 +125,20 @@ def decision_context(symbol, fold, definitions, incumbent, news, feedback, news_
 
 
 def propose(llm, context):
+    limit = context.get("max_candidates", 2)
     prompt = (
         "Make one monthly rolling research decision, before the target month's outcome. "
         "The fixed baseline always runs separately. The adaptive arm may retain previous "
-        "candidate expressions, withdraw them, or replace them with at most two expressions "
-        "appended to baseline features. This is a hypothesis, not a claim of improvement. "
+        f"candidate expressions, withdraw them, or replace them with at most {limit} expressions "
+        "appended to baseline features and trained jointly as one model. On the initial "
+        f"news decision, aim for a diversified pool near {limit} supported candidates, "
+        "covering distinct mechanisms and temporal expressions; return fewer only when "
+        "evidence/data cannot support more and explain why. Do not create renamed duplicates. "
+        "Each candidate is screened separately; invalid/constant/duplicate columns are "
+        "rejected while valid candidates remain. More columns do not imply more information. "
+        "When mature feedback repeatedly underperforms controls, explain a concrete revision "
+        "or withdrawal; retention requires an evidence-based reason. "
+        "This is a hypothesis, not a claim of improvement. "
         "Only supplied numerical inputs can execute; do not invent financial/news measurements. "
         "Inspect experimental survey definitions and prior mature monthly feedback. "
         "When news.research_required is true, propose executable news inputs using headline "
@@ -134,11 +162,24 @@ def propose(llm, context):
         "be empty. Parent recipe refs may name only the supplied incumbent recipes. "
         "Return only schema JSON.\nINPUT_JSON:\n" + canonical(context).decode()
     )
-    return {"text": llm.structured(prompt, strict_schema(MonthlyDecision))}
+    schema = strict_schema(MonthlyDecision)
+    schema["properties"]["candidates"]["maxItems"] = limit
+    schema["properties"]["news_inputs"]["maxItems"] = context.get("max_news_inputs", limit * 2)
+    return {"text": llm.structured(prompt, schema)}
 
 
-def admit_decision(raw, incumbent, news):
-    decision = MonthlyDecision.model_validate_json(raw["text"])
+def admit_decision(
+    raw, incumbent, news, max_candidates=2, max_news_inputs=None, *, screen_individually=False
+):
+    if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
+        raise ValueError("Candidate limit must be between 1 and 32")
+    input_limit = 2 * max_candidates if max_news_inputs is None else max_news_inputs
+    if type(input_limit) is not int or not 1 <= input_limit <= 64:
+        raise ValueError("News input limit must be between 1 and 64")
+    model = DecisionEnvelope if screen_individually else MonthlyDecision
+    decision = model.model_validate_json(raw["text"])
+    if len(decision.candidates) > max_candidates or len(decision.news_inputs) > input_limit:
+        raise ValueError("Proposal exceeds the configured candidate/input budget")
     if decision.action != "replace" and (decision.candidates or decision.news_inputs):
         raise ValueError("Only replacement decisions may contain candidates")
     if decision.action == "replace" and not decision.candidates:
@@ -147,7 +188,7 @@ def admit_decision(raw, incumbent, news):
         raise ValueError("News research cannot fall back to a price-only hypothesis")
     evidence = {item["id"] for item in news["items"]}
     previous = {DiscoveryFactor.model_validate_json(canonical(c)).recipe_ref for c in incumbent}
-    for candidate in decision.candidates:
+    for candidate in () if screen_individually else decision.candidates:
         if not set(candidate.evidence_ids) <= evidence:
             raise ValueError("Candidate cites unknown or cutoff-ineligible evidence")
         if decision.basis == "news" and not candidate.evidence_ids:
@@ -155,7 +196,7 @@ def admit_decision(raw, incumbent, news):
         if not set(candidate.parent_recipe_refs) <= previous:
             raise ValueError("Candidate cites unknown parent recipe")
     candidates = (
-        [c.model_dump(mode="json") for c in decision.candidates]
+        decision.model_dump(mode="json")["candidates"]
         if decision.action == "replace"
         else []
         if decision.action == "withdraw"

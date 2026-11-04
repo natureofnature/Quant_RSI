@@ -1,6 +1,7 @@
 """Fixed-width monthly rolling forecasts through existing numerical/provider adapters."""
 
 import math
+import shutil
 import time
 from copy import deepcopy
 from decimal import Decimal
@@ -16,16 +17,15 @@ from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_prices import read_daily_history
 from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_monthly_strategy
+from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.llm import LLMHypothesizer
-from quant_rsi.research.rolling_news_features import compile_news_inputs
-from quant_rsi.research.rolling_news_sources import collect_history, select_evidence
+from quant_rsi.research.rolling_candidates import screen_candidates
+from quant_rsi.research.rolling_news_sources import collect_history, load_history, select_evidence
 from quant_rsi.research.rolling_research import (
     admit_decision,
-    candidate_matrix,
     decision_context,
     feature_library,
     propose,
-    verify_news_dependency,
 )
 from quant_rsi.research.rolling_windows import monthly_plan, read_calendar
 from quant_rsi.research.study_estimators import StandardizedRidge
@@ -59,7 +59,21 @@ def add_arguments(commands):
     parser.add_argument("--llm", choices=("none", "codex", "api"), default="none")
     parser.add_argument("--llm-model")
     parser.add_argument("--llm-timeout", type=float, default=180)
+    parser.add_argument(
+        "--max-candidates",
+        type=int,
+        default=2,
+        help="joint candidate-factor limit, 1..32; fixed factors are additional",
+    )
+    parser.add_argument(
+        "--max-news-inputs",
+        type=int,
+        help="news input budget, 1..64; defaults to twice max-candidates",
+    )
     parser.add_argument("--news-archive", type=Path)
+    parser.add_argument(
+        "--news-history", type=Path, help="replay a verified historical-news acquisition directory"
+    )
     parser.add_argument(
         "--news-research",
         action="store_true",
@@ -102,6 +116,10 @@ def fit_forecast(matrix, labels, train, name, factor_ids):
         estimator = StandardizedRidge(x, labels, 1.0)
         prediction = float(estimator.predict(matrix[-1:])[0])
         state = estimator.state()
+        usage = {
+            identity: {"standardized_coefficient": float(weight)}
+            for identity, weight in zip(factor_ids, estimator.coefficients, strict=True)
+        }
     else:
         import lightgbm as lgb
 
@@ -112,12 +130,22 @@ def fit_forecast(matrix, labels, train, name, factor_ids):
         )
         prediction = float(estimator.predict(matrix[-1:], num_threads=1)[0])
         state = {"model_string": estimator.model_to_string()}
+        usage = {
+            identity: {"split_count": int(count), "gain": float(gain)}
+            for identity, count, gain in zip(
+                factor_ids,
+                estimator.feature_importance("split"),
+                estimator.feature_importance("gain"),
+                strict=True,
+            )
+        }
     if not math.isfinite(prediction):
         raise ValueError("Non-finite model forecast")
     return {
         "predicted_log_return": prediction,
         "factor_ids": factor_ids,
         "training_samples": len(train),
+        "feature_usage": usage,
         "state": state,
     }
 
@@ -160,6 +188,10 @@ def _feedback(folds, cutoff):
                 "prediction_sha256": fold["prediction_sha256"],
                 "target_session": fold["target_session"],
                 "decision": fold["decision"],
+                "candidate_status": fold["candidate_status"],
+                "candidate_pool": fold.get("candidate_pool"),
+                "candidate_rejections": fold.get("candidate_rejections", []),
+                "actual_adaptive_factors": fold["fits"].get("adaptive", {}).get("factor_ids", []),
                 "forecasts": deepcopy(fold["forecasts"]),
                 "errors": {
                     arm: row["predicted_price"] - row["observed_price"]
@@ -185,8 +217,15 @@ def run_months(
     news_history=None,
     news_mode="reconstructed",
     news_required=False,
+    max_candidates=2,
+    max_news_inputs=None,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
+    if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
+        raise ValueError("Candidate limit must be between 1 and 32")
+    max_news_inputs = 2 * max_candidates if max_news_inputs is None else max_news_inputs
+    if type(max_news_inputs) is not int or not 1 <= max_news_inputs <= 64:
+        raise ValueError("News input limit must be between 1 and 64")
     folds, incumbent, incumbent_news = [], [], []
     for planned in plan:
         fold = deepcopy(planned)
@@ -256,6 +295,8 @@ def run_months(
             news,
             _feedback(folds, fold["information_cutoff"]),
             incumbent_news,
+            max_candidates,
+            max_news_inputs,
         )
         _write(folder / "research_context.json", context)
         fold["news_coverage"] = news["coverage_status"]
@@ -267,7 +308,9 @@ def run_months(
                 f"{fold['month']}_decision", context, lambda context=context: propose(llm, context)
             )
             try:
-                decision, proposed = admit_decision(raw, incumbent, news)
+                decision, proposed = admit_decision(
+                    raw, incumbent, news, max_candidates, max_news_inputs, screen_individually=True
+                )
                 fold["decision"] = decision
                 proposed_news = (
                     decision["news_inputs"]
@@ -276,46 +319,46 @@ def run_months(
                     if decision["action"] == "withdraw"
                     else incumbent_news
                 )
-                news_columns, news_definitions, diagnostics = compile_news_inputs(
+                screened = screen_candidates(
+                    proposed,
                     proposed_news,
-                    news["items"],
+                    columns,
+                    definitions,
+                    baseline,
+                    news,
                     row_times,
+                    train,
+                    news_required=news_required,
                     mode=news_mode if news_history is not None else "retained",
-                    history_start=row_times[0],
                     coverage=news_history["searches"] if news_history is not None else None,
+                    allowed_parent_refs={
+                        DiscoveryFactor.model_validate_json(canonical(value)).recipe_ref
+                        for value in incumbent
+                    },
+                    require_evidence=decision["basis"] == "news",
                 )
-                fold["news_features"] = diagnostics
-                active_columns = columns | news_columns
-                active_definitions = definitions + news_definitions
-                required = np.append(train, len(dates) - 1)
-                used_news = {
-                    binding["factor_id"]
-                    for recipe in proposed
-                    for binding in recipe["inputs"]
-                    if binding["factor_id"].startswith("news.")
+                fold["candidate_rejections"] = screened["rejections"]
+                fold["news_features"] = screened["diagnostics"]
+                fold["candidate_pool"] = {
+                    "proposed": len(proposed),
+                    "accepted": len(screened["candidates"]),
+                    "limit": max_candidates,
                 }
-                if news_required and proposed and not used_news:
-                    raise ValueError("News research requires an actual news input in the model")
-                if set(news_columns) != used_news:
-                    raise ValueError("Every declared news input must be used by a candidate")
-                for identity in used_news:
-                    if len(np.unique(news_columns[identity][train])) < 2:
-                        raise ValueError(f"News input has no training variation: {identity}")
-                candidate, ids = candidate_matrix(
-                    proposed, active_columns, active_definitions, baseline, required
-                )
+                if proposed and not screened["candidates"]:
+                    raise ValueError(
+                        "No executable candidates: "
+                        + "; ".join(item["reason"] for item in screened["rejections"])
+                    )
+                proposed, proposed_news = screened["candidates"], screened["news_inputs"]
+                candidate, ids = screened["matrix"], screened["ids"]
+                news_columns = screened["news_columns"]
+                used_news = set(news_columns)
+                fold["news_features"] = screened["diagnostics"]
                 if proposed:
-                    if news_required:
-                        verify_news_dependency(
-                            proposed, active_columns, active_definitions, required
-                        )
-                    if any(
-                        len(np.unique(candidate[train, i])) < 2
-                        for i in range(len(baseline), candidate.shape[1])
-                    ):
-                        raise ValueError("Candidate expression has no training variation")
                     fold["forecasts"]["adaptive"] = fit("adaptive", candidate, ids)
-                    fold["candidate_status"] = "fitted"
+                    fold["candidate_status"] = (
+                        "fitted_with_rejections" if screened["rejections"] else "fitted"
+                    )
                     fold["news_training"] = {
                         identity: {
                             "training_values": news_columns[identity][train].tolist(),
@@ -401,11 +444,30 @@ def run_rolling(args):
                 data.dates, info["session_close_times"], peer_data, evidence
             )
             peer_info[peer] = evidence
+    max_candidates = getattr(args, "max_candidates", 2)
+    if not 1 <= max_candidates <= 32:
+        raise ValueError("--max-candidates must be between 1 and 32")
+    max_news_inputs = getattr(args, "max_news_inputs", None)
+    max_news_inputs = 2 * max_candidates if max_news_inputs is None else max_news_inputs
+    if not 1 <= max_news_inputs <= 64:
+        raise ValueError("--max-news-inputs must be between 1 and 64")
     news_required = getattr(args, "news_research", False)
     if news_required and args.llm == "none":
         raise ValueError("--news-research requires --llm codex or api")
     if getattr(args, "news_query", None) and not news_required:
         raise ValueError("--news-query requires --news-research")
+    history_path = getattr(args, "news_history", None)
+    frozen_history = None
+    if history_path:
+        if not news_required or args.news_archive:
+            raise ValueError("--news-history requires --news-research and excludes --news-archive")
+        frozen_history = load_history(
+            history_path,
+            symbol,
+            plan[0]["training_window"]["start"],
+            plan[-1]["origin_session"],
+            query=getattr(args, "news_query", None),
+        )
     snapshots = load_archive(args.news_archive) if args.news_archive else []
     root = args.output.resolve()
     config = {
@@ -415,6 +477,7 @@ def run_rolling(args):
     }
     config.update(
         symbol=symbol,
+        effective_max_news_inputs=max_news_inputs,
         output=str(root),
         factor_root=str(Path(__file__).resolve().parents[3] / "instruments"),
     )
@@ -422,6 +485,7 @@ def run_rolling(args):
         "target": info,
         "peers": peer_info,
         "news_sha256": digest(canonical(snapshots)),
+        "history_sha256": digest(canonical(frozen_history)) if frozen_history is not None else None,
     }
     config["estimator_parameters"] = (
         MODEL_PARAMETERS | {"seed": 7, "num_boost_round": BOOST_ROUNDS}
@@ -485,13 +549,30 @@ def run_rolling(args):
                     "end": end,
                     "query": getattr(args, "news_query", None),
                 }
-                print("[quant-rsi] collecting dated historical news", flush=True)
+
+                def acquire_history():
+                    if frozen_history is None:
+                        return collect_history(
+                            symbol, start, end, root / "news_history", query=request["query"]
+                        )
+                    destination = root / "news_history"
+                    destination.mkdir(exist_ok=True)
+                    for search in frozen_history["searches"]:
+                        for relative in (
+                            Path(search["raw_path"]),
+                            Path(f"{search['start']}_{search['end']}") / "success.json",
+                        ):
+                            target = destination / relative
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copyfile(history_path / relative, target)
+                    _write(destination / "news_history.json", frozen_history)
+                    return load_history(destination, symbol, start, end, query=request["query"])
+
+                print("[quant-rsi] loading historical news", flush=True)
                 news_history = cache.call(
                     "news_history",
                     request,
-                    lambda: collect_history(
-                        symbol, start, end, root / "news_history", query=request["query"]
-                    ),
+                    acquire_history,
                 )
             run_months(
                 data,
@@ -507,6 +588,8 @@ def run_rolling(args):
                 news_history=news_history,
                 news_mode=getattr(args, "news_information_mode", "reconstructed"),
                 news_required=news_required,
+                max_candidates=max_candidates,
+                max_news_inputs=max_news_inputs,
             )
             policy = {
                 k: getattr(args, k)
