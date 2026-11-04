@@ -287,6 +287,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             demo.add_argument("--model", choices=("simulated", "lightgbm"), default="simulated")
+    from quant_rsi.research.rolling import add_arguments as add_rolling_arguments
+
+    add_rolling_arguments(commands)
     workbench = commands.add_parser("research-ui", help="local research launcher and task history")
     workbench.add_argument("--workspace", type=Path, required=True)
     workbench.add_argument("--port", type=int, default=0)
@@ -648,6 +651,12 @@ def main(argv: list[str] | None = None) -> int:
                     f"{len(entries) - pending - settled} unavailable/non-prospective. "
                     "Use --json for full evidence or --ui for the study view."
                 )
+            return 0
+        if args.command == "research-rolling":
+            from quant_rsi.research.rolling import run_rolling
+
+            run_rolling(args)
+            print(f"Monthly rolling research completed: {args.output.resolve() / 'report.html'}")
             return 0
         if args.command == "research-study":
             from quant_rsi.research.study import run_study

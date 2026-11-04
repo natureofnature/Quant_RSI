@@ -41,6 +41,11 @@ def load_daily_prices(symbol, directory, *, horizon_sessions=5, historical_sessi
         ) from None
 
 
+def read_daily_history(symbol, directory):
+    """Validate retained quotes without attaching a fixed prediction horizon or fetching."""
+    return _read_collection(symbol, Path(directory).resolve(), horizon_sessions=None)
+
+
 def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HISTORY_SESSIONS):
     receipt = json.loads((root / "collection_receipt.json").read_bytes())
     if (receipt.get("kind"), receipt.get("status"), receipt.get("ticker")) != (
@@ -63,7 +68,7 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
     if count < historical_sessions:
         raise ValueError("Insufficient retained history for this horizon; use a fresh --prices-dir")
     sessions = contract.calendar.sessions[:count]
-    if len(contract.calendar.sessions) < count + horizon_sessions:
+    if horizon_sessions is not None and len(contract.calendar.sessions) < count + horizon_sessions:
         raise ValueError(
             "Daily collection needs a published future calendar for this horizon; "
             "use a fresh --prices-dir"
@@ -90,9 +95,8 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
         np.array([[quotes["OPEN_QUOTE", session.session_id]] for session in sessions]),
         np.array([[quotes["CLOSE_QUOTE", session.session_id]] for session in sessions]),
     )
-    return data, {
+    info = {
         "provider": "public_daily_prices",
-        "horizon_sessions": horizon_sessions,
         "collection_directory": str(root),
         "received_at": receipt["completed_at"],
         "price_cutoff": receipt.get("price_cutoff"),
@@ -101,8 +105,13 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
         "price_basis": "raw",
         "currency": contract.currency,
         "qualifications": receipt["qualifications"],
-        "latest_target_session": contract.calendar.sessions[
-            count - 1 + horizon_sessions
-        ].session_id,
         "session_close_times": [session.close_at.isoformat() for session in sessions],
     }
+    if horizon_sessions is not None:
+        info.update(
+            horizon_sessions=horizon_sessions,
+            latest_target_session=contract.calendar.sessions[
+                count - 1 + horizon_sessions
+            ].session_id,
+        )
+    return data, info
