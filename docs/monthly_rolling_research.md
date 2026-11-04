@@ -252,6 +252,63 @@ comparison must include a static factor arm using the same OHLCV information,
 as well as the existing fixed, unchanged-price and training-mean baselines.
 Do not select formulas or months after observing their target errors.
 
+## Measured business inputs
+
+Use a successful `research-study --research-mode discovery` acquisition checkpoint
+as a source archive for a new monthly run. Add these options to the rolling command:
+
+```bash
+--acquired-history /path/to/study/checkpoints/discovery_acquire_2_0.json \
+--max-extractions 6
+```
+
+Repeat `--acquired-history` for additional acquisition files. The loader checks
+retained output identities and reruns literal source/date/value validation from
+the saved articles and extraction records. It recomputes each month's values;
+saved feature columns are not authoritative. Input checkpoint hashes without
+their original request payload remain provenance, not independently verified
+request identities. Only acquisition files are imported, not another study's
+forecasts, scores or later decisions. Source files are copied into the new run;
+resume uses those copies and rejects changed configuration or source content.
+
+The same monthly decision can supply up to two `data_requests` on a `replace`
+action. Only requests referenced by valid proposed candidates are considered:
+
+> News or disclosed evidence → candidate and measurement request → retained-source
+> extraction → time alignment and screening → joint model fit → mature feedback.
+
+Existing measurements can be reused without another extraction. A new measurement
+must be supported by the archived literal excerpts, including its issuer, unit
+and reporting period. For example, a revenue excerpt that also reports inventory
+can support a previously unregistered inventory measurement. A measurement absent
+from those excerpts remains `needs_data`. The resolver performs no live searches
+or page reads; it does not acquire arbitrary missing business data. An issuer's
+measurements are not an ETF aggregate, sector total or consensus surprise.
+
+Measurement evidence remains separate from the headline-count corpus. A candidate
+must cite an eligible source for each measured input and genuinely depend
+numerically on a verified measurement or news input. A name beginning with
+`acquired.` is not sufficient. Missing, stale, constant or conflicting inputs
+reject their dependent candidates; the frozen rows, labels and fixed baseline
+remain unchanged. Unrelated valid candidates can still run. Reports distinguish
+training rows, distinct values, source observations and actual model use.
+
+The run-wide extraction limit is 0–6 (default 6), in addition to monthly decision
+calls. Failed physical extraction attempts consume this budget. Successful cached
+operations are reused during explicit resume; provider failures remain failures.
+
+Date-only disclosures follow the existing next-day 12:00 UTC rule. Retained mode
+also respects actual receipt, version and extraction times. Reconstructed mode
+does not prove that the current document version existed on the historical date.
+Only validated literal excerpt projections reach new extraction prompts, with
+original source identity, quote locations and a separate projection hash. This
+reduces unrelated prompt material; it is not proof of historical authenticity.
+The original article reader does not save raw HTTP bytes, so its content hash
+is a retained attestation, not a raw response hash reverified by this adapter.
+Literal checks also do not establish correct financial interpretation. Repeating
+three quarterly values over many daily rows still provides only three disclosed
+states, not many independent business observations or evidence of predictive gain.
+
 ## Interpreting mature feedback
 
 ### One same-cutoff candidate revision

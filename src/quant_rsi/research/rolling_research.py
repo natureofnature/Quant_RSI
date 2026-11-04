@@ -18,7 +18,7 @@ from quant_rsi.research.discovery_factors import (
     retrieve_candidates,
     survey_catalog,
 )
-from quant_rsi.research.discovery_sources import strict_schema
+from quant_rsi.research.discovery_sources import DataRequest, strict_schema
 from quant_rsi.research.rolling_news_features import NewsInput
 from quant_rsi.research.study_peers import peer_feature
 
@@ -30,6 +30,7 @@ class MonthlyDecision(StrictModel):
     candidates: tuple[DiscoveryFactor, ...] = Field(max_length=32)
     news_inputs: tuple[NewsInput, ...] = Field(default=(), max_length=64)
     selected_recipe_refs: tuple[str, ...] = Field(default=(), max_length=32)
+    data_requests: tuple[DataRequest, ...] = Field(default=(), max_length=2)
 
 
 class DecisionEnvelope(MonthlyDecision):
@@ -37,6 +38,7 @@ class DecisionEnvelope(MonthlyDecision):
 
     candidates: tuple[dict, ...] = Field(max_length=32)
     news_inputs: tuple[dict, ...] = Field(default=(), max_length=64)
+    data_requests: tuple[dict, ...] = Field(default=(), max_length=2)
 
 
 def feature_library(data, peers, *, price_inputs=None):
@@ -101,6 +103,7 @@ def decision_context(
     news_inputs=(),
     max_candidates=2,
     max_news_inputs=None,
+    acquired_inputs=None,
 ):
     # Bounded, month-stratified context; numerical features use the full eligible corpus.
     groups = {}
@@ -110,7 +113,7 @@ def decision_context(
     keep.update(ref for recipe in news_inputs for ref in recipe["evidence_ids"])
     selected = [item for item in news["items"] if item["id"] in keep]
     news = news | {"items": selected, "context_omitted_count": len(news["items"]) - len(selected)}
-    return {
+    context = {
         "symbol": symbol,
         "max_candidates": max_candidates,
         "max_news_inputs": max_news_inputs if max_news_inputs is not None else 2 * max_candidates,
@@ -133,10 +136,34 @@ def decision_context(
         "news": news,
         "mature_feedback": feedback,
     }
+    if acquired_inputs is not None:
+        context["acquired_inputs"] = {
+            key: deepcopy(acquired_inputs[key])
+            for key in ("evidence", "coverage", "input_evidence_ids")
+        }
+        context["max_data_requests"] = 2
+    return context
 
 
 def propose(llm, context):
     limit = context.get("max_candidates", 2)
+    measured = context.get("max_data_requests", 0) > 0
+    measurement_instruction = (
+        "You may request at most two missing acquired.* measurements using data_requests, "
+        "only on replace decisions and only when candidates actually reference them. "
+        "The resolver can extract from the supplied archived literal source excerpts only: "
+        "no live search or page reads. Cite the supplied acquired_inputs evidence IDs that "
+        "support each measurement. Specify the actual issuer symbol, measurement and literal "
+        "unit; an issuer proxy is not the target ETF's aggregate or consensus surprise. "
+        "Existing acquired inputs need no request. New IDs may not overwrite existing inputs. "
+        "Use only source URLs in acquired_inputs; absent measurements remain needs_data. "
+        "A news hypothesis may depend numerically on verified acquired measurements instead "
+        "of headline counts. Never multiply by a news count merely to pass a gate. "
+        "Repeated daily quarterly values are not independent observations. Archived excerpts "
+        "and literal checks do not prove accounting equivalence or historical source versions. "
+        if measured
+        else "Emit empty data_requests; numerical acquisition is disabled. "
+    )
     review_instruction = (
         "This is the one allowed revision at the SAME information cutoff. "
         "candidate_review contains the preceding untrained proposal's screening results and "
@@ -154,6 +181,7 @@ def propose(llm, context):
     )
     prompt = (
         review_instruction
+        + measurement_instruction
         + "Make one monthly rolling research decision, before the target month's outcome. "
         "The fixed baseline always runs separately. The adaptive arm may retain previous "
         "candidate expressions, select a subset, withdraw them, or replace them with "
@@ -173,17 +201,21 @@ def propose(llm, context):
         "When using feedback, cite its month, prediction_sha256 and named comparator in your "
         "reason; do not attribute a single monthly difference causally to one factor. "
         "This is a hypothesis, not a claim of improvement. "
-        "Only supplied numerical inputs can execute; do not invent financial/news measurements. "
+        "Only supplied or successfully acquired inputs can execute; never invent measurements. "
         "Inspect experimental survey definitions and prior mature monthly feedback. "
-        "When news.research_required is true, propose executable news inputs using headline "
-        "keyword baskets and reference them in candidate expressions. Do not substitute a "
+        + (
+            "If using headline counts, propose executable news inputs using headline "
+            if measured
+            else "When news.research_required is true, propose news inputs using headline "
+        )
+        + "keyword baskets and reference them in candidate expressions. Do not substitute a "
         "price-only proxy. NewsInput definitions are numerical counts/balances over the "
         "retrieved headline corpus, not measured fundamentals or verified sentiment. "
         "You may create topics such as policy restrictions, conflict, demand, earnings, "
         "capacity or market stress from the supplied evidence; terms must literally match "
         "cited headlines. Use a count for one topic, balance for positive minus negative "
         "matches. Inspect evidence dates across the training window and avoid constants. "
-        "For replace, declare news_inputs and bind their news.<id> columns in candidates; "
+        "For headline inputs, declare news_inputs and bind their news.<id> columns in candidates; "
         "for retain, emit empty news_inputs and candidates to reuse the incumbent. "
         "To prune a pool without changing retained formulas or news definitions, use select "
         "with unique selected_recipe_refs from incumbent_recipe_refs, and empty candidates "
@@ -209,11 +241,20 @@ def propose(llm, context):
     schema["properties"]["candidates"]["maxItems"] = limit
     schema["properties"]["news_inputs"]["maxItems"] = context.get("max_news_inputs", limit * 2)
     schema["properties"]["selected_recipe_refs"]["maxItems"] = limit
+    schema["properties"]["data_requests"]["maxItems"] = context.get("max_data_requests", 0)
     return {"text": llm.structured(prompt, schema)}
 
 
 def admit_decision(
-    raw, incumbent, news, max_candidates=2, max_news_inputs=None, *, screen_individually=False
+    raw,
+    incumbent,
+    news,
+    max_candidates=2,
+    max_news_inputs=None,
+    *,
+    screen_individually=False,
+    acquired_evidence=(),
+    max_data_requests=0,
 ):
     if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
         raise ValueError("Candidate limit must be between 1 and 32")
@@ -224,7 +265,11 @@ def admit_decision(
     decision = model.model_validate_json(raw["text"])
     if len(decision.candidates) > max_candidates or len(decision.news_inputs) > input_limit:
         raise ValueError("Proposal exceeds the configured candidate/input budget")
-    if decision.action != "replace" and (decision.candidates or decision.news_inputs):
+    if len(decision.data_requests) > max_data_requests:
+        raise ValueError("Proposal exceeds the configured measurement request budget")
+    if decision.action != "replace" and (
+        decision.candidates or decision.news_inputs or decision.data_requests
+    ):
         raise ValueError("Only replacement decisions may contain candidates")
     if decision.action == "replace" and not decision.candidates:
         raise ValueError("Replacement requires a candidate")
@@ -239,6 +284,7 @@ def admit_decision(
     if news.get("research_required") and decision.basis != "news":
         raise ValueError("News research cannot fall back to a price-only hypothesis")
     evidence = {item["id"] for item in news["items"]}
+    evidence.update(item["id"] for item in acquired_evidence)
     previous = {DiscoveryFactor.model_validate_json(canonical(c)).recipe_ref for c in incumbent}
     if not selected <= previous:
         raise ValueError("Selection references a recipe outside the current incumbent")
@@ -287,7 +333,7 @@ def candidate_matrix(candidates, columns, definitions, baseline, required):
     return np.column_stack(matrix), identities
 
 
-def verify_news_dependency(candidates, columns, definitions, required):
+def verify_news_dependency(candidates, columns, definitions, required, *, acquired_inputs=()):
     """Reject nominal news bindings whose computed feature ignores the news input.
 
     This numerical screening is not a symbolic proof of every possible dependency.
@@ -296,7 +342,9 @@ def verify_news_dependency(candidates, columns, definitions, required):
     for value in candidates:
         candidate = DiscoveryFactor.model_validate_json(canonical(value))
         sources = [
-            item.factor_id for item in candidate.inputs if item.factor_id.startswith("news.")
+            item.factor_id
+            for item in candidate.inputs
+            if item.factor_id.startswith("news.") or item.factor_id in acquired_inputs
         ]
         definition = candidate.definition(definitions)
         original = compute_factor(definition, columns, definitions)[required]
@@ -317,4 +365,7 @@ def verify_news_dependency(candidates, columns, definitions, required):
             if depends:
                 break
         if not depends:
-            raise ValueError("Candidate expression does not numerically depend on its news inputs")
+            raise ValueError(
+                "Candidate expression does not numerically depend on its news or verified "
+                "measurement inputs"
+            )

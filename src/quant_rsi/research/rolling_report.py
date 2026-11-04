@@ -160,6 +160,92 @@ def render_rolling(result):
             ],
         )
 
+    if any(fold.get("acquired_inputs") for fold in folds):
+        acquired = next(fold["acquired_inputs"] for fold in folds if fold.get("acquired_inputs"))
+        parts.append(f"<p>{_text(acquired['notice'])}</p>")
+        table(
+            "Acquired business measurements",
+            [
+                "Month",
+                "Input",
+                "Issuer",
+                "Measurement",
+                "Unit",
+                "Training coverage",
+                "Distinct training values",
+                "Source observations in training",
+                "Forecast available",
+                "Used by fitted model",
+            ],
+            [
+                [
+                    fold["month"],
+                    item["input_id"],
+                    item.get("symbol"),
+                    item["measurement"],
+                    item["unit"],
+                    f"{item['training_available']} / {item['training_samples']}",
+                    item["distinct_training_values"],
+                    item["training_disclosures"],
+                    item["prediction_available"],
+                    item["input_id"] in fold.get("fitted_measurement_inputs", []),
+                ]
+                for fold in folds
+                for item in fold.get("acquired_inputs", {}).get("coverage", [])
+            ],
+        )
+        table(
+            "Measurement source excerpts",
+            [
+                "Month",
+                "Source ID",
+                "Issuer",
+                "URL",
+                "Available",
+                "Literal excerpt",
+                "Projection hash",
+            ],
+            [
+                [
+                    fold["month"],
+                    item["id"],
+                    item["symbol"],
+                    item["source_url"],
+                    item["published_at"],
+                    item["excerpt"],
+                    item["projection_sha256"],
+                ]
+                for fold in folds
+                for item in fold.get("acquired_inputs", {}).get("evidence", [])
+            ],
+        )
+        table(
+            "Measurement acquisition and gaps",
+            ["Month", "Requested measurements", "Unavailable / rejected requests"],
+            [
+                [
+                    fold["month"],
+                    [
+                        {
+                            "input": row["request"]["input_id"],
+                            "status": row["status"],
+                            "source_observations": row["distinct_observations"],
+                            "source_counts": row.get("counts"),
+                        }
+                        for row in fold.get("data_acquisitions", [])
+                    ],
+                    fold.get("data_gaps", []),
+                ]
+                for fold in folds
+            ],
+        )
+        if result.get("measurement_usage"):
+            parts.append(
+                "<p>Measurement source operations (cumulative, including failed attempts): "
+                f"{_text(result['measurement_usage']['counts'])}. Extraction calls are additional "
+                "to monthly decision calls; replayed checkpoints do not repeat successful work.</p>"
+            )
+
     if any(fold.get("risk_inputs") for fold in folds):
         risk = next(fold["risk_inputs"] for fold in folds if fold.get("risk_inputs"))
         parts.append(f"<p>{_text(risk['notice'])}</p>")
