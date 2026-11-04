@@ -13,6 +13,7 @@ from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.data import MarketData
 from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.market.market_contracts import timestamp
+from quant_rsi.market.risk_data import align_risk_features, load_risk_history
 from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_prices import read_daily_history
 from quant_rsi.research.demo_related import profile_related
@@ -71,6 +72,9 @@ def add_arguments(commands):
         help="news input budget, 1..64; defaults to twice max-candidates",
     )
     parser.add_argument("--news-archive", type=Path)
+    parser.add_argument(
+        "--risk-history", type=Path, help="verified offline VIX/Treasury snapshot directory"
+    )
     parser.add_argument(
         "--news-history", type=Path, help="replay a verified historical-news acquisition directory"
     )
@@ -219,6 +223,7 @@ def run_months(
     news_required=False,
     max_candidates=2,
     max_news_inputs=None,
+    risk_history=None,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
     if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
@@ -235,6 +240,24 @@ def run_months(
         start, end = data.dates.index(dates[0]), data.dates.index(dates[-1]) + 1
         peer_views = {symbol: values[start:end].copy() for symbol, values in peers.items()}
         columns, definitions, baseline = feature_library(prefix, peer_views)
+        if risk_history is not None:
+            risk_columns, risk_definitions, diagnostics = align_risk_features(risk_history, dates)
+            columns.update(risk_columns)
+            definitions.extend(risk_definitions)
+            fold["risk_inputs"] = {
+                "notice": risk_history["notice"],
+                "sources": risk_history["sources"],
+                "features": diagnostics,
+                "coverage": [
+                    {
+                        "factor_id": identity,
+                        "training_available": int(np.isfinite(values[train]).sum()),
+                        "training_samples": len(train),
+                        "prediction_available": bool(np.isfinite(values[-1])),
+                    }
+                    for identity, values in risk_columns.items()
+                ],
+            }
         matrix = np.column_stack([columns[name] for name in baseline])
         labels = np.log(
             prefix.closes[train + fold["horizon_sessions"], 0] / prefix.closes[train, 0]
@@ -472,6 +495,12 @@ def run_rolling(args):
         )
     snapshots = load_archive(args.news_archive) if args.news_archive else []
     root = args.output.resolve()
+    risk_path = getattr(args, "risk_history", None)
+    risk_history = (
+        load_risk_history(root / "risk_history" if args.resume else risk_path)
+        if risk_path
+        else None
+    )
     config = {
         k: str(v) if isinstance(v, Path) else v
         for k, v in vars(args).items()
@@ -488,6 +517,7 @@ def run_rolling(args):
         "peers": peer_info,
         "news_sha256": digest(canonical(snapshots)),
         "history_sha256": digest(canonical(frozen_history)) if frozen_history is not None else None,
+        "risk_sha256": digest(canonical(risk_history)) if risk_history is not None else None,
     }
     config["estimator_parameters"] = (
         MODEL_PARAMETERS | {"seed": 7, "num_boost_round": BOOST_ROUNDS}
@@ -518,6 +548,16 @@ def run_rolling(args):
 
     with run_lock(root):
         cache = StudyCache(root, config, resume=args.resume)
+        if risk_history is not None and not args.resume:
+            destination = root / "risk_history"
+            (destination / "raw").mkdir(parents=True)
+            shutil.copyfile(risk_path / "receipts.json", destination / "receipts.json")
+            for source in risk_history["sources"]:
+                relative = Path("raw") / source["file"]
+                shutil.copyfile(risk_path / relative, destination / relative)
+            retained_risk = load_risk_history(destination)
+            if canonical(retained_risk) != canonical(risk_history):
+                raise ValueError("Risk snapshot changed during retention; start a new study")
         runtime["previous_attempts"] = cache.previous
         _write(root / "config.json", config)
         _write(root / "monthly_plan.json", plan)
@@ -592,6 +632,7 @@ def run_rolling(args):
                 news_required=news_required,
                 max_candidates=max_candidates,
                 max_news_inputs=max_news_inputs,
+                risk_history=risk_history,
             )
             policy = {
                 k: getattr(args, k)

@@ -484,6 +484,10 @@ history is labeled explicitly. Use `--max-candidates 16 --max-news-inputs 32`
 for a jointly trained factor pool, and `--news-history PATH` to compare against
 the same verified historical-news acquisition without refetching. The report
 shows accepted factors, rejection reasons and actual model feature use.
+Add `--risk-history PATH` for a verified offline Cboe VIX / US Treasury snapshot:
+measured volatility and interest-rate inputs become available to candidate recipes,
+including news interactions. The fixed baseline remains unchanged. See the
+[snapshot preparation and timing rules](docs/monthly_rolling_research.md#measured-market-risk-inputs).
 
 For a frozen SOXX January–October 2026 task targeting November 30, see the
 [SOXX cutoff example](docs/soxx_november_2026.md), including historical-news
