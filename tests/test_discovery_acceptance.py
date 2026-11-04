@@ -19,6 +19,9 @@ def news_plan():
             "symbol": "KO",
             "question": "What changed?",
             "policy": {"identity": "fixed"},
+            "source_limits": {"searches": 2, "reads": 3, "extractions": 4},
+            "requested_data_period": {"start": "2026-01-01", "end": "2026-09-01"},
+            "iteration": 1,
             "catalog": [],
             "evidence": [
                 {"id": "demand", "text": "Unit sales decreased."},
@@ -39,6 +42,8 @@ def test_plan_and_cleaned_inputs_precede_any_call_and_all_pairs_retained(tmp_pat
         assert (root / "plan.json").exists()
         assert context["memory"] == []
         assert "summary" not in context and "cache" not in context
+        for field in ("source_limits", "requested_data_period", "iteration"):
+            assert context[field] == news_plan()["context"][field]
         seen.append(context)
         return {
             "action": "acquire"

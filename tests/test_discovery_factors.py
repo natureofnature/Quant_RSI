@@ -181,6 +181,40 @@ def test_recipe_identity_ignores_names_but_tracks_operator_and_input_changes():
     )
 
 
+def test_revision_parents_preserve_legacy_semantic_identity_and_numerical_definition():
+    original = proposal()
+    legacy = original.model_dump(mode="json", exclude={"parent_recipe_refs"})
+    restored = DiscoveryFactor.model_validate_json(json.dumps(legacy))
+    assert restored.parent_recipe_refs == ()
+    assert "parent_recipe_refs" not in restored.definition([])
+
+    revised = DiscoveryFactor.model_validate_json(
+        json.dumps(legacy | {"parent_recipe_refs": ["a" * 64]})
+    )
+    assert revised.recipe_ref == restored.recipe_ref
+    assert revised.parent_recipe_refs == ("a" * 64,)
+    definition = revised.definition([])
+    assert definition.pop("parent_recipe_refs") == ["a" * 64]
+    assert definition == restored.definition([])
+
+
+@pytest.mark.parametrize(
+    "parents",
+    [["a" * 63], ["A" * 64], [123], ["a" * 64, "a" * 64], [f"{i:064x}" for i in range(9)]],
+)
+def test_revision_parents_reject_malformed_duplicate_or_excessive_references(parents):
+    payload = proposal().model_dump(mode="json") | {"parent_recipe_refs": parents}
+    with pytest.raises(ValidationError):
+        DiscoveryFactor.model_validate_json(json.dumps(payload))
+
+
+def test_revision_parents_reject_self_reference():
+    original = proposal()
+    payload = original.model_dump(mode="json") | {"parent_recipe_refs": [original.recipe_ref]}
+    with pytest.raises(ValidationError, match="own parent"):
+        DiscoveryFactor.model_validate_json(json.dumps(payload))
+
+
 def test_reference_only_sources_and_tampered_expressions_are_rejected():
     candidate = proposal()
     with pytest.raises(ValueError, match="Noncausal"):

@@ -181,6 +181,7 @@ def run_discovery(
             "counts": deepcopy(counts),
             "remaining_fits": fit_budget - counts["fits"],
         }
+        current["visible_candidates"] = _visible_candidates(current["memory"])
         # Freeze each decision input once. On resume the same decision sees its original
         # context; newly reached decisions include all durable failed-fit charges.
         current = cache.call(
@@ -194,11 +195,13 @@ def run_discovery(
             f"decision_{iteration}", current, lambda current=current: decide(deepcopy(current))
         )
         counts["decisions"] += 1
+        lineage = _candidate_lineage(action, current["memory"])
         persist(
             f"decision_{iteration}",
             {
                 "kind": "interpretation",
                 "decision": action,
+                "candidate_lineage": lineage,
                 "consumed_memory_refs": current["consumed_memory_refs"],
                 "policy_identity": policy["identity"],
             },
@@ -214,6 +217,16 @@ def run_discovery(
                     counts["proposal_duplicates"] += 1
                 discovered.add(identity)
             counts["distinct_candidates"] = len(discovered)
+        if any(item["status"] == "rejected" for item in lineage):
+            persist(
+                f"lineage_{iteration}",
+                {
+                    "kind": "diagnostic",
+                    "reason": "invalid_candidate_lineage",
+                    "result": {"status": "rejected", "candidate_lineage": lineage},
+                },
+            )
+            continue
         kind = action.get("action")
         if kind in {"stop", "retain", "withdraw"}:
             if kind == "withdraw" and groups:
@@ -317,7 +330,7 @@ def run_discovery(
             counts["executable"] = len(executable)
             # Validator/runtime supplies canonical recipe identities; raw identity only prevents
             # exact repeated submissions before validation, not symbolic equivalence claims.
-            identity = validation.get("recipe_ref") or digest(canonical(candidate))
+            identity = validation.get("recipe_ref") or discovery_identity
             bundle_refs = [digest(canonical(bundle)) for bundle in bundles]
             comparison_key = digest(
                 canonical({"contract": baseline_contract, "inputs": bundle_refs})
@@ -431,3 +444,77 @@ def _candidate_identity(candidate):
     except (ValueError, TypeError):
         # Keep malformed proposals visible too; execution validation rejects them.
         return digest(canonical(candidate))
+
+
+def _visible_candidates(records):
+    """Index only definitions in the decision's admitted Memory, not hidden run history."""
+    from quant_rsi.research.discovery_factors import DiscoveryFactor
+
+    found = {}
+    for record in records:
+        candidates = record.get("decision", {}).get("candidates", [])
+        if not isinstance(candidates, list):
+            candidates = []
+        lineages = record.get("candidate_lineage", [])
+        candidates = [
+            candidate
+            for index, candidate in enumerate(candidates)
+            if not lineages or (index < len(lineages) and lineages[index]["status"] != "rejected")
+        ]
+        candidate = record.get("spec", record.get("experiment_context", {})).get("candidate")
+        if candidate:
+            candidates.append(candidate)
+        for candidate in candidates:
+            try:
+                proposal = DiscoveryFactor.model_validate_json(canonical(candidate))
+            except (ValueError, TypeError):
+                continue
+            entry = found.setdefault(
+                proposal.recipe_ref,
+                {"recipe_ref": proposal.recipe_ref, "name": proposal.name, "memory_refs": []},
+            )
+            if record.get("ref") and record["ref"] not in entry["memory_refs"]:
+                entry["memory_refs"].append(record["ref"])
+    return list(found.values())
+
+
+def _candidate_lineage(action, records):
+    """Keep each proposed revision even when its numerical recipe is later deduplicated."""
+    from quant_rsi.research.discovery_factors import DiscoveryFactor
+
+    visible = {item["recipe_ref"] for item in _visible_candidates(records)}
+    result = []
+    candidates = action.get("candidates", [])
+    if not isinstance(candidates, list):
+        return result
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            result.append(
+                {
+                    "recipe_ref": _candidate_identity(candidate),
+                    "parent_recipe_refs": [],
+                    "status": "rejected",
+                    "reason": "Candidate must be an object",
+                }
+            )
+            continue
+        row = {
+            "recipe_ref": _candidate_identity(candidate),
+            "parent_recipe_refs": candidate.get("parent_recipe_refs", []),
+            "status": "legacy_unspecified",
+            "reason": "Legacy candidate has no declared parent metadata; no parent is inferred.",
+        }
+        if "parent_recipe_refs" in candidate:
+            try:
+                proposal = DiscoveryFactor.model_validate_json(canonical(candidate))
+                if action.get("action") == "revise" and not proposal.parent_recipe_refs:
+                    raise ValueError("A revision requires parent_recipe_refs")
+                if set(proposal.parent_recipe_refs) - visible:
+                    raise ValueError("Parent candidate is not visible in this decision's Memory")
+                row.update(
+                    status="accepted", reason="Declared parents are visible earlier candidates."
+                )
+            except (ValueError, TypeError) as exc:
+                row.update(status="rejected", reason=str(exc))
+        result.append(row)
+    return result

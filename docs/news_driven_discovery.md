@@ -129,6 +129,20 @@ Candidate names do not establish novelty. The normalized recipe identity removes
 node names, binding aliases and supported commutative ordering. Exact input versions and
 experiment identities are retained separately for reproduction.
 
+New candidate proposals also carry `parent_recipe_refs`: explicit recipe identities
+of the earlier candidates being revised or replaced. This is research lineage, not a
+numerical dependency. The decision receives an index of candidates present in its
+admitted Memory; unknown, invisible and self references are rejected before acquisition
+or fitting. A new `revise` response must name a parent for each candidate. Unrelated
+hypotheses use `test` with an empty parent list.
+
+Parent metadata does not change semantic recipe identities or bypass duplicate-fit
+checks. Each declaration, including rejected or numerically duplicate proposals, remains
+in the decision record and the report's **Candidate revisions** table. Historical records
+without this field remain readable and are labeled unspecified; their parentage is not
+invented or written back into preserved runs. See the [RFC evidence map](rfc119_acceptance.md)
+for the distinction between historical execution records and current lineage validation.
+
 ## Data, time and comparison rules
 
 Acquisition retains source excerpts, URLs, publication/receipt/version timestamps,

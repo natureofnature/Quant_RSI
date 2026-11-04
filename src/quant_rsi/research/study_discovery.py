@@ -50,6 +50,7 @@ def _prior_memory(history, mode):
                     }
                     spec = projected.pop("spec", {})
                     projected["experiment_context"] = {
+                        "candidate": deepcopy(spec.get("candidate")),
                         "comparison_key": spec.get("comparison_key"),
                         "metric": spec.get("contract", {}).get("metric"),
                         "metric_direction": "minimize; Sharpe is negated when selected",
