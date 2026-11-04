@@ -229,6 +229,10 @@ unmatured targets never enter the feedback.
 
 ## Measured market-risk inputs
 
+For a separate publisher-vintage geopolitical news index, add `--gpr-history`;
+see [GPR source, availability rules and setup](geopolitical_risk.md). Its weekly
+release alignment differs from the daily VIX/Treasury reconstruction below.
+
 Add `--risk-history /path/to/snapshot` to expose these optional inputs to the LLM:
 
 | Input | Measurement |
