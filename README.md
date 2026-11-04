@@ -478,6 +478,10 @@ quant-rsi research-study KO --output /tmp/ko-study
 For fixed six-month training windows that roll monthly, with optional LLM
 factor revisions, continuous accounts and next-month forecasts, see
 [monthly rolling research](docs/monthly_rolling_research.md).
+Add `--candidate-revision` to let the LLM inspect training coverage, redundancy
+and screening failures, then revise once at the same cutoff before fitting the
+final pool. This adds one provider operation per month and no model fits;
+structural diagnostics are not evidence of predictive usefulness.
 Add `--news-research` to acquire dated headlines and train executable,
 evidence-linked news inputs alongside the fixed price baseline; reconstructed
 history is labeled explicitly. Use `--max-candidates 16 --max-news-inputs 32`

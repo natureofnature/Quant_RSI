@@ -52,6 +52,82 @@ def render_rolling(result):
         )
 
     folds = result.get("folds") or []
+    attempts = [
+        (fold["month"], attempt) for fold in folds for attempt in fold.get("candidate_attempts", [])
+    ]
+    if attempts:
+        parts.append(
+            "<p>Same-cutoff candidate review uses training-only structural diagnostics, "
+            "not validation scores or factor importance. The proposal preview is not trained. "
+            "Only the final accepted pool reaches the adaptive model; rejection falls back "
+            "to the fixed forecast. Correlated or sparse inputs are not automatically useless. "
+            "Overlapping training labels do not provide independent observations.</p>"
+        )
+        table(
+            "Candidate proposal and one revision",
+            [
+                "Month",
+                "Stage",
+                "Action",
+                "Status",
+                "Accepted",
+                "Training rows",
+                "Columns",
+                "Rank",
+                "Error",
+            ],
+            [
+                [
+                    month,
+                    attempt["stage"],
+                    attempt.get("decision", {}).get("action"),
+                    attempt["status"],
+                    attempt.get("candidate_pool", {}).get("accepted"),
+                    attempt.get("diagnostics", {}).get("training_samples"),
+                    attempt.get("diagnostics", {}).get("model_columns"),
+                    attempt.get("diagnostics", {}).get("standardized_rank"),
+                    attempt.get("error"),
+                ]
+                for month, attempt in attempts
+            ],
+        )
+        table(
+            "Candidate training coverage and correlation",
+            [
+                "Month",
+                "Stage",
+                "Factor",
+                "Distinct values",
+                "Nonzero rows",
+                "Variance",
+                "Max |r| with baseline",
+                "Max |r| with another candidate",
+            ],
+            [
+                [
+                    month,
+                    attempt["stage"],
+                    column["factor_id"],
+                    column["distinct_values"],
+                    column["nonzero_rows"],
+                    _number(column["variance"]),
+                    _number(column["max_abs_baseline_correlation"]),
+                    _number(column["max_abs_candidate_correlation"]),
+                ]
+                for month, attempt in attempts
+                for column in attempt.get("diagnostics", {}).get("columns", [])
+                if column["role"] == "candidate"
+            ],
+        )
+        table(
+            "Screening rejections before final training",
+            ["Month", "Stage", "Kind", "Name", "Reason"],
+            [
+                [month, attempt["stage"], row["kind"], row["name"], row["reason"]]
+                for month, attempt in attempts
+                for row in attempt.get("candidate_rejections", [])
+            ],
+        )
     if any(fold.get("risk_inputs") for fold in folds):
         risk = next(fold["risk_inputs"] for fold in folds if fold.get("risk_inputs"))
         parts.append(f"<p>{_text(risk['notice'])}</p>")
