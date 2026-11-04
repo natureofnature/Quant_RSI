@@ -28,6 +28,7 @@ def screen_candidates(
     mode="reconstructed",
     coverage=None,
     allowed_parent_refs=(),
+    accepted_incumbent_records=(),
     require_evidence=False,
 ):
     """Keep the first valid, distinct columns and explain every rejected proposal.
@@ -61,6 +62,10 @@ def screen_candidates(
         {},
     )
     refs = set()
+    incumbents = {
+        canonical(DiscoveryFactor.model_validate_json(canonical(value)).model_dump(mode="json"))
+        for value in accepted_incumbent_records
+    }
     evidence = {item["id"] for item in (news or {}).get("items", [])}
     for index, value in enumerate(candidates):
         name = value.get("name", f"candidate_{index + 1}")
@@ -74,7 +79,11 @@ def screen_candidates(
                 raise ValueError("Candidate cites unknown or cutoff-ineligible evidence")
             if require_evidence and not candidate.evidence_ids:
                 raise ValueError("Candidate requires cutoff-eligible evidence")
-            if not set(candidate.parent_recipe_refs) <= set(allowed_parent_refs):
+            # Exact admitted records retain their validated ancestry, including in
+            # partial replacements. Modified/new records may cite only current parents.
+            if canonical(record) not in incumbents and not set(candidate.parent_recipe_refs) <= set(
+                allowed_parent_refs
+            ):
                 raise ValueError("Candidate cites unknown parent recipe")
             if news_required and (not used or not candidate.evidence_ids):
                 raise ValueError("News research requires an actual news input with cited evidence")

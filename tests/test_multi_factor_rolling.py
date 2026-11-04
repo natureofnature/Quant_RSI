@@ -116,7 +116,8 @@ def test_pool_pruning_and_predictions_ignore_future_news(retained, tmp_path):
     assert cache.calls["2026-07_adaptive_fit"] == changed.calls["2026-07_adaptive_fit"]
 
 
-def test_retain_preserves_previously_validated_candidate_ancestry(retained, tmp_path):
+@pytest.mark.parametrize("change", ["retain", "add", "stale_parent", "invented_parent"])
+def test_only_unchanged_incumbents_preserve_validated_ancestry(retained, tmp_path, change):
     _, data, info, calendar = retained
     history, pool_decision = pool()
     for article in history["items"]:
@@ -129,13 +130,27 @@ def test_retain_preserves_previously_validated_candidate_ancestry(retained, tmp_
     revised["candidates"] = [deepcopy(pool_decision["candidates"][1])]
     ancestor = DiscoveryFactor.model_validate_json(canonical(initial["candidates"][0])).recipe_ref
     revised["candidates"][0]["parent_recipe_refs"] = [ancestor]
-    retain = {
+    final_decision = {
         "action": "retain",
         "basis": "news",
         "reason": "Retain the admitted revised hypothesis",
         "candidates": [],
         "news_inputs": [],
     }
+    if change != "retain":
+        final_decision = deepcopy(revised)
+        extra = deepcopy(revised["candidates"][0])
+        extra["name"] = "extra_news_lag"
+        extra["expression"]["nodes"][-1]["window"] = 7
+        extra["parent_recipe_refs"] = [
+            DiscoveryFactor.model_validate_json(canonical(revised["candidates"][0])).recipe_ref
+        ]
+        final_decision["candidates"].append(extra)
+        if change in {"stale_parent", "invented_parent"}:
+            # Even unchanged numerical recipes must not inherit trust after metadata edits.
+            final_decision["candidates"][0]["description"] = "Modified business explanation"
+            if change == "invented_parent":
+                final_decision["candidates"][0]["parent_recipe_refs"] = ["f" * 64]
     cache = monthly.MemoryCache()
     folds = rolling.run_months(
         data,
@@ -145,15 +160,28 @@ def test_retain_preserves_previously_validated_candidate_ancestry(retained, tmp_
         cache,
         tmp_path,
         model="ridge",
-        llm=monthly.DecisionLLM([initial, revised, retain]),
+        llm=monthly.DecisionLLM([initial, revised, final_decision]),
         news_history=history,
         news_required=True,
     )
-    assert [fold["candidate_status"] for fold in folds] == ["fitted"] * 3
-    assert folds[1]["candidate_recipes"] == folds[2]["candidate_recipes"]
-    assert folds[2]["candidate_recipes"][0]["parent_recipe_refs"] == [ancestor]
+    rejected = change in {"stale_parent", "invented_parent"}
+    assert [fold["candidate_status"] for fold in folds] == [
+        "fitted",
+        "fitted",
+        "fitted_with_rejections" if rejected else "fitted",
+    ]
+    expected_names = ["extra_news_lag"] if rejected else ["topic0_lag3"]
+    if change == "add":
+        expected_names.append("extra_news_lag")
+    assert [value["name"] for value in folds[2]["candidate_recipes"]] == expected_names
+    if rejected:
+        assert "unknown parent" in folds[2]["candidate_rejections"][0]["reason"]
+    else:
+        assert folds[2]["candidate_recipes"][0] == folds[1]["candidate_recipes"][0]
     assert "2026-09_adaptive_fit" in cache.calls
-    assert folds[2]["fits"]["adaptive"]["factor_ids"][-1] == "discovery.topic0_lag3"
+    assert folds[2]["fits"]["adaptive"]["factor_ids"][2:] == [
+        f"discovery.{name}" for name in expected_names
+    ]
 
 
 def test_configured_limits_reach_provider_schema_and_local_admission():

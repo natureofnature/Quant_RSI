@@ -323,11 +323,6 @@ def run_months(
                     DiscoveryFactor.model_validate_json(canonical(value)) for value in incumbent
                 ]
                 allowed_parents = {value.recipe_ref for value in previous}
-                if decision["action"] == "retain":
-                    # Existing ancestry was validated when these recipes were admitted.
-                    allowed_parents.update(
-                        parent for value in previous for parent in value.parent_recipe_refs
-                    )
                 screened = screen_candidates(
                     proposed,
                     proposed_news,
@@ -341,6 +336,7 @@ def run_months(
                     mode=news_mode if news_history is not None else "retained",
                     coverage=news_history["searches"] if news_history is not None else None,
                     allowed_parent_refs=allowed_parents,
+                    accepted_incumbent_records=incumbent,
                     require_evidence=decision["basis"] == "news",
                 )
                 fold["candidate_rejections"] = screened["rejections"]
