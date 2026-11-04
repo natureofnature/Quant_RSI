@@ -2,16 +2,16 @@
 
 This maps the 29 acceptance items in [RFC #119](https://github.com/natureofnature/Quant_RSI/issues/119)
 to the implementation merged by [PR #124](https://github.com/natureofnature/Quant_RSI/pull/124)
-and its current acceptance/lineage follow-up. The base is `main@907cb20`, whose
-file tree is identical to reviewed `7cebbc0` and scan-trigger commit `2addcf7`.
-The explicit parent-link changes described below are later work; required full
-Python/Qlib validation for that follow-up is still pending. This is an evidence
-index, not a claim that historical observations were repeated on the new source.
+and the follow-up in [PR #125](https://github.com/natureofnature/Quant_RSI/pull/125).
+The base is `main@907cb20`, whose file tree is identical to reviewed `7cebbc0`
+and scan-trigger commit `2addcf7`. The follow-up runtime is `a4431c6`, source
+subtree `e07947e8f6bb69d98d0ce222e39bd3a2fbc418a4`. This is an evidence index,
+not a claim that historical observations were repeated on the new source.
 
-**The RFC remains open:** the recorded news-ablation observation is inconclusive.
-The implemented real discovery/feedback path and a negative predictive result do
-not resolve that separate information-use gate. Subsequent changes must record
-their own validation and retain the identities of earlier observations.
+**The bounded news-information gate now has a passing witness (E7).** The earlier
+headline-only observation remains inconclusive (E3). RFC closure also requires
+final-revision Python/Qlib checks and independent review in PR #125; neither
+this witness nor the historical development results establish predictive value.
 
 ## Evidence records and scope
 
@@ -29,6 +29,8 @@ provides the public summary.
 | E4: feedback intervention | `/home/nature/Learning_plan/Quant_RSI_evidence/rfc119_acceptance/feedback-pair/`; plan `9bab8810deda55a78455d830f2291777d490f1d0ac723fe0ea7b04ac82eb86a1`, created 2026-11-04 09:37 UTC | Real Codex decisions under explicitly synthetic feedback meet the declared qualitative action-sensitivity criterion: favorable feedback retains pricing/volume investigation; unfavorable feedback motivates a currency-impact change. One pair is not statistical evidence of causality or predictive gain. |
 | E5: actual browser acceptance | `/home/nature/Learning_plan/Quant_RSI_evidence/rfc119_browser/`: `source_identity.json`, `acceptance.json`, screenshots, `real04-browser.json` | Chromium 156 exercised submission, progress, history/settings reuse and report lineage with simulated providers and real LightGBM. Source identity records the actual file hashes and base `2d19657`, not a later review-fix rerun. The separately inspected real report has SHA-256 `78d7ab520162cbb697b10e5b36b6e828b46886941c0d115fda33e7ee9ea21d27`; desktop/mobile overflow and browser error checks passed. |
 | E6: reviewed-tree CI | [Python/Qlib CI run 41836459542](https://github.com/natureofnature/Quant_RSI/actions/runs/41836459542), reviewed `7cebbc0`; [CodeQL run 41841617768](https://github.com/natureofnature/Quant_RSI/actions/runs/41841617768), identical-tree `2addcf7` | Required full Python and Qlib checks passed for the merged file tree. Earlier local **2001 passed, 12 skipped** belongs to `2115909`; earlier **14 Qlib passed** belongs to the `2d19657` runtime. Neither historical local count is relabeled as a rerun after review fixes. |
+| E7: news-body ablation | Runtime `a4431c6`; `/home/nature/Learning_plan/Quant_RSI_evidence/rfc119_acceptance/news-body-pairs-v2/`; plan `75d54c7eff80805ddd315eb24d33bf6ae2ea719e6967989719932440fb23a0cd` | Two preregistered pairs / four real Codex decisions, no retries or failures. Independent advisor assessment: **pass** against the declared qualitative criterion. Both original arms request volume and price/mix measurements; both removal arms request dividend amounts instead. No acquisition or training was executed in this diagnostic. |
+| E8: follow-up regression/browser evidence | Runtime `a4431c6`; sibling `lineage-study/` and `lineage-browser/acceptance.json`; report SHA-256 `f1ab144c57d38b24179a796facfe713a13e5b2f7706e355c9a3115b91ea05f04` | **137 relevant tests passed**, including 18 lineage cases; Ruff passed. Actual Chromium 156 displayed explicit parent references at 1440px and 390px with no page overflow/errors. The study used simulated providers/prices and three actual LightGBM fits. Final full-suite/Qlib results are recorded in PR #125 checks and validation description. |
 
 The paired records retain `plan.json`, both effective inputs, every output,
 `results.json` and the explicit assessment. They are separate from E1's authentic
@@ -63,11 +65,49 @@ genuine transport errors still fail explicitly. The
 that H2's parent is H1's semantic recipe identity, that the edge survives into the
 actually trained feature definition, and that it appears in the report. Its
 providers and data are simulated; this is not a new real-service parent-link
-witness. Full follow-up validation remains pending.
+witness. E8 adds actual browser validation of the new report. Full final-revision
+validation is tracked on PR #125.
 
-A further news-body comparison plan has been prepared but has **not been run**.
-The effective plan must be frozen against the implementation before real calls;
-preparation alone supplies no new evidence for item 7 and does not supersede E3.
+## News-body paired observation (E7)
+
+The new plan was independently reviewed and frozen before calling Codex. It uses
+`gpt-6-astra` with Codex CLI `0.166.0`, exactly two pairs in alternating order,
+stateless tool-free calls, and identical question, policy, initial definitions,
+resource limits and requested date ranges. Memory, prior generated candidates,
+survey results and derived context are empty in both arms. Only evidence differs:
+the original receives the entire saved extracted Q2 issuer body plus a dividend
+headline; the intervention receives that same dividend headline alone. The
+harness now retains the fixed resource/time fields instead of silently dropping them.
+
+The article selection rule was fixed before outputs: use the later quarterly
+release from real04's first acquisition bundle, without selecting sentences.
+The original HTTP-response hash is distinct from the extracted-text SHA-256
+`7a7dd567bc101355957e4df7ef83cc14f2e8be7525dfcbcd6acb7be7ec44d405`.
+This is retained extracted public-page text, not verified complete HTML, and the
+observation is retrospective. The earlier draft was never executed; its status
+records that the final plan superseded it after the parent-reference schema froze.
+
+| Pair | Original arm | Removal arm | Independent disposition |
+| --- | --- | --- | --- |
+| 0 | Cites reported volume growth of 5% and price/mix growth of 2%; requests both operating series; proposes their difference. | Requests declared quarterly dividend per share; proposes dividend divided by price, explicitly without assuming a payout change. | Pass: both requested variables and expression semantics change. |
+| 1 | Again requests volume and price/mix growth and proposes their difference, citing the same reported facts. | Again requests dividend per share and proposes quarterly dividend divided by price. | Pass: same substantive evidence-consistent change. |
+
+All four arms completed. Input hashes, source text and output provenance were
+independently checked; `advisor-assessment.json` and the harness-bound
+`assessment.json` retain the reasoning. `results.json` preserves the harness's
+original pending-review state rather than silently rewriting execution records.
+The predeclared rule required both pairs to qualify; changing only citations,
+wording or uncertainty could not pass. No calls, articles or prompt revisions were
+added after observing outputs. E3 remains a separate inconclusive experiment.
+
+This is an exploratory follow-up, not an unseen independent confirmation. Two
+pairs cannot rule out stochastic generation or pretrained company knowledge;
+removing a whole article also changes topic salience and context length. No data
+request was executed in these pairs: some queries reach the length limit, and
+earlier source coverage would still need verification. The separate E1 record
+establishes acquisition/fitting/feedback execution. E7 establishes only the bounded
+information-use witness, not successful acquisition for these new requests,
+general news sensitivity, profitability or statistical causal influence.
 
 ## Checklist mapping
 
@@ -84,7 +124,7 @@ real service/browser observation. It does not imply statistical research efficac
 | 4 | G2 checks each prediction origin, future feature availability, label maturity and preprocessing ownership | `guard_numerical` and `test_numerical_gate_checks_each_origin_and_training_labels` in [contracts](../src/quant_rsi/research/discovery_contracts.py) / [loop tests](../tests/test_discovery_loop.py); source-bound alignment in [runner](../src/quant_rsi/research/discovery_engine.py); [existing feature](../tests/test_forecast_features.py) and [rolling-window tests](../tests/test_study_walk_forward.py) | Supported through shared guards and existing model paths; the helper's preprocessing rejection test does not introduce a new learned-preprocessing engine. |
 | 5 | G3 excludes terminal data from active Memory; guards retain rule/version and reject authority changes | [Guard reports](../src/quant_rsi/research/discovery_contracts.py); `test_temporal_guard_excludes_source_versions_and_terminal_contents` in [loop tests](../tests/test_discovery_loop.py); [publication-feedback regression](../tests/test_discovery_review_regressions.py) | Supported; `schema_version`, gate and rule records accompany decisions. |
 | 6 | Executed versioned policy, permitted deterministic patch, parent link and protected-field rejection | `research_policy` / `patch_policy` in [contracts](../src/quant_rsi/research/discovery_contracts.py); `test_policy_patch_changes_consumed_configuration_and_rejects_authority` in [loop tests](../tests/test_discovery_loop.py); [source policy/cache tests](../tests/test_discovery_sources.py) | Supported for explicit deterministic patches; autonomous policy evolution is not delivered. |
-| 7 | Planned news ablation with cleanup, bounded real pairs and attributable action evidence | [Paired harness](../examples/discovery_acceptance.py), [harness tests](../tests/test_discovery_acceptance.py), E3 | **Open: inconclusive.** A new observation must preserve its plan before calls and report every outcome; wording/citation changes alone cannot pass. |
+| 7 | Preregistered news ablation, cleanup, bounded real pairs and evidence/action criteria | E3 preserves the inconclusive headline-only result; E7 preserves both complete body-removal pairs, plan/input hashes and independent assessment; [harness and fixture checks](../tests/test_discovery_acceptance.py) | Supported by E7 against its declared qualitative criterion. No statistical or predictive-gain claim. |
 | 8 | Parameterized temporal DSL computes fitted values with warm-up/future isolation | [Expression evaluator](../src/quant_rsi/factors/expressions.py), [factor tests](../tests/test_discovery_factors.py); E1 H1's lag-5 gap change | Supported; E1 has an actual numerical fitted temporal feature. |
 | 9 | Authentic H1 → persisted feedback → H2 across two outer iterations | E1 `discovery/result.json`, checkpoints and `real04-receipt.json`; [connected lineage test](../tests/test_study_discovery.py) | Supported by real services, not a scripted second answer. H2 was worse than baseline. |
 | 10 | Separate counterfactual-feedback fixture and real paired observation | [Synthetic-context tests](../tests/test_discovery_acceptance.py), E4 | Supported at the declared qualitative single-pair level; no statistical sensitivity claim. |
@@ -105,18 +145,15 @@ real service/browser observation. It does not imply statistical research efficac
 | 25 | Frozen samples survive acquisition; changed domains need matched baselines/shared budget | [Runner](../src/quant_rsi/research/discovery_engine.py), [loop linked-experiment tests](../tests/test_discovery_loop.py), [connected frozen-row test](../tests/test_study_discovery.py) | Supported; incompatible groups have no automatic global winner. |
 | 26 | Bounded invalid/no-op/missing paths; resume preserves work and identities | [Loop regressions](../tests/test_discovery_loop.py), [connected fit-reuse tests](../tests/test_study_discovery.py), [article restoration](../tests/test_discovery_source_restore.py) | Supported; completed fits and surveyed article bodies are reused; failed calls retain charges. |
 | 27 | Future/late/immature/terminal boundaries survive linked experiments | [Guards](../src/quant_rsi/research/discovery_contracts.py), [source admission](../src/quant_rsi/research/discovery_sources.py), [runner alignment](../src/quant_rsi/research/discovery_engine.py); [loop](../tests/test_discovery_loop.py), [source](../tests/test_discovery_sources.py) and [publication isolation tests](../tests/test_discovery_review_regressions.py) | Supported by shared cutoff/label checks; an experiment ID does not grant new information access. |
-| 28 | UI/report shows lineage and separates incompatible groups; publication follows selection rule | [Report](../src/quant_rsi/research/discovery_report.py), [workbench tests](../tests/test_discovery_workbench.py), [unselected history test](../tests/test_discovery_history.py); E5 | Supported; absent global selection produces research history without a forecast publication. Browser evidence retains its original source identity. |
-| 29 | Required Python/Qlib validation and actual browser acceptance | E6 for merged implementation tree; E5 for browser interaction; historical local records in E6 | Supported for the historical revisions. **Pending for the current follow-up**; full tests and browser evidence above must not be attributed to the parent-link changes. |
+| 28 | UI/report shows lineage and separates incompatible groups; publication follows selection rule | [Report](../src/quant_rsi/research/discovery_report.py), [workbench tests](../tests/test_discovery_workbench.py), [unselected history test](../tests/test_discovery_history.py); E5 and E8 | Supported; absent global selection produces research history without a forecast publication. E8 checks the new revision table; E5 retains its earlier workbench identity. |
+| 29 | Required Python/Qlib validation and actual browser acceptance | E6 for the original merged tree; E5/E8 for browser interaction; final follow-up checks and validation evidence in [PR #125](https://github.com/natureofnature/Quant_RSI/pull/125) | Historical and follow-up revisions remain separate. Final-revision required checks must pass before merge/closure. |
 
 ## Completion decision
 
-Do not close #119 while item 7 remains inconclusive or the follow-up's required
-validation in item 29 remains pending. A follow-up must preserve the
-new question/evidence, cleanup rules, tool permissions, provider configuration,
-bounded pair count and pass/fail/inconclusive criteria before execution, then
-record the actions and remaining alternative explanations. Preserve E3 even if a
-later case succeeds. A passing information-use observation would establish that
-news can affect research actions; it would not establish profitable forecasts.
+E7 satisfies the remaining bounded news-information observation. Close #119 only
+after PR #125's final-revision required checks and independent review pass, with
+this checklist mapping retained. Preserve E3 and all prior failures. The decision
+concerns the specified discovery capability and interfaces, not profitable forecasts.
 
 The current execution evidence already supports the two requested capabilities:
 clear module/loop ownership and news-to-new-candidate-to-acquired-data-to-fit
