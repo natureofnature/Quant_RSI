@@ -241,7 +241,39 @@ class DiscoverySources:
         if context and context.get("policy"):
             self.policy = deepcopy(context["policy"])
         if context and context.get("memory"):
-            self.restore_usage([item.get("result", {}) for item in context["memory"]])
+            self.restore_state([item.get("result", {}) for item in context["memory"]])
+
+    def restore_state(self, results):
+        """Restore admitted source snapshots and charges from completed operation receipts.
+
+        Outer survey/acquisition checkpoint hits do not invoke the provider again.
+        Their original article bodies, IDs and receipt/version times must therefore
+        be restored before a subsequent source operation, without collecting anew.
+        """
+        results = list(results)
+        admitted, excluded = eligible_articles(
+            self.articles, information_mode=self.mode, research_cutoff=self.cutoff
+        )
+        by_id = {article["id"]: article for article in admitted}
+        restored = []
+        for result in results:
+            snapshots = result.get("articles", result.get("evidence", []))
+            if len(snapshots) > 64 or any(len(canonical(row)) > 128_000 for row in snapshots):
+                raise ValueError("Restored discovery articles exceed bounded input size")
+            articles, rejected = eligible_articles(
+                snapshots, information_mode=self.mode, research_cutoff=self.cutoff
+            )
+            excluded.extend(rejected)
+            for article in articles:
+                identity = article["id"]
+                if identity in by_id and canonical(by_id[identity]) != canonical(article):
+                    raise ValueError("Restored discovery article identity has conflicting content")
+                if identity not in by_id:
+                    by_id[identity] = deepcopy(article)
+                    restored.append(identity)
+        self.articles = list(by_id.values())
+        self.restore_usage(results)
+        return {"restored_article_ids": restored, "excluded": excluded}
 
     def restore_usage(self, results):
         """Restore cumulative source receipts when outer acquisition calls were cached."""

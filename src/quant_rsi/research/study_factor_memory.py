@@ -25,6 +25,8 @@ NOTICE = (
 def selected_definitions(result):
     """The frozen catalogs preserve definitions for every round, including the incumbent."""
     selected = result["iterations"]["selected_round"]
+    if selected is None:
+        return []
     ids = result["iterations"]["attempts"][selected - 1]["prediction"]["factor_ids"]
     definitions = {}
     for event in result.get("trace", []):

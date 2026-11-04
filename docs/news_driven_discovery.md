@@ -78,6 +78,15 @@ These are Python module boundaries, not separate services. The outer loop owns t
 investigation; the Experiment Runner returns measurements or diagnostics. Workflow code
 persists measured results independently of the agent's subsequent interpretation.
 
+Recovery restores admitted article bodies, source identities and temporal provenance along
+with cumulative usage from completed source operations. Replaying a cached survey therefore
+does not require another search or download before retrying a failed extraction.
+
+Completed research enters shared history even when incomparable experiments produce no
+single selected forecast. Its experiment facts remain available to subsequent research with
+their comparison boundaries; it creates no forecast publication or settlement. Bounded
+Memory retrieval prioritizes measured experiment/acquisition facts over intervening decisions.
+
 ## Experimental survey and executable factors
 
 All 32 detailed records in `experimental/candidate_factors/definitions/` are available

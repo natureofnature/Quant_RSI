@@ -32,8 +32,11 @@ def _prior_memory(history, mode):
         if not path.is_file() or path.stat().st_size > 20_000_000:
             continue
         saved = json.loads(path.read_text())
-        # Keep contextual facts bounded, excluding terminal/final publication artifacts.
-        for record in saved.get("memory", [])[-6:]:
+        # Prioritize measured facts before bounding retrieval, so intervening decisions
+        # cannot hide an earlier experiment group. Preserve its comparison boundary.
+        memory = saved.get("memory", [])
+        facts = [record for record in memory if record.get("kind") in {"experiment", "acquire"}]
+        for record in (facts or memory)[-6:]:
             if record.get("kind") in {"diagnostic", "interpretation", "experiment", "acquire"}:
                 projected = deepcopy(record)
                 projected["prior_study"] = {
@@ -211,7 +214,7 @@ def run_connected_discovery(
         engine.evidence_ids.update(row["id"] for row in value.get("evidence", []) if row.get("id"))
         for bundle in value.get("input_bundles", []):
             engine.evidence_ids.update(row["source_id"] for row in bundle.get("observations", []))
-        sources.restore_usage(
+        sources.restore_state(
             [
                 row["result"]
                 for row in value.get("memory", [])
