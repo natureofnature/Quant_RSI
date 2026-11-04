@@ -247,3 +247,64 @@ def test_caller_cannot_mix_normalized_collection_or_metadata(tmp_path, monkeypat
     changed["source_id"] += "-different"
     with pytest.raises(ValueError, match="target differs"):
         load_ohlcv_history("SOXX", root, data, changed)
+
+
+def legacy_source_id(root):
+    """Older collectors retained price_cutoff but bound only raw/calendar hashes."""
+    receipt_path, contract_path = root / "collection_receipt.json", root / "data_contract.json"
+    receipt = json.loads(receipt_path.read_bytes())
+    identity = {
+        "response_ref": digest((root / "yahoo_chart_raw.json").read_bytes()),
+        "calendar_ref": receipt["result"]["calendar_evidence_ref"],
+    }
+    contract = json.loads(contract_path.read_bytes())
+    contract["source_id"] = "yahoo_SOXX_2026-01-02_2026-10-30_" + digest(canonical(identity))
+    contract_body = json.dumps(contract).encode()
+    contract_path.write_bytes(contract_body)
+    receipt["normalized_inputs"]["contract_file_sha256"] = digest(contract_body)
+    receipt["result"]["contract"] = contract
+    receipt_path.write_text(json.dumps(receipt))
+    data, info = read_daily_history("SOXX", root)
+    return root, data, info
+
+
+def test_known_legacy_source_identity_with_cutoff_loads_without_rewriting(tmp_path, monkeypatch):
+    current = retained_ohlcv(monkeypatch, tmp_path / "legacy")
+    modern = load(current)
+    assert modern["provenance"]["source_id_schema"] == "raw_calendar_cutoff"
+    legacy = legacy_source_id(current[0])
+    before = {p.name: p.read_bytes() for p in legacy[0].iterdir()}
+    bundle = load(legacy)
+    assert bundle["provenance"]["source_id_schema"] == "raw_calendar"
+    assert bundle["provenance"]["price_cutoff"] == modern["provenance"]["price_cutoff"]
+    for key in modern["columns"]:
+        np.testing.assert_array_equal(bundle["columns"][key], modern["columns"][key])
+    assert {p.name: p.read_bytes() for p in legacy[0].iterdir()} == before
+
+
+def test_legacy_identity_does_not_bypass_explicit_price_cutoff(tmp_path, monkeypatch):
+    root, _, _ = retained_ohlcv(monkeypatch, tmp_path / "legacy")
+    legacy_source_id(root)
+    path = root / "collection_receipt.json"
+    receipt = json.loads(path.read_bytes())
+    receipt["price_cutoff"] = "2026-10-30T15:59:59-04:00"
+    path.write_text(json.dumps(receipt))
+    data, info = read_daily_history("SOXX", root)
+    with pytest.raises(ValueError, match="selected close exceeds retained cutoff"):
+        load_ohlcv_history("SOXX", root, data, info)
+
+
+def test_legacy_identity_still_rejects_rebound_raw_bytes(tmp_path, monkeypatch):
+    root, _, _ = retained_ohlcv(monkeypatch, tmp_path / "legacy")
+    legacy_source_id(root)
+    raw_path = root / "yahoo_chart_raw.json"
+    raw_path.write_bytes(raw_path.read_bytes() + b"\n")
+    receipt_path = root / "collection_receipt.json"
+    receipt = json.loads(receipt_path.read_bytes())
+    receipt["downloads"][0].update(
+        bytes=raw_path.stat().st_size, sha256=digest(raw_path.read_bytes())
+    )
+    receipt_path.write_text(json.dumps(receipt))
+    data, info = read_daily_history("SOXX", root)
+    with pytest.raises(ValueError, match="normalized source identity"):
+        load_ohlcv_history("SOXX", root, data, info)

@@ -92,13 +92,28 @@ def load_ohlcv_history(symbol, directory, data, info):
     if record.get("bytes") != len(body) or record.get("sha256") != raw_hash:
         raise ValueError("OHLCV raw bytes/hash differ from receipt")
     identity = {"response_ref": raw_hash, "calendar_ref": calendar["sha256"]}
+    identities = {"raw_calendar": identity}
     if receipt.get("price_cutoff") is not None:
-        identity["price_cutoff"] = receipt["price_cutoff"]
-    expected_source = (
-        f"yahoo_{symbol}_{data.dates[0]}_{data.dates[-1]}_{digest(canonical(identity))}"
+        identities["raw_calendar_cutoff"] = identity | {"price_cutoff": receipt["price_cutoff"]}
+    prefix = f"yahoo_{symbol}_{data.dates[0]}_{data.dates[-1]}_"
+    matched_schema = next(
+        (
+            schema
+            for schema, evidence in identities.items()
+            if validated_info["source_id"] == prefix + digest(canonical(evidence))
+        ),
+        None,
     )
-    if validated_info["source_id"] != expected_source:
+    if matched_schema is None:
         raise ValueError("OHLCV raw/calendar evidence differs from the normalized source identity")
+    # Older retained collections recorded a cutoff without hashing it into source_id.
+    # Accept that exact identity schema, but enforce its explicit observation boundary.
+    latest_close = max(timestamp(value) for value in validated_info["session_close_times"])
+    boundaries = [timestamp(receipt["completed_at"])]
+    if receipt.get("price_cutoff") is not None:
+        boundaries.append(timestamp(receipt["price_cutoff"]))
+    if any(latest_close > boundary for boundary in boundaries):
+        raise ValueError("OHLCV selected close exceeds retained cutoff or completion time")
     _, times, quotes = _chart(body, symbol)
     contract = json.loads((root / "data_contract.json").read_bytes())
     sessions = contract["calendar"]["sessions"][: len(data.dates)]
@@ -170,6 +185,7 @@ def load_ohlcv_history(symbol, directory, data, info):
         "provenance": {
             "symbol": symbol,
             "source_id": validated_info["source_id"],
+            "source_id_schema": matched_schema,
             "normalized_inputs": validated_info["input_hashes"],
             "calendar_sha256": calendar["sha256"],
             "raw_sha256": raw_hash,
