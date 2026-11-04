@@ -57,6 +57,11 @@ def add_arguments(commands):
     )
     parser.add_argument("symbol")
     parser.add_argument("--prices-dir", type=Path, required=True)
+    parser.add_argument(
+        "--price-basis-review",
+        type=Path,
+        help="explicit reviewed split-only O/C evidence bundle for the retained target snapshot",
+    )
     parser.add_argument("--related-prices-dir", type=Path)
     parser.add_argument(
         "--ohlcv-features",
@@ -742,7 +747,16 @@ def aggregate(data, folds, policy):
 
 def run_rolling(args):
     symbol = args.symbol.strip().upper()
-    data, info = read_daily_history(symbol, args.prices_dir)
+    root = args.output.resolve()
+    review_path = getattr(args, "price_basis_review", None)
+    if review_path and getattr(args, "ohlcv_features", False):
+        raise ValueError("Reviewed O/C price basis does not qualify --ohlcv-features")
+    review_options = (
+        {"price_basis_review": root / "price_basis_review" if args.resume else review_path}
+        if review_path
+        else {}
+    )
+    data, info = read_daily_history(symbol, args.prices_dir, **review_options)
     ohlcv_history = (
         load_ohlcv_history(symbol, args.prices_dir, data, info)
         if getattr(args, "ohlcv_features", False)
@@ -750,6 +764,10 @@ def run_rolling(args):
     )
     calendar = read_calendar(args.prices_dir)
     plan = monthly_plan(data, calendar, args.first_month, args.last_month, args.train_months)
+    if review_path:
+        cutoff = info["price_basis_review"]["review"]["qualification_cutoff"]
+        if cutoff > plan[0]["origin_session"]:
+            raise ValueError("Price basis qualification cutoff exceeds first forecast origin")
     for key in ("commission_bps", "slippage_bps", "initial_cash"):
         value = Decimal(getattr(args, key))
         if not value.is_finite() or value < 0 or (key == "initial_cash" and value == 0):
@@ -792,7 +810,6 @@ def run_rolling(args):
             query=getattr(args, "news_query", None),
         )
     snapshots = load_archive(args.news_archive) if args.news_archive else []
-    root = args.output.resolve()
     risk_path = getattr(args, "risk_history", None)
     risk_history = (
         load_risk_history(root / "risk_history" if args.resume else risk_path)
@@ -823,6 +840,7 @@ def run_rolling(args):
         else v
         for k, v in vars(args).items()
         if k not in {"resume", "command"}
+        and not (k == "price_basis_review" and v is None)
         and not (k == "gpr_history" and v is None)
         and not (k == "ohlcv_features" and not v)
         and not (k in {"acquired_history", "max_extractions"} and not acquired_paths)
@@ -859,7 +877,15 @@ def run_rolling(args):
         "symbol": symbol,
         "configuration": config,
         "notice": NOTICE.replace("six-month", f"{args.train_months}-month"),
-        "price_basis_notice": args.price_note,
+        "price_basis_notice": args.price_note
+        + (
+            " "
+            + info["price_basis_interpretation"]
+            + " Basis: split-adjusted, excluding distributions. "
+            + " ".join(info["price_basis_review"]["limitations"])
+            if review_path
+            else ""
+        ),
         "folds": [],
         "metrics": {},
         "accounts": {},
@@ -875,6 +901,19 @@ def run_rolling(args):
 
     with run_lock(root):
         cache = StudyCache(root, config, resume=args.resume)
+        if review_path and not args.resume:
+            destination = root / "price_basis_review"
+            for name in ["review.json"] + [
+                source["path"] for source in info["price_basis_review"]["review"]["sources"]
+            ]:
+                retained = destination / name
+                retained.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(review_path / name, retained)
+            _, retained_info = read_daily_history(
+                symbol, args.prices_dir, price_basis_review=destination
+            )
+            if retained_info != info:
+                raise ValueError("Price basis evidence changed during retention; start a new study")
         if acquired_history is not None and not args.resume:
             (root / "acquired_history").mkdir()
             for source, destination in zip(acquired_paths, retained_acquired, strict=True):
