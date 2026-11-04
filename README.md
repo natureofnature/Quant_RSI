@@ -501,6 +501,11 @@ Add `--ohlcv-features` to expose verified retained target high/low/volume to
 candidate recipes, including `qlib.klen`, relative volume and news interactions.
 Missing inputs remain missing; the fixed baseline is unchanged. ETF volume is
 trading activity, not semiconductor sales or demand.
+For a retained snapshot containing a split, an explicitly reviewed O/C evidence
+bundle can qualify the common share basis with `--price-basis-review PATH`.
+Original quotes and action notices are preserved; this research-only option
+does not qualify volume, live execution, or point-in-time availability. See
+[reviewed price basis](docs/monthly_rolling_research.md#reviewed-split-price-basis).
 Add `--risk-history PATH` for a verified offline Cboe VIX / US Treasury snapshot:
 measured volatility and interest-rate inputs become available to candidate recipes,
 including news interactions. The fixed baseline remains unchanged. See the

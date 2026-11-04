@@ -41,12 +41,24 @@ def load_daily_prices(symbol, directory, *, horizon_sessions=5, historical_sessi
         ) from None
 
 
-def read_daily_history(symbol, directory):
+def read_daily_history(symbol, directory, *, price_basis_review=None):
     """Validate retained quotes without attaching a fixed prediction horizon or fetching."""
-    return _read_collection(symbol, Path(directory).resolve(), horizon_sessions=None)
+    return _read_collection(
+        symbol,
+        Path(directory).resolve(),
+        horizon_sessions=None,
+        price_basis_review=price_basis_review,
+    )
 
 
-def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HISTORY_SESSIONS):
+def _read_collection(
+    symbol,
+    root,
+    *,
+    horizon_sessions=5,
+    historical_sessions=HISTORY_SESSIONS,
+    price_basis_review=None,
+):
     receipt = json.loads((root / "collection_receipt.json").read_bytes())
     if (receipt.get("kind"), receipt.get("status"), receipt.get("ticker")) != (
         "PublicDailyCollection",
@@ -74,6 +86,12 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
             "use a fresh --prices-dir"
         )
     events = parse_csv(contract, events_raw, receipt["completed_at"])
+    reviewed = None
+    if price_basis_review is not None:
+        from quant_rsi.research.reviewed_price_basis import review_price_basis
+
+        reviewed = review_price_basis(symbol, root, price_basis_review, contract, events, receipt)
+    resolved = set(reviewed["resolved_event_ids"]) if reviewed else set()
     quotes = {}
     for event in events:
         if event.kind in {"OPEN_QUOTE", "CLOSE_QUOTE"}:
@@ -82,7 +100,10 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
                 raise ValueError("Daily demo needs one valid unrevised quote per session and phase")
             quotes[key] = float(event.price)
         elif event.kind == "CORPORATE_ACTION_NOTICE" and event.event_at >= sessions[0].open_at:
-            if json.loads(event.action).get("event_kind") != "dividends":
+            if (
+                json.loads(event.action).get("event_kind") != "dividends"
+                and event.event_id not in resolved
+            ):
                 raise ValueError("Unresolved corporate action in the daily price window")
     expected = {
         (kind, session.session_id) for session in sessions for kind in ("OPEN_QUOTE", "CLOSE_QUOTE")
@@ -107,6 +128,16 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
         "qualifications": receipt["qualifications"],
         "session_close_times": [session.close_at.isoformat() for session in sessions],
     }
+    if reviewed:
+        info.update(
+            price_basis="split_adjusted_excluding_distributions",
+            price_basis_review=reviewed["metadata"],
+            price_basis_interpretation=(
+                "Reviewed research interpretation supersedes the collector's explicit raw "
+                "currency-per-share assumption for this snapshot. Original files and prices "
+                "are unchanged; this does not certify as-traded or execution prices."
+            ),
+        )
     if horizon_sessions is not None:
         info.update(
             horizon_sessions=horizon_sessions,

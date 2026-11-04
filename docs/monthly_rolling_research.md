@@ -43,6 +43,45 @@ requested training window and enough matured daily samples; it does not fetch
 new prices, shorten windows, interpolate missing sessions, or assume 20 sessions
 per month.
 
+## Reviewed split price basis
+
+The default reader rejects unresolved non-dividend corporate actions. For an
+already retained target snapshot, `--price-basis-review /path/to/review-bundle`
+can explicitly qualify a split-adjusted, distribution-excluding O/C basis.
+It never fetches, rescales prices, deletes an action notice, or changes live
+execution behavior. Unlisted actions still fail. Related instruments retain
+the default action checks.
+
+The bundle's `review.json` follows `ReviewedResearchPriceBasis` in
+[`reviewed_price_basis.py`](../src/quant_rsi/research/reviewed_price_basis.py):
+
+- Exact hashes of the collection receipt, raw chart, data contract and events.
+- The symbol, currency, `snapshot_research_only` scope, `identity` transformation,
+  and a qualification cutoff no later than the first forecast origin.
+- Each resolved split's original event ID, action payload hash, effective time
+  and numerator/denominator, with its issuer evidence reference.
+- Retained issuer, provider-semantics, independent-quote-semantics, quote-image
+  and human-review artifacts, each with its hash and source URL where applicable.
+- Manually reviewed same-type open/close anchors before and after each resolved
+  split. Anchors must be inside the retained history and qualification cutoff;
+  their explicit nearest-cent values must match normalized quotes within $0.005.
+
+This is a human-reviewed attestation with automated binding checks. Hashes and
+numerical agreement do not interpret documents or prove source independence,
+every row's accuracy, historical availability, or a useful prediction. The
+report explicitly qualifies the collector's older `raw_currency_per_share`
+assumption; the original evidence file remains intact. Original action notices,
+review identity and limitations are saved in the result configuration. Review
+documents are not added to LLM research context.
+
+The run retains the bundle and cited artifacts under `price_basis_review/`.
+Resume rechecks those retained files, so it does not depend on the external
+review directory remaining available. Changed evidence or collection bytes
+cannot silently reuse previous fits. This O/C-only review cannot be combined
+with `--ohlcv-features`: volume and high/low require their own qualification.
+Freeze and review the task's source, inputs and execution protocol separately
+before treating a qualified snapshot as an experiment.
+
 ## What each fold learns and observes
 
 Training uses daily origins, not six monthly observations. Its target is the
