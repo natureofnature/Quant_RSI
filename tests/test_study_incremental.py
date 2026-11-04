@@ -119,6 +119,64 @@ def test_no_business_data_reports_gap_and_stops_without_fake_revision(tmp_path):
     assert "missing/disabled/unusable" in (root / "report.html").read_text()
 
 
+def test_sparse_news_preserves_frozen_incremental_windows_through_every_fit(tmp_path, monkeypatch):
+    def sparse_history(data, symbol, **kwargs):
+        snapshots = simulated_history(data, symbol, **kwargs)
+        return [s for i, s in enumerate(snapshots) if i not in {35, 50, 65, 70, 75}]
+
+    monkeypatch.setattr(study, "simulated_history", sparse_history)
+    root, result, calls, matrices = run(tmp_path, monkeypatch)
+    plan = json.loads((root / "research_windows.json").read_text())
+    assert plan == result["study"]["research_windows"]
+    assert len(matrices) == 3
+    for matrix in matrices:
+        for name, partition in plan["partitions"].items():
+            assert matrix["segments"][name]["sessions"] == partition["origin_sessions"]
+        assert (
+            matrix["segments"]["train"]["label_sessions"]
+            == plan["partitions"]["train"]["target_sessions"]
+        )
+    support = calls[0][0]["news_feature_support"]
+    assert support["available_training_rows"] < support["original_training_rows"]
+    assert support["available_evaluation_rows"] < support["original_evaluation_rows"]
+    assert support["retained_training_rows"] == support["original_training_rows"]
+    assert support["retained_evaluation_rows"] == support["original_evaluation_rows"]
+    assert not support["runnable"]
+    for attempt in result["iterations"]["attempts"]:
+        prediction = attempt["prediction"]
+        assert prediction["training_rows"] == len(plan["partitions"]["train"]["origin_sessions"])
+        assert [r["origin_session"] for r in prediction["development"]["rows"]] == plan[
+            "partitions"
+        ]["development"]["origin_sessions"]
+
+
+@pytest.mark.parametrize("explicit_empty_evidence", [False, True])
+def test_retained_unavailable_financials_complete_baseline_with_visible_gap(
+    tmp_path, monkeypatch, explicit_empty_evidence
+):
+    # The collector uses this unavailable bundle when a retained snapshot is absent
+    # or was received after the research cutoff. No network or paid service call.
+    notice = "Financial data unavailable: snapshot missing or received after research cutoff"
+    bundle = {"definitions": [], "columns": {}, "notice": notice, "provider": "unavailable"}
+    if explicit_empty_evidence:
+        bundle["evidence"] = []
+    monkeypatch.setattr(
+        "quant_rsi.research.study_financials.simulated_financials",
+        lambda *a, **k: deepcopy(bundle),
+    )
+    root, result, calls, matrices = run(
+        tmp_path, monkeypatch, None, "--information-mode", "retained"
+    )
+    assert result["iterations"]["completed_fits"] == len(matrices) == 1
+    assert result["iterations"]["selected_round"] == 1
+    assert not result["study"]["incremental_plan"]["candidate_input_ids"]
+    assert calls[0][0]["financial_features"]["latest_visible_facts"] == {}
+    assert calls[0][0]["financial_features"]["notice"] == notice
+    assert result["study"]["financial_data"]["provider"] == "unavailable"
+    assert notice in (root / "report.html").read_text()
+    assert json.loads((root / "runtime.json").read_text())["status"] == "completed"
+
+
 def test_retained_news_checks_publication_and_original_receipt():
     model = LightGBMDemo(load_catalog(), evaluation_sessions=20, terminal_sessions=10)
     snapshot = simulated_history(model.data, "KO")[60]

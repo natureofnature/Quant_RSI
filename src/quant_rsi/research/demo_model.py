@@ -133,7 +133,7 @@ class LightGBMDemo:
         if news_history is not None:
             self.configure_news(news_history, news_cutoffs, news_symbol)
 
-    def configure_news(self, news_history, news_cutoffs, news_symbol):
+    def configure_news(self, news_history, news_cutoffs, news_symbol, *, features_enabled=True):
         """Freeze one target's evidence and common rows before hypothesis selection."""
         if not self._news_configuration_open or self._news_history is not None:
             raise ValueError("News must be configured once, before context or prediction")
@@ -163,7 +163,7 @@ class LightGBMDemo:
         available = np.array([item["value"] is not None for item in evidence])
         training = self.train[available[self.train]]
         origins = self.origins[available[self.origins]]
-        runnable = len(training) >= 12 and len(origins) >= 2
+        runnable = features_enabled and len(training) >= 12 and len(origins) >= 2
         reasons = {
             reason
             for index in np.concatenate((self.train, self.origins))
@@ -173,6 +173,8 @@ class LightGBMDemo:
             reasons.add("insufficient_news_training_rows")
         if len(origins) < 2:
             reasons.add("insufficient_news_evaluation_rows")
+        if not features_enabled:
+            reasons.add("news_features_disabled")
         self.news_feature_support = {
             "runnable": runnable,
             "original_training_rows": len(self.train),
@@ -184,19 +186,28 @@ class LightGBMDemo:
             "reasons": sorted(reasons),
             "source_basis": "retained_target_issuer_headline_snapshots",
             "providers": list(getattr(self._news_history, "providers", ())),
-            "mask_policy": "shared_before_factor_selection",
+            "mask_policy": "shared_before_factor_selection"
+            if features_enabled
+            else "preserve_fixed_research_windows",
         }
         if runnable:
             self.train, self.origins = training, origins
             self.origin = int(origins[-1])
         self.library["news_feature_support"] = deepcopy(self.news_feature_support)
-        self.library["execution_note"] = (
-            "Numeric price recipes and retained target-issuer headline counts use the same frozen "
-            "training and evaluation rows. Missing news observations are unavailable, not zero."
-            if runnable
-            else "Only numeric price recipes can execute: news history has insufficient available "
-            "training or evaluation rows. News proposals remain specifications."
-        )
+        if not features_enabled:
+            self.library["execution_note"] = (
+                "News is research context only; news features are disabled and missing snapshots "
+                "do not change the fixed training or evaluation rows."
+            )
+        else:
+            self.library["execution_note"] = (
+                "Numeric price recipes and retained target-issuer headline counts use the same "
+                "frozen training and evaluation rows. Missing news observations are unavailable, "
+                "not zero."
+                if runnable
+                else "Only numeric price recipes can execute: news history has insufficient "
+                "available training or evaluation rows. News proposals remain specifications."
+            )
         return deepcopy(self.news_feature_support)
 
     def configure_guidance(self, history):
@@ -357,7 +368,9 @@ class LightGBMDemo:
                 "definitions": deepcopy(self.financial_features["definitions"]),
                 "coverage_gaps": deepcopy(self.financial_features.get("coverage_gaps", [])),
                 "sample_coverage": deepcopy(self.financial_features.get("sample_coverage", [])),
-                "latest_visible_facts": deepcopy(self.financial_features.get("evidence", [{}])[-1]),
+                "latest_visible_facts": deepcopy(
+                    (self.financial_features.get("evidence") or [{}])[-1]
+                ),
                 "notice": self.financial_features["notice"],
             }
         if self.external_features is not None:

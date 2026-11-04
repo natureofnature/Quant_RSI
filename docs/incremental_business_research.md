@@ -119,6 +119,9 @@ or crosses the next partition, and terminal rows whose targets are not retained.
 `config.json` saves requested ranges; `research_windows.json` saves actual
 origin/target dates, timezone-aware decision closes, horizon and excluded rows.
 It is frozen before any scores, shared by every fit and retained on resume.
+Incremental research uses news as hypothesis context, not as a selectable news
+count feature. Missing news snapshots therefore never remove rows from these
+fixed training, development or terminal windows; coverage gaps remain visible.
 Learned preprocessing uses training rows only. Development drives selection;
 terminal evaluation is performed only after selection and is never revision feedback.
 
@@ -128,6 +131,10 @@ Two information modes are explicit:
 |---|---|---|
 | `retrospective` (default) | Current RSS and optional current news research; existing research history | Today's hypothesis evaluated on historical samples. A held-back terminal score alone does not establish historical independence. |
 | `retained` | Eligible retained news, enabled financial evidence and development feedback; no current search, guidance extraction or cross-run research memory | Supplied material is restricted to the research cutoff. Pretrained LLM knowledge is not erased. |
+
+The browser workbench currently uses `retrospective` information. Its date controls
+partition model samples; they do not restrict LLM materials to what existed then.
+Use the CLI for `retained` information mode.
 
 For retained mode, add `--information-mode retained`. An optional timezone-aware
 `--research-cutoff` must be at or after the last development target close and
@@ -139,7 +146,7 @@ and receipt must precede the cutoff before an item reaches the LLM. An old artic
 date cannot make newly received content historical. No eligible material yields
 an explicit gap, not current news or a fabricated zero news feature.
 
-Historical news features still use their own per-row receipt cutoff, which is
+In flexible research, historical news features use their own per-row receipt cutoff, which is
 separate from the research cutoff. Financial features use the existing
 publication/version-based historical reconstruction; reporting-period end is
 not disclosure time. In retained mode an existing `--financials-dir` snapshot
@@ -147,6 +154,9 @@ must also have been received by the research cutoff, or the financial inputs
 remain unavailable. Context facts are taken from the development information
 boundary, never the latest retained row that may belong to terminal. This does
 not authenticate source clocks or prove what a historical trader downloaded.
+An unavailable financial bundle keeps its gap notice and exposes no financial
+facts. The fixed baseline can still run; financial candidates without inputs
+remain unavailable rather than causing the research loop to fail.
 Retained industry-driver research is currently refused because no corresponding
 receipt-proven research view is connected. Configured controls/relationships are
 research design inputs, not a claim of historically discovered relationships.

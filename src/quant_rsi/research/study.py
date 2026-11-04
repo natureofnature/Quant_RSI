@@ -474,7 +474,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         if model.price_info
         else [model.data.timestamp(i, "close") for i in range(len(model.data.dates))]
     )
-    model.configure_news(history, cutoffs, symbol)
+    model.configure_news(history, cutoffs, symbol, features_enabled=not incremental)
     model.library["news_feature_support"] = model.context(symbol)["news_feature_support"]
     _write(root / "news_history.json", snapshots)
     _write(
