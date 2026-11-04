@@ -28,6 +28,8 @@ def binding(configuration):
         dependencies += ["pypdf", "fonttools", "openpyxl", "et-xmlfile"]
     if configuration.get("compare_qlib"):
         dependencies += ["pyqlib", "mlflow", "pandas"]
+    if configuration.get("gpr_history"):
+        dependencies += ["xlrd"]
     return {
         "configuration": configuration,
         "files": {str(p): digest(p.read_bytes()) for p in sorted(set(files))},

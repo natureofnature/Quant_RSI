@@ -12,6 +12,7 @@ import numpy as np
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.data import MarketData
 from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.market.geopolitical_data import align_gpr_features, load_gpr_history
 from quant_rsi.market.market_contracts import timestamp
 from quant_rsi.market.risk_data import align_risk_features, load_risk_history
 from quant_rsi.research.demo_features import price_metrics
@@ -74,6 +75,9 @@ def add_arguments(commands):
     parser.add_argument("--news-archive", type=Path)
     parser.add_argument(
         "--risk-history", type=Path, help="verified offline VIX/Treasury snapshot directory"
+    )
+    parser.add_argument(
+        "--gpr-history", type=Path, help="retained publisher-vintage geopolitical risk directory"
     )
     parser.add_argument(
         "--news-history", type=Path, help="replay a verified historical-news acquisition directory"
@@ -240,6 +244,7 @@ def run_months(
     max_candidates=2,
     max_news_inputs=None,
     risk_history=None,
+    gpr_history=None,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
     if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
@@ -256,15 +261,23 @@ def run_months(
         start, end = data.dates.index(dates[0]), data.dates.index(dates[-1]) + 1
         peer_views = {symbol: values[start:end].copy() for symbol, values in peers.items()}
         columns, definitions, baseline = feature_library(prefix, peer_views)
-        if risk_history is not None:
-            risk_columns, risk_definitions, diagnostics = align_risk_features(risk_history, dates)
+        for history, align in (
+            (risk_history, align_risk_features),
+            (gpr_history, align_gpr_features),
+        ):
+            if history is None:
+                continue
+            risk_columns, risk_definitions, diagnostics = align(history, dates)
             columns.update(risk_columns)
             definitions.extend(risk_definitions)
-            fold["risk_inputs"] = {
-                "notice": risk_history["notice"],
-                "sources": risk_history["sources"],
-                "features": diagnostics,
-                "coverage": [
+            risk = fold.setdefault(
+                "risk_inputs", {"notice": "", "sources": [], "features": [], "coverage": []}
+            )
+            risk["notice"] = " ".join(filter(None, (risk["notice"], history["notice"])))
+            risk["sources"].extend(history["sources"])
+            risk["features"].extend(diagnostics)
+            risk["coverage"].extend(
+                [
                     {
                         "factor_id": identity,
                         "training_available": int(np.isfinite(values[train]).sum()),
@@ -272,8 +285,8 @@ def run_months(
                         "prediction_available": bool(np.isfinite(values[-1])),
                     }
                     for identity, values in risk_columns.items()
-                ],
-            }
+                ]
+            )
         matrix = np.column_stack([columns[name] for name in baseline])
         labels = np.log(
             prefix.closes[train + fold["horizon_sessions"], 0] / prefix.closes[train, 0]
@@ -517,10 +530,14 @@ def run_rolling(args):
         if risk_path
         else None
     )
+    gpr_path = getattr(args, "gpr_history", None)
+    gpr_history = (
+        load_gpr_history(root / "gpr_history" if args.resume else gpr_path) if gpr_path else None
+    )
     config = {
         k: str(v) if isinstance(v, Path) else v
         for k, v in vars(args).items()
-        if k not in {"resume", "command"}
+        if k not in {"resume", "command"} and not (k == "gpr_history" and v is None)
     }
     config.update(
         symbol=symbol,
@@ -535,6 +552,8 @@ def run_rolling(args):
         "history_sha256": digest(canonical(frozen_history)) if frozen_history is not None else None,
         "risk_sha256": digest(canonical(risk_history)) if risk_history is not None else None,
     }
+    if gpr_history is not None:
+        config["input_identity"]["gpr_sha256"] = digest(canonical(gpr_history))
     config["estimator_parameters"] = (
         MODEL_PARAMETERS | {"seed": 7, "num_boost_round": BOOST_ROUNDS}
         if args.model == "lightgbm"
@@ -564,15 +583,20 @@ def run_rolling(args):
 
     with run_lock(root):
         cache = StudyCache(root, config, resume=args.resume)
-        if risk_history is not None and not args.resume:
-            destination = root / "risk_history"
+        for name, source_path, history, loader in (
+            ("risk_history", risk_path, risk_history, load_risk_history),
+            ("gpr_history", gpr_path, gpr_history, load_gpr_history),
+        ):
+            if history is None or args.resume:
+                continue
+            destination = root / name
             (destination / "raw").mkdir(parents=True)
-            shutil.copyfile(risk_path / "receipts.json", destination / "receipts.json")
-            for source in risk_history["sources"]:
+            shutil.copyfile(source_path / "receipts.json", destination / "receipts.json")
+            for source in history["sources"]:
                 relative = Path("raw") / source["file"]
-                shutil.copyfile(risk_path / relative, destination / relative)
-            retained_risk = load_risk_history(destination)
-            if canonical(retained_risk) != canonical(risk_history):
+                shutil.copyfile(source_path / relative, destination / relative)
+            retained_risk = loader(destination)
+            if canonical(retained_risk) != canonical(history):
                 raise ValueError("Risk snapshot changed during retention; start a new study")
         runtime["previous_attempts"] = cache.previous
         _write(root / "config.json", config)
@@ -649,6 +673,7 @@ def run_rolling(args):
                 max_candidates=max_candidates,
                 max_news_inputs=max_news_inputs,
                 risk_history=risk_history,
+                gpr_history=gpr_history,
             )
             policy = {
                 k: getattr(args, k)

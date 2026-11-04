@@ -489,6 +489,12 @@ measured volatility and interest-rate inputs become available to candidate recip
 including news interactions. The fixed baseline remains unchanged. See the
 [snapshot preparation and timing rules](docs/monthly_rolling_research.md#measured-market-risk-inputs).
 
+Add `--gpr-history PATH` for an optional geopolitical news index using the publisher's
+dated releases. Install `python -m pip install -e '.[gpr]'` to read its original XLS
+files. Each row uses an earlier available vintage; later revisions cannot backfill
+earlier rows. This candidate input does not automatically change the baseline. See
+[GPR setup and publication limits](docs/geopolitical_risk.md).
+
 For a frozen SOXX January–October 2026 task targeting November 30, see the
 [SOXX cutoff example](docs/soxx_november_2026.md), including historical-news
 limitations and the November share-split conversion.
