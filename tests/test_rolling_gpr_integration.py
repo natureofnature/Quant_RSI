@@ -13,7 +13,7 @@ from test_geopolitical_data import write_gpr_bundle
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.market.geopolitical_data import align_gpr_features, load_gpr_history
-from quant_rsi.research import rolling
+from quant_rsi.research import rolling, study_resume
 from quant_rsi.research.rolling_windows import monthly_plan
 
 retained = monthly.retained
@@ -130,6 +130,8 @@ def test_cli_retains_gpr_and_resumes_without_external_source(retained, tmp_path,
         rolling.run_rolling(args)
     config = json.loads((args.output / "config.json").read_bytes())
     assert config["input_identity"]["gpr_sha256"] == digest(canonical(bundle))
+    identity = json.loads((args.output / "checkpoints/identity.json").read_bytes())
+    assert identity["dependencies"]["xlrd"] == study_resume.version("xlrd")
     snapshot = args.output / "gpr_history"
     assert load_gpr_history(snapshot) == bundle
     report = (args.output / "report.html").read_text()
@@ -137,6 +139,16 @@ def test_cli_retains_gpr_and_resumes_without_external_source(retained, tmp_path,
     original = (args.output / "2026-07/prediction.json").read_bytes()
     shutil.rmtree(source)
     args.resume = True
+    original_version = study_resume.version
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            study_resume,
+            "version",
+            lambda name: "changed-reader" if name == "xlrd" else original_version(name),
+        )
+        with pytest.raises(ValueError, match="dependencies or configuration changed"):
+            rolling.run_rolling(args)
+    assert len(llm.contexts) == 2
     receipts = snapshot / "receipts.json"
     before = receipts.read_bytes()
     changed = json.loads(before)

@@ -145,6 +145,8 @@ def test_cli_retains_risk_snapshot_and_binds_resume_to_verified_content(
     assert config["input_identity"]["risk_sha256"] == digest(canonical(bundle))
     assert "gpr_history" not in config
     assert "gpr_sha256" not in config["input_identity"]
+    identity = json.loads((args.output / "checkpoints/identity.json").read_bytes())
+    assert "xlrd" not in identity["dependencies"]
     snapshot = args.output / "risk_history"
     assert load_risk_history(snapshot) == bundle
     assert "Measured market-risk inputs" in (args.output / "report.html").read_text()

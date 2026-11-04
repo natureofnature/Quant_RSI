@@ -85,6 +85,8 @@ binds the normalized bundle to the run identity and uses that retained copy on
 resume. Moving or deleting the original directory does not invalidate that copy;
 changing retained data is rejected. `--risk-history` for VIX/Treasury remains
 independent and may be used together with `--gpr-history`.
+The run records the optional XLS reader version and rejects resume if it changes.
+Studies without GPR do not require or bind that dependency.
 
 ## Evidence and scope
 
