@@ -128,6 +128,38 @@ def render_rolling(result):
                 for row in attempt.get("candidate_rejections", [])
             ],
         )
+    if any(fold.get("ohlcv_inputs") for fold in folds):
+        parts.append(
+            "<p>Optional high/low/volume leaves come from the retained target quote source. "
+            "They do not alter the fixed baseline. ETF volume measures trading activity, "
+            "not semiconductor sales or demand. Provider quote/volume units are not certified "
+            "historical share units; missing inputs are not filled or removed from the sample. "
+            "These are reconstructed historical inputs, not contemporaneously captured data.</p>"
+        )
+        table(
+            "Retained OHLCV inputs",
+            [
+                "Month",
+                "Input",
+                "Available training rows",
+                "Training rows",
+                "Distinct values",
+                "Forecast available",
+            ],
+            [
+                [
+                    fold["month"],
+                    item["factor_id"],
+                    item["training_available"],
+                    item["training_samples"],
+                    item["distinct_training_values"],
+                    item["prediction_available"],
+                ]
+                for fold in folds
+                for item in fold.get("ohlcv_inputs", {}).get("features", [])
+            ],
+        )
+
     if any(fold.get("risk_inputs") for fold in folds):
         risk = next(fold["risk_inputs"] for fold in folds if fold.get("risk_inputs"))
         parts.append(f"<p>{_text(risk['notice'])}</p>")

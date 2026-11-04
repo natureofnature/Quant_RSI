@@ -387,7 +387,7 @@ See [factor ownership and types](docs/factor_layers.md).
 | `src/quant_rsi/` | Shared data, factor contracts, research, forecast, evaluation and execution code |
 | `instruments/shared/` | Reusable stock factor templates |
 | `instruments/<MARKET>/<SYMBOL>/` | Instrument profiles, factor bindings and local relationships |
-| [`experimental/candidate_factors/`](experimental/candidate_factors/README.md) | Source-pinned survey and licenses; detailed records are searchable in discovery, with three explicitly implemented Qlib adapters |
+| [`experimental/candidate_factors/`](experimental/candidate_factors/README.md) | Source-pinned survey and licenses; detailed records are searchable in discovery, with four explicitly implemented Qlib adapters whose inputs must be available |
 | `examples/` and `tests/` | Runnable plans, small fixtures and offline regression tests |
 | `docs/` | Operating guides, design specifications and experiment reports |
 | `data/`, `runs/`, `.quant_rsi/` | Ignored local data, outputs and authoritative workspace state |
@@ -490,6 +490,10 @@ history is labeled explicitly. Use `--max-candidates 16 --max-news-inputs 32`
 for a jointly trained factor pool, and `--news-history PATH` to compare against
 the same verified historical-news acquisition without refetching. The report
 shows accepted factors, rejection reasons and actual model feature use.
+Add `--ohlcv-features` to expose verified retained target high/low/volume to
+candidate recipes, including `qlib.klen`, relative volume and news interactions.
+Missing inputs remain missing; the fixed baseline is unchanged. ETF volume is
+trading activity, not semiconductor sales or demand.
 Add `--risk-history PATH` for a verified offline Cboe VIX / US Treasury snapshot:
 measured volatility and interest-rate inputs become available to candidate recipes,
 including news interactions. The fixed baseline remains unchanged. See the

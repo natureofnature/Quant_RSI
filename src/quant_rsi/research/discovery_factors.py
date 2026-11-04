@@ -21,6 +21,7 @@ from quant_rsi.market.market_contracts import Hash
 
 SURVEY_BINDINGS = {
     "qlib.kmid": {"open": "price.open", "close": "price.close"},
+    "qlib.klen": {"high": "price.high", "low": "price.low", "open": "price.open"},
     "qlib.roc": {"close": "price.close"},
     "qlib.ma": {"close": "price.close"},
 }
@@ -131,6 +132,22 @@ def execute_survey(survey_id, columns, *, window=10):
         or len({len(value) for value in bound.values()}) != 1
     ):
         raise ValueError("Survey inputs require aligned one-dimensional series")
+    if survey_id == "qlib.klen":
+        highs, lows, opens = bound["high"], bound["low"], bound["open"]
+        valid = (
+            np.isfinite(highs)
+            & np.isfinite(lows)
+            & np.isfinite(opens)
+            & (lows > 0)
+            & (opens > 0)
+            & (highs > 0)
+            & (lows <= opens)
+            & (opens <= highs)
+        )
+        with np.errstate(all="ignore"):
+            result = np.divide(highs - lows, opens, out=np.full_like(opens, np.nan), where=valid)
+        result[~np.isfinite(result)] = np.nan
+        return result
     closes = bound["close"]
     if survey_id == "qlib.kmid":
         opens = bound["open"]
@@ -167,7 +184,7 @@ def adapter_catalog(root=None, available_inputs=(), *, window=10):
             "recipe": {
                 "op": "survey_adapter",
                 "survey_id": item["survey_id"],
-                "window": None if item["survey_id"] == "qlib.kmid" else window,
+                "window": None if item["survey_id"] in {"qlib.kmid", "qlib.klen"} else window,
                 "upstream_revision": item["provenance"]["revision"],
             },
             "input_factor_ids": list(item["input_bindings"].values()),

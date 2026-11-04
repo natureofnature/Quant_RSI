@@ -216,6 +216,42 @@ and a fresh output directory. Larger structured proposals can take longer than
 the default provider timeout. Failed calls remain recorded; adding features does
 not itself establish a forecast advantage.
 
+## Optional retained OHLCV inputs
+
+Add `--ohlcv-features` to a new rolling run to expose the target instrument's
+`price.high`, `price.low` and `price.volume` leaves. The adapter reads the already
+retained Yahoo response under `--prices-dir`; it does not collect new prices,
+modify old collections or expand the fixed baseline. Raw content hashes and
+source identity are checked against the collection receipt, and selected sessions
+must match the validated open/close history. The raw source identity participates
+in resume validation. Changing the option or its inputs requires a fresh run.
+
+These inputs allow the existing expression language to represent, for example:
+
+- Daily range: `(high - low) / open`, also available as the pinned experimental
+  `qlib.klen` adapter.
+- Relative trading volume: `volume / rolling_mean(volume, 10)`.
+- A retrieved-news measure interacted with either of those quantities.
+
+Only the fold's historical prefix reaches expressions. Missing optional values
+remain unavailable; zero volume is retained as zero. A missing required feature
+rejects its dependent candidate without dropping rows or discarding other usable
+candidates. A zero denominator remains missing. The report records per-fold
+training coverage, distinct values and forecast availability; model feature usage
+shows whether a candidate actually consumed those leaves. This does not activate
+unimplemented Qlib correlation/logarithm adapters.
+
+OHLCV describes market trading, not business revenue, chip demand or measured
+geopolitical severity. Quote and volume units follow the retained provider
+vintage and are not certified original historical share units. Existing corporate
+action restrictions still apply. Actual collection timestamps remain unchanged;
+these are reconstructed historical inputs, not point-in-time archives.
+
+New inputs do not establish predictive improvement. A subsequent effectiveness
+comparison must include a static factor arm using the same OHLCV information,
+as well as the existing fixed, unchanged-price and training-mean baselines.
+Do not select formulas or months after observing their target errors.
+
 ## Interpreting mature feedback
 
 ### One same-cutoff candidate revision

@@ -62,6 +62,8 @@ class DiscoveryExperimentRunner:
                         )
         for definition in adapter_catalog(available_inputs=self.columns):
             self.definitions.append(definition)
+            if not definition["runnable"]:
+                continue
             recipe = definition["recipe"]
             self.columns[definition["factor_id"]] = execute_survey(
                 recipe["survey_id"],
