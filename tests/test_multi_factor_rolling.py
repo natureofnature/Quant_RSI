@@ -13,6 +13,7 @@ from test_rolling_news_sources import receipt, rss
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.research import rolling
+from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.rolling_news_sources import collect_history, load_history
 from quant_rsi.research.rolling_research import admit_decision, propose
 from quant_rsi.research.rolling_windows import monthly_plan
@@ -113,6 +114,46 @@ def test_pool_pruning_and_predictions_ignore_future_news(retained, tmp_path):
     second, changed = execute(retained, tmp_path / "after", history, decision)
     assert first["prediction_sha256"] == second["prediction_sha256"]
     assert cache.calls["2026-07_adaptive_fit"] == changed.calls["2026-07_adaptive_fit"]
+
+
+def test_retain_preserves_previously_validated_candidate_ancestry(retained, tmp_path):
+    _, data, info, calendar = retained
+    history, pool_decision = pool()
+    for article in history["items"]:
+        if article["id"] == "topic0_second":
+            article["published_at"] = "2026-05-15T12:00:00+00:00"
+    initial = deepcopy(pool_decision)
+    initial["candidates"] = initial["candidates"][:1]
+    initial["news_inputs"] = initial["news_inputs"][:1]
+    revised = deepcopy(initial)
+    revised["candidates"] = [deepcopy(pool_decision["candidates"][1])]
+    ancestor = DiscoveryFactor.model_validate_json(canonical(initial["candidates"][0])).recipe_ref
+    revised["candidates"][0]["parent_recipe_refs"] = [ancestor]
+    retain = {
+        "action": "retain",
+        "basis": "news",
+        "reason": "Retain the admitted revised hypothesis",
+        "candidates": [],
+        "news_inputs": [],
+    }
+    cache = monthly.MemoryCache()
+    folds = rolling.run_months(
+        data,
+        info,
+        {},
+        monthly_plan(data, calendar, "2026-07", "2026-09"),
+        cache,
+        tmp_path,
+        model="ridge",
+        llm=monthly.DecisionLLM([initial, revised, retain]),
+        news_history=history,
+        news_required=True,
+    )
+    assert [fold["candidate_status"] for fold in folds] == ["fitted"] * 3
+    assert folds[1]["candidate_recipes"] == folds[2]["candidate_recipes"]
+    assert folds[2]["candidate_recipes"][0]["parent_recipe_refs"] == [ancestor]
+    assert "2026-09_adaptive_fit" in cache.calls
+    assert folds[2]["fits"]["adaptive"]["factor_ids"][-1] == "discovery.topic0_lag3"
 
 
 def test_configured_limits_reach_provider_schema_and_local_admission():
