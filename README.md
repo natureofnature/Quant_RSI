@@ -490,6 +490,13 @@ history is labeled explicitly. Use `--max-candidates 16 --max-news-inputs 32`
 for a jointly trained factor pool, and `--news-history PATH` to compare against
 the same verified historical-news acquisition without refetching. The report
 shows accepted factors, rejection reasons and actual model feature use.
+Add `--acquired-history PATH` for a successful discovery acquisition checkpoint
+(repeat for additional files). The same monthly decision can request up to two
+new business measurements from its verified source excerpts, then train the
+resulting `acquired.*` inputs without multiplying them by headline counts.
+`--max-extractions 6` bounds additional extraction attempts across the run;
+there is no live source search or reading in this path. Missing measurements
+remain explicit gaps. See [measured business inputs](docs/monthly_rolling_research.md#measured-business-inputs).
 Add `--ohlcv-features` to expose verified retained target high/low/volume to
 candidate recipes, including `qlib.klen`, relative volume and news interactions.
 Missing inputs remain missing; the fixed baseline is unchanged. ETF volume is

@@ -22,6 +22,7 @@ from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_monthly_strategy
 from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.llm import LLMHypothesizer
+from quant_rsi.research.rolling_acquired import AcquiredResolver, load_acquired_history
 from quant_rsi.research.rolling_candidates import screen_candidates
 from quant_rsi.research.rolling_diagnostics import diagnose_candidates
 from quant_rsi.research.rolling_news_sources import collect_history, load_history, select_evidence
@@ -91,6 +92,18 @@ def add_arguments(commands):
     )
     parser.add_argument(
         "--gpr-history", type=Path, help="retained publisher-vintage geopolitical risk directory"
+    )
+    parser.add_argument(
+        "--acquired-history",
+        type=Path,
+        action="append",
+        help="successful discovery acquisition checkpoint; repeat for additional sources",
+    )
+    parser.add_argument(
+        "--max-extractions",
+        type=int,
+        default=6,
+        help="cumulative measurement extraction attempts, including failures (default: 6)",
     )
     parser.add_argument(
         "--news-history", type=Path, help="replay a verified historical-news acquisition directory"
@@ -263,6 +276,31 @@ def _feedback(folds, cutoff):
     return result
 
 
+def _merge_acquired(columns, definitions, view, fold, train):
+    if set(columns).intersection(view["columns"]):
+        raise ValueError("Acquired inputs cannot replace native factors")
+    fold["acquired_inputs"] = deepcopy(
+        {key: value for key, value in view.items() if key != "columns"}
+    )
+    for item in fold["acquired_inputs"]["coverage"]:
+        identity = item["input_id"]
+        values = view["columns"][identity]
+        selected = values[train]
+        finite = selected[np.isfinite(selected)]
+        evidence = item["input_evidence"]
+        item.update(
+            training_available=len(finite),
+            training_samples=len(train),
+            distinct_training_values=len(np.unique(finite)),
+            training_disclosures=len(
+                {evidence[i]["observation_id"] for i in train if evidence[i]["observation_id"]}
+            ),
+            prediction_available=bool(np.isfinite(values[-1])),
+        )
+    view["coverage"] = deepcopy(fold["acquired_inputs"]["coverage"])
+    return columns | view["columns"], definitions + view["definitions"]
+
+
 def run_months(
     data,
     info,
@@ -284,6 +322,7 @@ def run_months(
     gpr_history=None,
     candidate_revision=False,
     ohlcv_history=None,
+    acquired_resolver=None,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
     if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
@@ -416,6 +455,13 @@ def run_months(
         fold["news_evidence"] = deepcopy(news)
         # The corpus is already cutoff-filtered; each numerical row is filtered again.
         row_times = [info["session_close_times"][data.dates.index(day)] for day in dates]
+        native_columns, native_definitions = columns, definitions
+        acquired_view = None
+        if acquired_resolver is not None:
+            acquired_view = acquired_resolver.view(row_times, fold["information_cutoff"], news_mode)
+            columns, definitions = _merge_acquired(
+                native_columns, native_definitions, acquired_view, fold, train
+            )
         context = decision_context(
             data.instruments[0],
             fold,
@@ -426,6 +472,7 @@ def run_months(
             incumbent_news,
             max_candidates,
             max_news_inputs,
+            acquired_inputs=acquired_view,
         )
         _write(folder / "research_context.json", context)
         fold["news_coverage"] = news["coverage_status"]
@@ -444,6 +491,7 @@ def run_months(
                 preview, preview_news = incumbent, incumbent_news
                 for number in range(2 if candidate_revision else 1):
                     attempt = {"stage": "proposal" if number == 0 else "revision"}
+                    blocked_measurements = set()
                     try:
                         decision, proposed = admit_decision(
                             raw,
@@ -452,7 +500,37 @@ def run_months(
                             max_candidates,
                             max_news_inputs,
                             screen_individually=True,
+                            acquired_evidence=(acquired_view or {}).get("evidence", ()),
+                            max_data_requests=2 if acquired_resolver is not None else 0,
                         )
+                        if acquired_resolver is not None and decision["data_requests"]:
+                            referenced = set()
+                            for value in proposed:
+                                try:
+                                    candidate = DiscoveryFactor.model_validate_json(
+                                        canonical(value)
+                                    )
+                                except ValueError:
+                                    continue
+                                referenced.update(item.factor_id for item in candidate.inputs)
+                            acquisition = acquired_resolver.acquire(
+                                decision["data_requests"],
+                                referenced,
+                                row_times,
+                                fold["information_cutoff"],
+                                news_mode,
+                            )
+                            acquired_view = acquisition["view"]
+                            blocked_measurements = set(acquisition.get("blocked_input_ids", ()))
+                            columns, definitions = _merge_acquired(
+                                native_columns, native_definitions, acquired_view, fold, train
+                            )
+                            attempt["data_acquisitions"] = deepcopy(acquisition["acquisitions"])
+                            attempt["data_gaps"] = deepcopy(acquisition["gaps"])
+                            fold.setdefault("data_acquisitions", []).extend(
+                                deepcopy(acquisition["acquisitions"])
+                            )
+                            fold.setdefault("data_gaps", []).extend(deepcopy(acquisition["gaps"]))
                         proposed_news = (
                             decision["news_inputs"]
                             if decision["action"] == "replace"
@@ -488,6 +566,17 @@ def run_months(
                             allowed_parent_refs=parents,
                             accepted_incumbent_records=preview,
                             require_evidence=decision["basis"] == "news",
+                            acquired_inputs=(
+                                acquired_view
+                                | {
+                                    "qualified_input_ids": sorted(
+                                        set(acquired_view["qualified_input_ids"])
+                                        - blocked_measurements
+                                    )
+                                }
+                                if acquired_view is not None
+                                else None
+                            ),
                         )
                         pool = {
                             "proposed": len(proposed),
@@ -536,6 +625,7 @@ def run_months(
                             preview_news,
                             max_candidates,
                             max_news_inputs,
+                            acquired_inputs=acquired_view,
                         )
                         revision_context["candidate_review"] = deepcopy(attempt)
                         _write(folder / "research_revision_context.json", revision_context)
@@ -600,6 +690,17 @@ def run_months(
                 fold["fits"]["adaptive"] = deepcopy(fold["fits"]["fixed"]) | {"reused_arm": "fixed"}
         fold["candidate_recipes"] = deepcopy(incumbent)
         fold["candidate_news_inputs"] = deepcopy(incumbent_news)
+        if acquired_view is not None:
+            fitted_ids = set(fold["fits"].get("adaptive", fold["fits"]["fixed"])["factor_ids"])
+            fold["fitted_measurement_inputs"] = sorted(
+                {
+                    item["factor_id"]
+                    for candidate in incumbent
+                    if "discovery." + candidate["name"] in fitted_ids
+                    for item in candidate["inputs"]
+                    if item["factor_id"] in acquired_view["qualified_input_ids"]
+                }
+            )
         fold["candidate_recipe_role"] = (
             "Research incumbent for next decision; actual factors in fits"
         )
@@ -702,12 +803,29 @@ def run_rolling(args):
     gpr_history = (
         load_gpr_history(root / "gpr_history" if args.resume else gpr_path) if gpr_path else None
     )
+    acquired_paths = getattr(args, "acquired_history", None) or []
+    max_extractions = getattr(args, "max_extractions", 6)
+    if type(max_extractions) is not int or not 0 <= max_extractions <= 6:
+        raise ValueError("--max-extractions must be an integer in 0..6")
+    retained_acquired = [
+        root / "acquired_history" / f"{i:03d}.json" for i in range(len(acquired_paths))
+    ]
+    acquired_history = (
+        load_acquired_history(retained_acquired if args.resume else acquired_paths)
+        if acquired_paths
+        else None
+    )
     config = {
-        k: str(v) if isinstance(v, Path) else v
+        k: str(v)
+        if isinstance(v, Path)
+        else [str(path) for path in v]
+        if k == "acquired_history"
+        else v
         for k, v in vars(args).items()
         if k not in {"resume", "command"}
         and not (k == "gpr_history" and v is None)
         and not (k == "ohlcv_features" and not v)
+        and not (k in {"acquired_history", "max_extractions"} and not acquired_paths)
     }
     config.update(
         symbol=symbol,
@@ -726,6 +844,8 @@ def run_rolling(args):
         config["input_identity"]["gpr_sha256"] = digest(canonical(gpr_history))
     if ohlcv_history is not None:
         config["input_identity"]["ohlcv"] = ohlcv_history["provenance"]
+    if acquired_history is not None:
+        config["input_identity"]["acquired_sha256"] = digest(canonical(acquired_history))
     config["estimator_parameters"] = (
         MODEL_PARAMETERS | {"seed": 7, "num_boost_round": BOOST_ROUNDS}
         if args.model == "lightgbm"
@@ -755,6 +875,12 @@ def run_rolling(args):
 
     with run_lock(root):
         cache = StudyCache(root, config, resume=args.resume)
+        if acquired_history is not None and not args.resume:
+            (root / "acquired_history").mkdir()
+            for source, destination in zip(acquired_paths, retained_acquired, strict=True):
+                shutil.copyfile(source, destination)
+            if canonical(load_acquired_history(retained_acquired)) != canonical(acquired_history):
+                raise ValueError("Acquired sources changed during retention; start a new study")
         for name, source_path, history, loader in (
             ("risk_history", risk_path, risk_history, load_risk_history),
             ("gpr_history", gpr_path, gpr_history, load_gpr_history),
@@ -797,6 +923,13 @@ def run_rolling(args):
                 None
                 if args.llm == "none"
                 else LLMHypothesizer(args.llm, args.llm_model, args.llm_timeout, on_usage=usage)
+            )
+            acquired_resolver = (
+                AcquiredResolver(
+                    acquired_history, llm, cache, root, max_extractions=max_extractions
+                )
+                if acquired_history is not None
+                else None
             )
             news_history = None
             if news_required and not snapshots:
@@ -853,6 +986,7 @@ def run_rolling(args):
                 gpr_history=gpr_history,
                 candidate_revision=candidate_revision,
                 ohlcv_history=ohlcv_history,
+                acquired_resolver=acquired_resolver,
             )
             policy = {
                 k: getattr(args, k)
@@ -885,6 +1019,20 @@ def run_rolling(args):
                 runtime["counts"]["research_provider_failures_total"] = sum(
                     event["status"] == "failed" for event in events
                 )
+            source_usage = root / "acquired_source_usage.json"
+            if acquired_history is not None and source_usage.exists():
+                receipt = json.loads(source_usage.read_bytes())
+                if receipt["sha256"] != digest(canonical(receipt["usage"])):
+                    raise ValueError("Measurement source usage receipt changed")
+                usage_record = receipt["usage"]
+                runtime["counts"]["measurement_extraction_attempts_total"] = usage_record["counts"][
+                    "extract"
+                ]
+                runtime["counts"]["measurement_extraction_failures_total"] = sum(
+                    event["kind"] == "extract" and event["status"] == "failed"
+                    for event in usage_record["operations"]
+                )
+                result["measurement_usage"] = usage_record
             _write(root / "runtime.json", runtime)
             _write(root / "result.json", result)
             atomic_write(root / "report.html", render_rolling(result).encode())

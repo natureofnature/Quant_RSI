@@ -30,6 +30,7 @@ def screen_candidates(
     allowed_parent_refs=(),
     accepted_incumbent_records=(),
     require_evidence=False,
+    acquired_inputs=None,
 ):
     """Keep the first valid, distinct columns and explain every rejected proposal.
 
@@ -67,6 +68,9 @@ def screen_candidates(
         for value in accepted_incumbent_records
     }
     evidence = {item["id"] for item in (news or {}).get("items", [])}
+    acquired = acquired_inputs or {}
+    qualified = set(acquired.get("qualified_input_ids", ()))
+    evidence.update(item["id"] for item in acquired.get("evidence", ()))
     for index, value in enumerate(candidates):
         name = value.get("name", f"candidate_{index + 1}")
         try:
@@ -75,6 +79,22 @@ def screen_candidates(
             used = {
                 item.factor_id for item in candidate.inputs if item.factor_id.startswith("news.")
             }
+            measurements = {
+                item.factor_id
+                for item in candidate.inputs
+                if item.factor_id.startswith("acquired.")
+            }
+            if not measurements <= qualified:
+                raise ValueError("Candidate requires an unavailable or unverified measurement")
+            for identity in measurements:
+                sources = acquired.get("input_evidence_ids", {}).get(identity, ())
+                if not set(candidate.evidence_ids).intersection(sources):
+                    raise ValueError(f"Candidate must cite a source supporting {identity}")
+                values = columns.get(identity)
+                if values is None or not np.isfinite(values[required]).all():
+                    raise ValueError(f"Measurement unavailable on fixed sample: {identity}")
+                if len(np.unique(values[train])) < 2:
+                    raise ValueError(f"Measurement has no training variation: {identity}")
             if not set(candidate.evidence_ids) <= evidence:
                 raise ValueError("Candidate cites unknown or cutoff-ineligible evidence")
             if require_evidence and not candidate.evidence_ids:
@@ -85,8 +105,11 @@ def screen_candidates(
                 allowed_parent_refs
             ):
                 raise ValueError("Candidate cites unknown parent recipe")
-            if news_required and (not used or not candidate.evidence_ids):
-                raise ValueError("News research requires an actual news input with cited evidence")
+            if news_required and (not (used or measurements) or not candidate.evidence_ids):
+                raise ValueError(
+                    "News research requires an actual news input or verified measurement "
+                    "with cited evidence"
+                )
             if used & conflicts:
                 raise ValueError("Candidate depends on conflicting news input declarations")
             if not used <= recipes.keys():
@@ -115,8 +138,14 @@ def screen_candidates(
                 [record], active_columns, active_definitions, baseline, required
             )
             values = proposed_matrix[:, -1]
-            if news_required:
-                verify_news_dependency([record], active_columns, active_definitions, required)
+            if news_required or measurements:
+                verify_news_dependency(
+                    [record],
+                    active_columns,
+                    active_definitions,
+                    required,
+                    acquired_inputs=qualified,
+                )
             if len(np.unique(values[train])) < 2:
                 raise ValueError("Candidate expression has no training variation")
             if proposed_ids[-1] in ids:
