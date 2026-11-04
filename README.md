@@ -473,6 +473,10 @@ Run a connected study using your existing Codex CLI login and public data:
 quant-rsi research-study KO --output /tmp/ko-study
 ```
 
+For fixed six-month training windows that roll monthly, with optional LLM
+factor revisions, continuous accounts and next-month forecasts, see
+[monthly rolling research](docs/monthly_rolling_research.md).
+
 For a frozen SOXX January–October 2026 task targeting November 30, see the
 [SOXX cutoff example](docs/soxx_november_2026.md), including historical-news
 limitations and the November share-split conversion.

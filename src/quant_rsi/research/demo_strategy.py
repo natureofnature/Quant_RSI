@@ -28,7 +28,95 @@ def evaluate_strategy(
     if type(horizon_sessions) is not int or horizon_sessions not in (5, 20, 60):
         raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
     signals = _signals(data, column, predictions, horizon_sessions)
-    first, last = min(signals), max(signals) + horizon_sessions
+    return _evaluate_signals(
+        data,
+        symbol,
+        signals,
+        max(signals) + horizon_sessions,
+        commission_bps=commission_bps,
+        slippage_bps=slippage_bps,
+        initial_cash=initial_cash,
+        threshold=threshold,
+    ) | {
+        "prediction_horizon_sessions": horizon_sessions,
+        "execution_note": (
+            f"{horizon_sessions}-session labels differ from next-open trade intervals. "
+            "Account quotes are rounded half-even to 12 decimal places; "
+            "original model prices are unchanged."
+        ),
+    }
+
+
+def evaluate_monthly_strategy(
+    data: MarketData,
+    symbol: str,
+    predictions: list[dict],
+    *,
+    commission_bps="5",
+    slippage_bps="5",
+    initial_cash="10000",
+    threshold=0.0,
+):
+    """Replay observed contiguous monthly forecasts in one costed account.
+
+    Endpoints must be the last retained session of their respective months;
+    the caller must verify those endpoints against the published exchange calendar.
+    Unknown targets are rejected, never silently shortened to available prices.
+    """
+    if symbol not in data.instruments or not predictions or not math.isfinite(threshold):
+        raise ValueError("A supported symbol, predictions and finite threshold are required")
+    column = data.instruments.index(symbol)
+    positions = {session: index for index, session in enumerate(data.dates)}
+    month_ends = {session[:7]: index for index, session in enumerate(data.dates)}
+    signals, horizons, previous_target = {}, [], None
+    for row in predictions:
+        try:
+            origin, target = positions[row["origin_session"]], positions[row["target_session"]]
+        except (KeyError, TypeError):
+            raise ValueError(
+                "Monthly forecasts require observed origin and target sessions"
+            ) from None
+        origin_month = data.dates[origin][:7]
+        year, month = map(int, origin_month.split("-"))
+        next_month = f"{year + (month == 12):04d}-{month % 12 + 1:02d}"
+        if (
+            origin != month_ends[origin_month]
+            or data.dates[target][:7] != next_month
+            or target != month_ends[next_month]
+            or (previous_target is not None and origin != previous_target)
+        ):
+            raise ValueError("Monthly forecasts must form contiguous month-end intervals")
+        horizon = target - origin
+        signals.update(_signals(data, column, [row], horizon))
+        horizons.append(horizon)
+        previous_target = target
+    return _evaluate_signals(
+        data,
+        symbol,
+        signals,
+        previous_target,
+        commission_bps=commission_bps,
+        slippage_bps=slippage_bps,
+        initial_cash=initial_cash,
+        threshold=threshold,
+    ) | {
+        "evidence_mode": "historical_monthly_walk_forward_hypothetical_account",
+        "prediction_horizon_sessions": horizons,
+        "prediction_horizon": "next_calendar_month_end",
+        "execution_note": (
+            "One continuous account across observed monthly forecasts; orders execute at "
+            "the next retained open and daily NAV determines risk statistics. Month-end "
+            "price returns differ from executable next-open returns. Quotes are rounded "
+            "half-even to 12 decimal places; no per-fold reset or averaging of Sharpes."
+        ),
+    }
+
+
+def _evaluate_signals(
+    data, symbol, signals, last, *, commission_bps, slippage_bps, initial_cash, threshold
+):
+    column = data.instruments.index(symbol)
+    first = min(signals)
     costs = dict(commission_bps=commission_bps, tax_bps="0", slippage_bps=slippage_bps)
     rules = AccountRules(
         currency="USD",
@@ -86,12 +174,6 @@ def evaluate_strategy(
         "clock_basis": "MarketData.timestamp simulation, not live or durable submission evidence",
         "policy": "log_return_above_threshold_long_otherwise_cash; hold units until signal changes",
         "threshold": threshold,
-        "prediction_horizon_sessions": horizon_sessions,
-        "execution_note": (
-            f"{horizon_sessions}-session labels differ from next-open trade intervals. "
-            "Account quotes are "
-            "rounded half-even to 12 decimal places; original model prices are unchanged."
-        ),
         "period": {"start": data.dates[first], "end": data.dates[last]},
         "account_rules": rules.model_dump(mode="json"),
         **results,
