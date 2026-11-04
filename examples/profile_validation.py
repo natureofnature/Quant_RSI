@@ -20,25 +20,25 @@ THREAD_ENV = dict(
 # These integration scenarios remain in the scheduled/manual full suite. All other
 # modules, including new modules, stay in the critical tier. See docs/validation_cost.md.
 EXTENDED_MODULES = {
-    "test_enhanced_forecast_workflow": "Legacy enhanced forecast workflow permutations",
-    "test_forecast_usability": "Legacy forecast usability and full campaign scenarios",
-    "test_research_workflow": "Legacy forecast-to-strategy workflow scenarios",
-    "test_forecast_recursive_preparation": "Recursive forecast preparation scenarios",
-    "test_local_comparison": "Protected local C4/C5 end-to-end comparisons",
-    "test_trajectory": "Full protected trajectory and saturation scenarios",
-    "test_trajectory_recovery_guard": "Protected trajectory recovery permutations",
-    "test_packages": "Protected package validation and recovery permutations",
-    "test_comparison": "Protected C4/C5 evaluation scenarios",
-    "test_local_packages": "Local package staging and recovery scenarios",
-    "test_factor_discovery": "Legacy bounded factor-discovery scenarios",
-    "test_forecast_campaign": "Multi-candidate forecast campaign permutations",
-    "test_observer": "Sealed-forecast observer integration scenarios",
-    "test_news_comparison": "Paired legacy news comparison scenarios",
-    "test_forecast_comparison": "Paired legacy forecast comparison scenarios",
-    "test_intraday_second_review": "Separate intraday execution product scenarios",
-    "test_intraday_paper": "Separate intraday paper-account scenarios",
-    "test_intraday_review_regressions": "Separate intraday review scenarios",
-    "test_intraday_policy": "Separate intraday policy calibration scenarios",
+    "tests/test_enhanced_forecast_workflow.py": "Legacy enhanced forecast workflow permutations",
+    "tests/test_forecast_usability.py": "Legacy forecast usability and full campaign scenarios",
+    "tests/test_research_workflow.py": "Legacy forecast-to-strategy workflow scenarios",
+    "tests/test_forecast_recursive_preparation.py": "Recursive forecast preparation scenarios",
+    "tests/test_local_comparison.py": "Protected local C4/C5 end-to-end comparisons",
+    "tests/test_trajectory.py": "Full protected trajectory and saturation scenarios",
+    "tests/test_trajectory_recovery_guard.py": "Protected trajectory recovery permutations",
+    "tests/test_packages.py": "Protected package validation and recovery permutations",
+    "tests/test_comparison.py": "Protected C4/C5 evaluation scenarios",
+    "tests/test_local_packages.py": "Local package staging and recovery scenarios",
+    "tests/test_factor_discovery.py": "Legacy bounded factor-discovery scenarios",
+    "tests/test_forecast_campaign.py": "Multi-candidate forecast campaign permutations",
+    "tests/test_observer.py": "Sealed-forecast observer integration scenarios",
+    "tests/test_news_comparison.py": "Paired legacy news comparison scenarios",
+    "tests/test_forecast_comparison.py": "Paired legacy forecast comparison scenarios",
+    "tests/test_intraday_second_review.py": "Separate intraday execution product scenarios",
+    "tests/test_intraday_paper.py": "Separate intraday paper-account scenarios",
+    "tests/test_intraday_review_regressions.py": "Separate intraday review scenarios",
+    "tests/test_intraday_policy.py": "Separate intraday policy calibration scenarios",
 }
 # Whole-module scheduling hints from green CI 41346746509 (2026-11-01).
 # Modules below 30 seconds averaged 3 seconds. These estimates never select tests.
@@ -79,9 +79,9 @@ def select_tests(selectors, suite):
         }
     )
     deferred = {
-        path: EXTENDED_MODULES[Path(path).stem]
+        path: EXTENDED_MODULES[path]
         for path in modules
-        if suite == "critical" and Path(path).stem in EXTENDED_MODULES
+        if suite == "critical" and path in EXTENDED_MODULES
     }
     return [path for path in modules if path not in deferred], deferred
 

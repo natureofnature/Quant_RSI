@@ -20,8 +20,15 @@ def test_critical_selection_defers_only_named_modules_and_full_keeps_every_modul
     tests.mkdir()
     for name in ("test_controller.py", "test_trajectory.py", "new_feature_test.py"):
         (tests / name).write_text("def test_example(): pass\n")
+    nested = tests / "nested"
+    nested.mkdir()
+    (nested / "test_trajectory.py").write_text("def test_new_scenario(): pass\n")
     critical, deferred = select([], "critical")
-    assert critical == ["tests/new_feature_test.py", "tests/test_controller.py"]
+    assert critical == [
+        "tests/nested/test_trajectory.py",
+        "tests/new_feature_test.py",
+        "tests/test_controller.py",
+    ]
     assert set(deferred) == {"tests/test_trajectory.py"}
     full, deferred = select([], "full")
     assert full == critical + ["tests/test_trajectory.py"]
@@ -32,8 +39,8 @@ def test_critical_selection_defers_only_named_modules_and_full_keeps_every_modul
 
 def test_extended_manifest_names_existing_modules_and_retains_primary_safety_coverage():
     functions = runpy.run_path(str(SCRIPT))
-    for name in functions["EXTENDED_MODULES"]:
-        assert (ROOT / "tests" / f"{name}.py").is_file()
+    for path in functions["EXTENDED_MODULES"]:
+        assert (ROOT / path).is_file()
     critical, _ = functions["select_tests"]([], "critical")
     for name in (
         "test_study_discovery",
