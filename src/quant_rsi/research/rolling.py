@@ -186,6 +186,10 @@ def _feedback(folds, cutoff):
     for fold in folds:
         if timestamp(fold["target_close_at"]) > timestamp(cutoff) or fold["outcome"] != "observed":
             continue
+        losses = {
+            arm: abs(row["predicted_price"] - row["observed_price"]) / row["reference_price"] * 100
+            for arm, row in fold["forecasts"].items()
+        }
         result.append(
             {
                 "month": fold["month"],
@@ -201,6 +205,18 @@ def _feedback(folds, cutoff):
                     arm: row["predicted_price"] - row["observed_price"]
                     for arm, row in fold["forecasts"].items()
                 },
+                "absolute_return_errors_pp": losses,
+                "adaptive_loss_deltas_pp": {
+                    comparator: losses["adaptive"] - losses[comparator]
+                    for comparator in ("fixed", "unchanged_price", "training_label_mean")
+                    if "adaptive" in losses and comparator in losses
+                },
+                "comparison_note": (
+                    "Negative delta means lower absolute return error on this same target. "
+                    "Compare adaptive with fixed for candidate-pool increment, and with "
+                    "unchanged price/training mean for absolute forecast performance. "
+                    "One monthly comparison does not establish an individual factor's effect."
+                ),
             }
         )
     return result
