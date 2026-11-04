@@ -294,8 +294,12 @@ def test_existing_and_new_survey_adapters_execute_without_upstream_imports():
         "price.close": np.array([12.0, 10, 20, 80]),
     }
     definitions = adapter_catalog(ROOT, columns, window=2)
-    assert len(definitions) == 3
-    assert all(item["runnable"] for item in definitions)
+    assert len(definitions) == 4
+    assert {item["factor_id"] for item in definitions if item["runnable"]} == {
+        "survey.qlib.kmid",
+        "survey.qlib.roc",
+        "survey.qlib.ma",
+    }
     np.testing.assert_allclose(
         execute_survey("qlib.kmid", columns), [0.2, -0.5, np.nan, 1], equal_nan=True
     )

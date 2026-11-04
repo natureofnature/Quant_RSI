@@ -25,6 +25,7 @@ from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.rolling_candidates import screen_candidates
 from quant_rsi.research.rolling_diagnostics import diagnose_candidates
 from quant_rsi.research.rolling_news_sources import collect_history, load_history, select_evidence
+from quant_rsi.research.rolling_ohlcv import load_ohlcv_history
 from quant_rsi.research.rolling_research import (
     admit_decision,
     decision_context,
@@ -56,6 +57,11 @@ def add_arguments(commands):
     parser.add_argument("symbol")
     parser.add_argument("--prices-dir", type=Path, required=True)
     parser.add_argument("--related-prices-dir", type=Path)
+    parser.add_argument(
+        "--ohlcv-features",
+        action="store_true",
+        help="expose verified retained target high/low/volume to candidate expressions",
+    )
     parser.add_argument("--first-month", required=True, help="first forecast month, YYYY-MM")
     parser.add_argument("--last-month", required=True, help="last forecast month, YYYY-MM")
     parser.add_argument("--train-months", type=int, default=6)
@@ -277,6 +283,7 @@ def run_months(
     risk_history=None,
     gpr_history=None,
     candidate_revision=False,
+    ohlcv_history=None,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
     if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
@@ -294,7 +301,43 @@ def run_months(
         prefix = _view(data, dates)
         start, end = data.dates.index(dates[0]), data.dates.index(dates[-1]) + 1
         peer_views = {symbol: values[start:end].copy() for symbol, values in peers.items()}
-        columns, definitions, baseline = feature_library(prefix, peer_views)
+        price_inputs = None
+        if ohlcv_history is not None:
+            price_inputs = {
+                "columns": {
+                    identity: values[start:end].copy()
+                    for identity, values in ohlcv_history["columns"].items()
+                },
+                "definitions": deepcopy(ohlcv_history["definitions"]),
+            }
+            for definition in price_inputs["definitions"]:
+                values = price_inputs["columns"][definition["factor_id"]]
+                # Expression screening owns required-row completeness: a lag can
+                # legitimately avoid a missing current input.
+                definition["runnable"] = bool(np.isfinite(values).any())
+                definition["availability_reason"] = (
+                    "retained_daily_field"
+                    if definition["runnable"]
+                    else "missing_retained_daily_field"
+                )
+            fold["ohlcv_inputs"] = {
+                "provenance": ohlcv_history["provenance"],
+                "features": [
+                    {
+                        "factor_id": identity,
+                        "training_available": int(np.isfinite(values[train]).sum()),
+                        "training_samples": len(train),
+                        "distinct_training_values": len(
+                            np.unique(values[train][np.isfinite(values[train])])
+                        ),
+                        "prediction_available": bool(np.isfinite(values[-1])),
+                    }
+                    for identity, values in price_inputs["columns"].items()
+                ],
+            }
+        columns, definitions, baseline = feature_library(
+            prefix, peer_views, price_inputs=price_inputs
+        )
         for history, align in (
             (risk_history, align_risk_features),
             (gpr_history, align_gpr_features),
@@ -599,6 +642,11 @@ def aggregate(data, folds, policy):
 def run_rolling(args):
     symbol = args.symbol.strip().upper()
     data, info = read_daily_history(symbol, args.prices_dir)
+    ohlcv_history = (
+        load_ohlcv_history(symbol, args.prices_dir, data, info)
+        if getattr(args, "ohlcv_features", False)
+        else None
+    )
     calendar = read_calendar(args.prices_dir)
     plan = monthly_plan(data, calendar, args.first_month, args.last_month, args.train_months)
     for key in ("commission_bps", "slippage_bps", "initial_cash"):
@@ -657,7 +705,9 @@ def run_rolling(args):
     config = {
         k: str(v) if isinstance(v, Path) else v
         for k, v in vars(args).items()
-        if k not in {"resume", "command"} and not (k == "gpr_history" and v is None)
+        if k not in {"resume", "command"}
+        and not (k == "gpr_history" and v is None)
+        and not (k == "ohlcv_features" and not v)
     }
     config.update(
         symbol=symbol,
@@ -674,6 +724,8 @@ def run_rolling(args):
     }
     if gpr_history is not None:
         config["input_identity"]["gpr_sha256"] = digest(canonical(gpr_history))
+    if ohlcv_history is not None:
+        config["input_identity"]["ohlcv"] = ohlcv_history["provenance"]
     config["estimator_parameters"] = (
         MODEL_PARAMETERS | {"seed": 7, "num_boost_round": BOOST_ROUNDS}
         if args.model == "lightgbm"
@@ -721,6 +773,11 @@ def run_rolling(args):
         runtime["previous_attempts"] = cache.previous
         _write(root / "config.json", config)
         _write(root / "monthly_plan.json", plan)
+        if ohlcv_history is not None:
+            _write(
+                root / "ohlcv_inputs.json",
+                {key: ohlcv_history[key] for key in ("definitions", "provenance", "coverage")},
+            )
         _write(root / "runtime.json", runtime)
 
         def usage(value):
@@ -795,6 +852,7 @@ def run_rolling(args):
                 risk_history=risk_history,
                 gpr_history=gpr_history,
                 candidate_revision=candidate_revision,
+                ohlcv_history=ohlcv_history,
             )
             policy = {
                 k: getattr(args, k)

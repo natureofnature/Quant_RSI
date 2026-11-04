@@ -39,11 +39,19 @@ class DecisionEnvelope(MonthlyDecision):
     news_inputs: tuple[dict, ...] = Field(default=(), max_length=64)
 
 
-def feature_library(data, peers):
+def feature_library(data, peers, *, price_inputs=None):
     columns = {"price.open": data.opens[:, 0], "price.close": data.closes[:, 0]}
     definitions = [
         {"factor_id": key, "unit": "price", "kind": "numeric", "runnable": True} for key in columns
     ]
+    if price_inputs is not None:
+        for identity, values in price_inputs["columns"].items():
+            if identity not in {"price.high", "price.low", "price.volume"} or np.shape(values) != (
+                len(data.dates),
+            ):
+                raise ValueError("Additional price inputs must be aligned high/low/volume columns")
+            columns[identity] = values
+        definitions.extend(deepcopy(price_inputs["definitions"]))
     baseline = []
     for op in ("momentum", "log_return_volatility"):
         identity = f"research.{op}_10"
@@ -75,9 +83,10 @@ def feature_library(data, peers):
                 baseline.append(identity)
     for definition in adapter_catalog(available_inputs=columns):
         recipe = definition["recipe"]
-        columns[definition["factor_id"]] = execute_survey(
-            recipe["survey_id"], columns, window=recipe["window"] or 10
-        )
+        if definition["runnable"]:
+            columns[definition["factor_id"]] = execute_survey(
+                recipe["survey_id"], columns, window=recipe["window"] or 10
+            )
         definitions.append(definition)
     return columns, definitions, baseline
 
