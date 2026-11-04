@@ -52,6 +52,31 @@ def render_rolling(result):
         )
 
     folds = result.get("folds") or []
+    if any(fold.get("risk_inputs") for fold in folds):
+        risk = next(fold["risk_inputs"] for fold in folds if fold.get("risk_inputs"))
+        parts.append(f"<p>{_text(risk['notice'])}</p>")
+        table(
+            "Measured market-risk inputs",
+            ["Month", "Factor", "Available training rows", "Prediction available"],
+            [
+                [
+                    fold["month"],
+                    coverage["factor_id"],
+                    f"{coverage['training_available']} / {coverage['training_samples']}",
+                    coverage["prediction_available"],
+                ]
+                for fold in folds
+                for coverage in fold.get("risk_inputs", {}).get("coverage", [])
+            ],
+        )
+        table(
+            "Risk source provenance",
+            ["File", "Source", "Retrieved", "SHA-256"],
+            [
+                [source["file"], source["requested_url"], source["received_at"], source["sha256"]]
+                for source in risk["sources"]
+            ],
+        )
     table(
         "Training and forecast windows",
         [

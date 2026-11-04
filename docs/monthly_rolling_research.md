@@ -58,7 +58,7 @@ Each month performs the following sequence:
 1. Slice target and aligned peer prices to that fold's history.
 2. Recompute features and fit the fixed baseline on mature labels.
 3. Optionally ask the existing LLM transport to retain, replace or withdraw up to
-   two candidate expressions, using only supplied eligible news and prior
+   the configured number of candidate expressions, using only supplied eligible news and prior
    matured monthly feedback. Refit the adaptive arm on exactly the same rows.
 4. Save `YYYY-MM/prediction.json` without the target outcome.
 5. Settle from retained target prices, or mark the month `not_observed`.
@@ -215,3 +215,79 @@ For example, extend the command above with `--max-candidates 16
 and a fresh output directory. Larger structured proposals can take longer than
 the default provider timeout. Failed calls remain recorded; adding features does
 not itself establish a forecast advantage.
+
+## Measured market-risk inputs
+
+Add `--risk-history /path/to/snapshot` to expose these optional inputs to the LLM:
+
+| Input | Measurement |
+|---|---|
+| `risk.vix_close` | Cboe VIX closing index level |
+| `risk.vix_change_5` | Change in aligned VIX level over five equity sessions |
+| `risk.treasury_10y_percent` | US Treasury nominal ten-year par / constant-maturity yield, percent |
+| `risk.treasury_10y_change_20` | Change in aligned yield over twenty equity sessions, percentage points |
+
+The Treasury input is a nominal yield, not an inflation-adjusted real yield.
+A change of 0.10 percentage points is ten basis points.
+
+These are candidate inputs, not automatic additions to the fixed baseline. A
+news-driven candidate can multiply a headline count by measured volatility, for
+example; `--news-research` still requires an actual numerical news dependency.
+Every accepted candidate uses the same fixed training rows. Missing, stale or
+warm-up values remain unavailable and reject a dependent candidate; rows are not
+dropped and values are not replaced with zero.
+
+Alignment uses only observations dated strictly before each equity session, with
+a maximum seven-calendar-day age. This deliberately avoids assuming a source's
+same-day publication time. A later downloaded snapshot can contain revisions;
+these are reconstructed historical inputs, not a publication-time vintage archive.
+The report records coverage, retrieval dates and source hashes. Fold artifacts
+also preserve per-row source dates and change endpoints.
+
+The offline bundle contains `receipts.json` and the corresponding source bytes
+under `raw/`. The loader checks HTTP status, official source URLs, byte lengths,
+SHA-256 hashes and dated observations. For example, prepare a fresh snapshot
+with Python's standard library (this explicitly downloads the sources):
+
+```python
+import hashlib
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.request import Request, urlopen
+
+root = Path("/tmp/market-risk-snapshot")
+(root / "raw").mkdir(parents=True, exist_ok=False)
+urls = {"vix.csv": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv"}
+for year in (2025, 2026):
+    urls[f"treasury-{year}.xml"] = (
+        "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+        f"?data=daily_treasury_yield_curve&field_tdr_date_value={year}"
+    )
+receipts = []
+for filename, url in urls.items():
+    requested = datetime.now(timezone.utc).isoformat()
+    with urlopen(Request(url, headers={"User-Agent": "Quant-RSI research"}), timeout=60) as response:
+        body = response.read(8 * 1024 * 1024 + 1)
+        if len(body) > 8 * 1024 * 1024:
+            raise ValueError("Risk response exceeds 8 MiB")
+        receipts.append({
+            "file": filename, "requested_url": url, "response_url": response.geturl(),
+            "status": response.status, "requested_at": requested,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body),
+        })
+    (root / "raw" / filename).write_bytes(body)
+(root / "receipts.json").write_text(json.dumps(receipts, indent=2))
+```
+
+Choose Treasury years covering the requested research period. Source references:
+[Cboe VIX historical data](https://www.cboe.com/tradable_products/vix/vix_historical_data/)
+and [US Treasury daily interest-rate XML feed](https://home.treasury.gov/treasury-daily-interest-rate-xml-feed).
+There is no automatic risk-data acquisition in `research-rolling`.
+
+The first run copies and revalidates the bundle under the output's `risk_history/`
+directory and binds its identity to the run configuration. A failed run resumed
+with the same command reads that retained copy, so an updated or removed external
+snapshot cannot silently change an experiment. Tampering with the retained bundle
+fails validation; changing its valid content fails the configuration identity check.
