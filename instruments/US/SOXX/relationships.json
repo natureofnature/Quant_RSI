@@ -1,0 +1,22 @@
+{
+  "instrument": "SOXX",
+  "reviewed_on": "2026-11-04",
+  "relationships": [
+    {
+      "symbol": "XSD",
+      "relationship": "industry_comparator",
+      "reason": "A separately managed semiconductor ETF used as an industry comparator; not a claim of SOXX holdings or historical constituent weights.",
+      "source_urls": [
+        "https://www.ssga.com/us/en/individual/etfs/spdr-sp-semiconductor-etf-xsd"
+      ]
+    },
+    {
+      "symbol": "SPY",
+      "relationship": "market_comparator",
+      "reason": "Broad US equity market comparator; configured research context, not a causal relationship.",
+      "source_urls": [
+        "https://www.ssga.com/us/en/individual/etfs/spdr-sp-500-etf-trust-spy"
+      ]
+    }
+  ]
+}

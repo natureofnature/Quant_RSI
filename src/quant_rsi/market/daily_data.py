@@ -380,7 +380,9 @@ def _complete_bars(
     *,
     historical_sessions=HISTORY_SESSIONS,
     future_sessions=5,
+    as_of=None,
 ):
+    cutoff = min(received_at, as_of) if as_of is not None else received_at
     complete, previous = [], None
     first_calendar_year = min(holidays)
     for i, epoch in enumerate(timestamps):
@@ -392,12 +394,14 @@ def _complete_bars(
         # history; the required window and future sessions are still checked below.
         if opening.year < first_calendar_year:
             continue
+        if as_of is not None and opening > cutoff:
+            continue
         # The source can contain a current partial bar, but cannot define its close.
         session = _session(opening.date(), holidays, early)
         if session is None or opening != datetime.fromisoformat(session["open_at"]):
             raise ValueError("Daily timestamp differs from the official registered opening")
         close_at = datetime.fromisoformat(session["close_at"])
-        if received_at < close_at + timedelta(seconds=CLOSE_BUFFER_SECONDS):
+        if cutoff < close_at + timedelta(seconds=CLOSE_BUFFER_SECONDS):
             if opening > received_at:
                 raise ValueError("Public chart contains a future bar")
             continue
@@ -419,9 +423,9 @@ def _complete_bars(
         raise ValueError("Missing completed exchange sessions; prices will not be imputed")
     # Do not silently forecast from an old quote when a later session is already complete.
     day = end + timedelta(days=1)
-    while day <= received_at.astimezone(EASTERN).date():
+    while day <= cutoff.astimezone(EASTERN).date():
         session = _session(day, holidays, early)
-        if session and received_at >= datetime.fromisoformat(session["close_at"]) + timedelta(
+        if session and cutoff >= datetime.fromisoformat(session["close_at"]) + timedelta(
             seconds=CLOSE_BUFFER_SECONDS
         ):
             raise ValueError("Latest completed exchange session is absent from the public chart")
@@ -487,13 +491,18 @@ def _action_events(data, ticker, raw_ref):
 
 
 def collect_daily(
-    ticker, output_dir, *, historical_sessions=HISTORY_SESSIONS, future_sessions=5
+    ticker, output_dir, *, historical_sessions=HISTORY_SESSIONS, future_sessions=5, as_of=None
 ) -> dict:
     """Collect into a fresh directory; errors preserve raw evidence and a failure receipt."""
     if type(historical_sessions) is not int or not HISTORY_SESSIONS <= historical_sessions <= 445:
         raise ValueError("Daily history must contain 120 through 445 sessions")
     if type(future_sessions) is not int or not 5 <= future_sessions <= 60:
         raise ValueError("Future calendar must contain 5 through 60 sessions")
+    if as_of is not None:
+        if not isinstance(as_of, datetime) or as_of.utcoffset() is None:
+            raise ValueError("as_of must be a timezone-aware datetime")
+        if as_of > _now():
+            raise ValueError("as_of cannot be in the future")
     output = Path(output_dir).absolute()
     output.mkdir(parents=True, exist_ok=True)
     if any(output.iterdir()):
@@ -508,6 +517,7 @@ def collect_daily(
         "started_at": _now().isoformat(),
         "downloads": downloads,
         "status": "collecting",
+        "price_cutoff": as_of.isoformat() if as_of is not None else None,
         "complete_bar_policy": {
             "scheduled_close_buffer_seconds": CLOSE_BUFFER_SECONDS,
             "claim": "conservative_collection_assumption_not_finality",
@@ -566,6 +576,7 @@ def collect_daily(
             bars_received_at,
             historical_sessions=historical_sessions,
             future_sessions=future_sessions,
+            as_of=as_of,
         )
         sessions = [bar[0] for bar in bars] + future
         calendar_evidence = {
@@ -612,6 +623,15 @@ def collect_daily(
             },
         )
         action_events, cash, unsupported = _action_events(data, ticker, _sha(raw))
+        if as_of is not None:
+            action_events = [
+                event
+                for event in action_events
+                if datetime.fromisoformat(event["event_at"]) <= as_of
+            ]
+            kept_actions = {event["event_id"] for event in action_events}
+            cash = {key: value for key, value in cash.items() if key in kept_actions}
+            unsupported = [key for key in unsupported if key in kept_actions]
         # Yahoo supplies no event revision counter. Version the immutable source
         # by its evidence instead of overwriting revision zero in an older import.
         source_version = _sha(canonical({"response_ref": _sha(raw), "calendar_ref": calendar_ref}))
@@ -692,6 +712,11 @@ def collect_daily(
             "unversioned_provider_events_use_revision_zero_conflicts_must_not_be_overwritten",
             "immutable_source_version_binds_chart_response_and_calendar_evidence",
         ]
+        if as_of is not None:
+            qualifications.append(
+                "historical_price_cutoff_not_a_historical_provider_snapshot; "
+                "raw_response_and_receipts_are_from_actual_collection_time"
+            )
         if unsupported:
             qualifications.append("unsupported_action_notices_retained_for_forecast_abstention")
         evidence = {
