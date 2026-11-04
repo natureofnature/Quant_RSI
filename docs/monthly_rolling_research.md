@@ -216,6 +216,17 @@ and a fresh output directory. Larger structured proposals can take longer than
 the default provider timeout. Failed calls remain recorded; adding features does
 not itself establish a forecast advantage.
 
+## Interpreting mature feedback
+
+Mature monthly feedback includes absolute simple-return errors in percentage
+points and paired adaptive-minus-control loss differences. A negative difference
+against the fixed model supports a candidate-pool increment on that target; it
+does not imply the adaptive forecast beats unchanged price or the training mean.
+The research prompt asks for the feedback month, prediction hash and comparator
+when explaining a revision. Withdrawal returns the fixed-feature model. These
+comparisons do not establish an individual factor's causal contribution, and
+unmatured targets never enter the feedback.
+
 ## Measured market-risk inputs
 
 Add `--risk-history /path/to/snapshot` to expose these optional inputs to the LLM:
