@@ -476,6 +476,9 @@ quant-rsi research-study KO --output /tmp/ko-study
 For fixed six-month training windows that roll monthly, with optional LLM
 factor revisions, continuous accounts and next-month forecasts, see
 [monthly rolling research](docs/monthly_rolling_research.md).
+Add `--news-research` to acquire dated headlines and train executable,
+evidence-linked news inputs alongside the fixed price baseline; reconstructed
+history is labeled explicitly.
 
 For a frozen SOXX January–October 2026 task targeting November 30, see the
 [SOXX cutoff example](docs/soxx_november_2026.md), including historical-news

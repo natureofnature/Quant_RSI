@@ -17,12 +17,15 @@ from quant_rsi.research.demo_prices import read_daily_history
 from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_monthly_strategy
 from quant_rsi.research.llm import LLMHypothesizer
+from quant_rsi.research.rolling_news_features import compile_news_inputs
+from quant_rsi.research.rolling_news_sources import collect_history, select_evidence
 from quant_rsi.research.rolling_research import (
     admit_decision,
     candidate_matrix,
     decision_context,
     feature_library,
     propose,
+    verify_news_dependency,
 )
 from quant_rsi.research.rolling_windows import monthly_plan, read_calendar
 from quant_rsi.research.study_estimators import StandardizedRidge
@@ -57,6 +60,17 @@ def add_arguments(commands):
     parser.add_argument("--llm-model")
     parser.add_argument("--llm-timeout", type=float, default=180)
     parser.add_argument("--news-archive", type=Path)
+    parser.add_argument(
+        "--news-research",
+        action="store_true",
+        help="acquire historical headlines and execute news factor hypotheses",
+    )
+    parser.add_argument(
+        "--news-query", help="fixed historical search universe; frozen before research"
+    )
+    parser.add_argument(
+        "--news-information-mode", choices=("reconstructed", "retained"), default="reconstructed"
+    )
     parser.add_argument("--commission-bps", default="5")
     parser.add_argument("--slippage-bps", default="5")
     parser.add_argument("--initial-cash", default="10000")
@@ -157,10 +171,23 @@ def _feedback(folds, cutoff):
 
 
 def run_months(
-    data, info, peers, plan, cache, root, *, model="lightgbm", llm=None, snapshots=(), on_fold=None
+    data,
+    info,
+    peers,
+    plan,
+    cache,
+    root,
+    *,
+    model="lightgbm",
+    llm=None,
+    snapshots=(),
+    on_fold=None,
+    news_history=None,
+    news_mode="reconstructed",
+    news_required=False,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
-    folds, incumbent = [], []
+    folds, incumbent, incumbent_news = [], [], []
     for planned in plan:
         fold = deepcopy(planned)
         dates = fold.pop("history_sessions")
@@ -212,7 +239,15 @@ def run_months(
         fold["forecasts"]["training_label_mean"] = _forecast(
             fold, prefix.closes[-1, 0], float(labels.mean())
         )
-        news = retained_news(snapshots, fold["information_cutoff"], data.instruments[0], 20)
+        news = (
+            select_evidence(news_history, fold["information_cutoff"], mode=news_mode, limit=None)
+            if news_history is not None
+            else retained_news(snapshots, fold["information_cutoff"], data.instruments[0], 2000)
+        )
+        news["research_required"] = news_required
+        fold["news_evidence"] = deepcopy(news)
+        # The corpus is already cutoff-filtered; each numerical row is filtered again.
+        row_times = [info["session_close_times"][data.dates.index(day)] for day in dates]
         context = decision_context(
             data.instruments[0],
             fold,
@@ -220,6 +255,7 @@ def run_months(
             incumbent,
             news,
             _feedback(folds, fold["information_cutoff"]),
+            incumbent_news,
         )
         _write(folder / "research_context.json", context)
         fold["news_coverage"] = news["coverage_status"]
@@ -233,16 +269,67 @@ def run_months(
             try:
                 decision, proposed = admit_decision(raw, incumbent, news)
                 fold["decision"] = decision
+                proposed_news = (
+                    decision["news_inputs"]
+                    if decision["action"] == "replace"
+                    else []
+                    if decision["action"] == "withdraw"
+                    else incumbent_news
+                )
+                news_columns, news_definitions, diagnostics = compile_news_inputs(
+                    proposed_news,
+                    news["items"],
+                    row_times,
+                    mode=news_mode if news_history is not None else "retained",
+                    history_start=row_times[0],
+                    coverage=news_history["searches"] if news_history is not None else None,
+                )
+                fold["news_features"] = diagnostics
+                active_columns = columns | news_columns
+                active_definitions = definitions + news_definitions
+                required = np.append(train, len(dates) - 1)
+                used_news = {
+                    binding["factor_id"]
+                    for recipe in proposed
+                    for binding in recipe["inputs"]
+                    if binding["factor_id"].startswith("news.")
+                }
+                if news_required and proposed and not used_news:
+                    raise ValueError("News research requires an actual news input in the model")
+                if set(news_columns) != used_news:
+                    raise ValueError("Every declared news input must be used by a candidate")
+                for identity in used_news:
+                    if len(np.unique(news_columns[identity][train])) < 2:
+                        raise ValueError(f"News input has no training variation: {identity}")
                 candidate, ids = candidate_matrix(
-                    proposed, columns, definitions, baseline, np.append(train, len(dates) - 1)
+                    proposed, active_columns, active_definitions, baseline, required
                 )
                 if proposed:
+                    if news_required:
+                        verify_news_dependency(
+                            proposed, active_columns, active_definitions, required
+                        )
+                    if any(
+                        len(np.unique(candidate[train, i])) < 2
+                        for i in range(len(baseline), candidate.shape[1])
+                    ):
+                        raise ValueError("Candidate expression has no training variation")
                     fold["forecasts"]["adaptive"] = fit("adaptive", candidate, ids)
                     fold["candidate_status"] = "fitted"
+                    fold["news_training"] = {
+                        identity: {
+                            "training_values": news_columns[identity][train].tolist(),
+                            "prediction_value": float(news_columns[identity][-1]),
+                            "distinct_training_values": len(
+                                np.unique(news_columns[identity][train])
+                            ),
+                        }
+                        for identity in sorted(used_news)
+                    }
                 else:
                     fold["forecasts"]["adaptive"] = deepcopy(fold["forecasts"]["fixed"])
                     fold["candidate_status"] = "baseline_reused"
-                incumbent = proposed
+                incumbent, incumbent_news = proposed, proposed_news
             except ValueError as exc:
                 fold["candidate_status"] = "rejected"
                 fold["candidate_error"] = str(exc)
@@ -255,6 +342,7 @@ def run_months(
             if "adaptive" not in fold["fits"]:
                 fold["fits"]["adaptive"] = deepcopy(fold["fits"]["fixed"]) | {"reused_arm": "fixed"}
         fold["candidate_recipes"] = deepcopy(incumbent)
+        fold["candidate_news_inputs"] = deepcopy(incumbent_news)
         fold["candidate_recipe_role"] = (
             "Research incumbent for next decision; actual factors in fits"
         )
@@ -313,6 +401,11 @@ def run_rolling(args):
                 data.dates, info["session_close_times"], peer_data, evidence
             )
             peer_info[peer] = evidence
+    news_required = getattr(args, "news_research", False)
+    if news_required and args.llm == "none":
+        raise ValueError("--news-research requires --llm codex or api")
+    if getattr(args, "news_query", None) and not news_required:
+        raise ValueError("--news-query requires --news-research")
     snapshots = load_archive(args.news_archive) if args.news_archive else []
     root = args.output.resolve()
     config = {
@@ -382,6 +475,24 @@ def run_rolling(args):
                 if args.llm == "none"
                 else LLMHypothesizer(args.llm, args.llm_model, args.llm_timeout, on_usage=usage)
             )
+            news_history = None
+            if news_required and not snapshots:
+                start = plan[0]["training_window"]["start"]
+                end = plan[-1]["origin_session"]
+                request = {
+                    "symbol": symbol,
+                    "start": start,
+                    "end": end,
+                    "query": getattr(args, "news_query", None),
+                }
+                print("[quant-rsi] collecting dated historical news", flush=True)
+                news_history = cache.call(
+                    "news_history",
+                    request,
+                    lambda: collect_history(
+                        symbol, start, end, root / "news_history", query=request["query"]
+                    ),
+                )
             run_months(
                 data,
                 info,
@@ -393,6 +504,9 @@ def run_rolling(args):
                 llm=llm,
                 snapshots=snapshots,
                 on_fold=completed,
+                news_history=news_history,
+                news_mode=getattr(args, "news_information_mode", "reconstructed"),
+                news_required=news_required,
             )
             policy = {
                 k: getattr(args, k)

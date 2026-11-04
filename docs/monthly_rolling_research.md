@@ -113,3 +113,75 @@ folds remain visible. Repeat the **same command and output path** with `--resume
 to reuse them. Changed code, dependencies, input identities or configuration are
 rejected; completed runs cannot be resumed or overwritten. Keep failed outputs
 as evidence rather than silently restarting paid research.
+
+## Executable news research
+
+Add `--news-research` to the same rolling command:
+
+```bash
+quant-rsi research-rolling SOXX \
+  --prices-dir /tmp/soxx-november-2026-inputs/SOXX \
+  --related-prices-dir /tmp/soxx-november-2026-inputs \
+  --first-month 2026-07 --last-month 2026-11 \
+  --llm codex --news-research \
+  --output /tmp/soxx-monthly-news
+```
+
+This acquires date-bounded Google News RSS searches for each calendar month,
+starting at the first training window. The SOXX search universe covers
+semiconductors, chipmakers, Nvidia, TSMC, chip exports, stock-market news,
+the Federal Reserve, Taiwan and the Middle East. Use `--news-query` to
+freeze a different sector/company/macro search universe before the run. Results
+are selected search results, not comprehensive news coverage. Raw RSS, requests,
+actual retrieval timestamps and hashes are retained under `news_history/`.
+Transport or parsing failures stop the run and can be retried with `--resume`;
+successful searches, decisions and fits are reused.
+
+Before each monthly decision, articles after its cutoff are removed. The LLM can
+propose arbitrary evidence-linked `news.*` input recipes: trailing headline counts
+or a balance of positive-basket matches minus negative-basket matches, over 1–30
+calendar days. Terms must literally match cited headlines. For example, a policy
+hypothesis may count retrieved export-restriction headlines; this is not a measure
+of actual export revenue. The LLM binds these inputs into the existing candidate
+expression grammar. Fixed price factors remain in both model arms.
+
+Each training row independently excludes later publications. Counts use distinct
+article IDs; a balance headline matching both baskets contributes zero. Zero
+means no match in the retrieved corpus, **not no world event**. News inputs and
+candidate expressions must vary on the actual training rows. Declared news inputs
+must be used in candidates; a price-only proposal is rejected in news-research
+mode. Missing evidence, unsupported recipes and constant inputs retain the fixed
+forecast with explicit rejection details. A retained decision reuses its earlier
+recipe and recomputes it on the next window. The report lists actual training
+values/ranges, source IDs, hypotheses, coverage and the number of monthly models
+that really used news inputs.
+
+The default `--news-information-mode reconstructed` uses reported publication
+times of headline versions retrieved today. It preserves today's actual receipts
+and **does not claim historical capture or point-in-time article versions**.
+Headlines are not replaced by today's mutable full article bodies. Search ranking
+may itself reflect later information. LLM pretrained knowledge and retrospective
+recipe selection remain additional limitations. This is an explicitly reconstructed
+research experiment, not an independent historical validation.
+
+`--news-information-mode retained` additionally requires publication, receipt and
+version availability before each decision/row. Newly collected old headlines will
+therefore be unavailable for past decisions in this mode. An existing
+`--news-archive` uses the original retained-snapshot path and never has its receipt
+times relaxed. News discovery may withdraw a hypothesis or fail to produce an
+executable factor; the report exposes this instead of relabeling a price factor
+as news research.
+
+These inputs are lexical headline measurements, not verified semantic sentiment,
+actual revenue/profit/inventory, or a universal measure of political/war risk.
+Obtaining dated business measurements remains a distinct data acquisition task.
+The new path establishes news → declared non-price input → actual model feature →
+monthly forecast → mature feedback, with fixed and simple baselines retained.
+
+News feature windows cannot extend before the fold's history. Unqueried/failed
+calendar intervals are unavailable, not zero. Source queries must cover every
+calendar day of an admitted numerical window; completed queries with no matching
+captured headlines may yield zero. Intermediate expression lags cannot bypass
+these unavailable values. For bounded LLM context, at most 12 recent headlines per
+month plus incumbent cited evidence are shown; numerical inputs use the full
+eligible corpus and the report records omitted-context counts.
