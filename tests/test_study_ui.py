@@ -2,10 +2,13 @@
 
 import json
 import shutil
+import socket
 import subprocess
 import threading
+from http.client import HTTPConnection
 from importlib.resources import files
 from urllib.error import HTTPError
+from urllib.parse import urljoin
 from urllib.request import urlopen
 
 import pytest
@@ -74,14 +77,78 @@ def test_server_only_serves_token_scoped_read_only_endpoints(tmp_path):
                 assert b"THE RESEARCH LOOP" in response.read()
             for path in (
                 "/",
+                "/?view=live",
+                "/wrong-token/",
+                "/wrong-token?view=live",
                 "/config.json",
                 "/test-token/../secret.txt",
+                "/test-token/%2e%2e/secret.txt",
                 "/test-token/secret.txt",
             ):
                 with pytest.raises(HTTPError) as exc:
                     urlopen(base + path, timeout=3)
                 assert exc.value.code == 404
         finally:
+            server.shutdown()
+            thread.join(timeout=3)
+
+
+@pytest.mark.parametrize("query", ["", "?view=live&x=1"])
+def test_server_redirects_to_canonical_page_and_polls_with_queries(tmp_path, query):
+    (tmp_path / "config.json").write_text('{"symbol":"KO"}')
+    with study_ui.make_server(tmp_path, "test-token") as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        connection = HTTPConnection(*server.server_address, timeout=3)
+        try:
+            connection.request("GET", "/test-token" + query)
+            response = connection.getresponse()
+            assert response.status == 302
+            assert response.headers["Location"] == "/test-token/"
+            assert response.headers["Cache-Control"] == "no-store"
+            assert response.headers["Content-Length"] == "0"
+            assert response.read() == b""
+            with urlopen(base + "/test-token" + query, timeout=3) as response:
+                assert response.url == base + "/test-token/"
+                state_url = urljoin(response.url, "state") + query
+                response.read()
+            with urlopen(base + "/test-token/" + query, timeout=3) as response:
+                assert response.headers.get_content_type() == "text/html"
+                assert b"THE RESEARCH LOOP" in response.read()
+            # Match the live page's relative fetch('state') after redirection.
+            with urlopen(state_url, timeout=3) as response:
+                assert response.headers.get_content_type() == "application/json"
+                assert json.load(response)["symbol"] == "KO"
+        finally:
+            connection.close()
+            server.shutdown()
+            thread.join(timeout=3)
+
+
+def test_idle_browser_connection_does_not_block_state_requests(tmp_path, monkeypatch):
+    with study_ui.make_server(tmp_path, "test-token") as server:
+        accepted = threading.Event()
+        get_request = server.get_request
+
+        def accept():
+            connection = get_request()
+            accepted.set()
+            return connection
+
+        monkeypatch.setattr(server, "get_request", accept)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        idle = socket.create_connection(server.server_address, timeout=3)
+        try:
+            assert accepted.wait(timeout=3)
+            base = f"http://127.0.0.1:{server.server_port}"
+            # Leave the accepted connection idle until a second request completes.
+            with urlopen(base + "/test-token/state", timeout=3) as response:
+                assert response.status == 200
+                assert "runtime" in json.load(response)
+        finally:
+            idle.close()
             server.shutdown()
             thread.join(timeout=3)
 

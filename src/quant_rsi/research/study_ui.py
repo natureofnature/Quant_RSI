@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
 
@@ -252,12 +252,22 @@ def make_server(root, token):
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.path not in {prefix, prefix + "state"}:
+            path = self.path.partition("?")[0]
+            if path == prefix[:-1]:
+                # Relative state polling requires the page URL's trailing slash.
+                self.server.last_request = time.monotonic()
+                self.send_response(302)
+                self.send_header("Location", prefix)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if path not in {prefix, prefix + "state"}:
                 self.send_error(404)
                 return
             self.server.last_request = time.monotonic()
             state = read_state(root)
-            is_state = self.path.endswith("/state")
+            is_state = path == prefix + "state"
             body = json.dumps(state, ensure_ascii=False) if is_state else page(state, live=True)
             self.send_response(200)
             self.send_header(
@@ -276,7 +286,8 @@ def make_server(root, token):
         def log_message(self, *args):
             pass
 
-    server = HTTPServer(("127.0.0.1", 0), Handler)
+    # Browsers may preconnect without sending a request; keep polling responsive.
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.timeout = 1
     server.last_request = time.monotonic()
     return server
