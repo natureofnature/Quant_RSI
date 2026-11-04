@@ -136,7 +136,9 @@ def restrict_context(context, model, plan):
     result["guidance"] = None
     if "financial_features" in result:
         # The latest retained row can belong to terminal, so never use evidence[-1].
+        evidence = model.financial_features.get("evidence") or []
+        index = model.origin + model.horizon
         result["financial_features"]["latest_visible_facts"] = deepcopy(
-            model.financial_features.get("evidence", [{}])[model.origin + model.horizon]
+            evidence[index] if index < len(evidence) else {}
         )
     return result

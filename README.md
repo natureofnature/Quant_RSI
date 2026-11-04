@@ -64,6 +64,9 @@ baseline fixed while testing up to two business hypotheses. Enable the relevant
 financial or industry inputs; optional training/development/terminal date windows
 and the mode are saved in templates. See [incremental research](docs/incremental_business_research.md)
 for the three-fit budget and retrospective information limits.
+Workbench date controls partition model samples; research still uses retrospective
+information. Restricting supplied materials to a historical cutoff requires the
+CLI's `--information-mode retained` option.
 An optional **Research question** focuses news discovery and both hypothesis rounds;
 it is saved with the template, task, report and forecast history.
 Save these settings as a template and optionally enable recurring cycles. Scheduling
