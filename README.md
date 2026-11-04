@@ -482,6 +482,8 @@ Add `--candidate-revision` to let the LLM inspect training coverage, redundancy
 and screening failures, then revise once at the same cutoff before fitting the
 final pool. This adds one provider operation per month and no model fits;
 structural diagnostics are not evidence of predictive usefulness.
+The LLM can select an exact subset of existing recipes by reference, preserving
+their definitions and ancestry without regenerating retained factors.
 Add `--news-research` to acquire dated headlines and train executable,
 evidence-linked news inputs alongside the fixed price baseline; reconstructed
 history is labeled explicitly. Use `--max-candidates 16 --max-news-inputs 32`

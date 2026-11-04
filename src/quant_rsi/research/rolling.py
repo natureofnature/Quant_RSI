@@ -417,6 +417,15 @@ def run_months(
                             if decision["action"] == "withdraw"
                             else preview_news
                         )
+                        if decision["action"] == "select":
+                            used = {
+                                item["factor_id"]
+                                for candidate in proposed
+                                for item in candidate["inputs"]
+                            }
+                            proposed_news = [
+                                value for value in preview_news if value["input_id"] in used
+                            ]
                         parents = {
                             DiscoveryFactor.model_validate_json(canonical(value)).recipe_ref
                             for value in preview
