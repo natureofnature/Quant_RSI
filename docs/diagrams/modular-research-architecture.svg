@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1430" viewBox="0 0 1600 1430" role="img" aria-labelledby="title desc">
 <title id="title">Quant RSI — Modular Research Architecture</title>
 <desc id="desc">Memory, Decision Agent and Backtesting Loop form the main research loop. News Analysis proposes plugin factors that join common factors through a unified catalog. Seven numbered interactions follow the original architecture. Shared time and budget constraints apply throughout.</desc>
 <defs>
@@ -7,7 +7,7 @@
  <marker id="gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa5b4"/></marker>
  <style>text{font-family:'Noto Sans CJK SC','Microsoft YaHei',sans-serif} .title{font-size:26px;font-weight:700;fill:#18283e} .body{font-size:14px;fill:#516176} .label{font-size:16px;font-weight:500} .small{font-size:13px;fill:#7b8797} .section{font-size:12px;letter-spacing:2px;font-weight:700}</style>
 </defs>
-<rect width="1600" height="1040" fill="#f6f8fc"/>
+<rect width="1600" height="1430" fill="#f6f8fc"/>
 
 <text x="72" y="65" font-size="14" fill="#4267ad" font-weight="700">QUANT RSI</text>
 <text x="72" y="117" font-size="38" fill="#18283e" font-weight="700">Modular Research Architecture</text>
@@ -118,6 +118,58 @@
 <text x="1274" y="792" font-size="14" fill="#8063aa" font-weight="500">Common + plugin factors</text>
 <text x="1274" y="829" class="body">Unified lookup / availability</text>
 <text x="1274" y="856" class="body">Resolve recipes for backtesting</text>
+<text x="72" y="937" font-size="12" fill="#397b72" font-weight="700" text-anchor="start">AUXILIARY INTERFACES</text>
+<text x="72" y="962" font-size="15" fill="#69788b" font-weight="400" text-anchor="start">Same Decision Agent and execution modules as above. New interfaces, not new agents.</text>
+<rect x="90" y="990" width="240" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="108" y="1010" width="4" height="17" rx="2" fill="#4267ad"/>
+<text x="122" y="1024" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Decision Agent</text>
+<text x="110" y="1050" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Versioned research policy</text>
+<text x="110" y="1071" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Bounded requests / synthesis</text>
+<path d="M 330 1040 H 425" fill="none" stroke="#718196" stroke-width="2" marker-end="url(#gray)"/>
+<path d="M 775 1040 H 870" fill="none" stroke="#718196" stroke-width="2" marker-end="url(#gray)"/>
+<path d="M 1130 1040 H 1250" fill="none" stroke="#718196" stroke-width="2" marker-end="url(#gray)"/>
+<rect x="90" y="1140" width="240" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="108" y="1160" width="4" height="17" rx="2" fill="#4267ad"/>
+<text x="122" y="1174" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Decision Agent</text>
+<text x="110" y="1200" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Versioned research policy</text>
+<text x="110" y="1221" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Bounded requests / synthesis</text>
+<path d="M 330 1190 H 425" fill="none" stroke="#718196" stroke-width="2" marker-end="url(#gray)"/>
+<path d="M 775 1190 H 870" fill="none" stroke="#718196" stroke-width="2" marker-end="url(#gray)"/>
+<path d="M 1130 1190 H 1250" fill="none" stroke="#718196" stroke-width="2" marker-end="url(#gray)"/>
+<rect x="425" y="990" width="350" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="443" y="1010" width="4" height="17" rx="2" fill="#397b72"/>
+<text x="457" y="1024" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Factor DSL Validator</text>
+<text x="445" y="1050" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Types / input bindings / causal windows</text>
+<text x="445" y="1071" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Normalize recipe / return diagnostics</text>
+<rect x="870" y="990" width="260" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="888" y="1010" width="4" height="17" rx="2" fill="#397b72"/>
+<text x="902" y="1024" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Executable Recipe</text>
+<text x="890" y="1050" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Versioned expression graph</text>
+<text x="890" y="1071" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Catalog registration / reuse</text>
+<rect x="1250" y="990" width="278" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="1268" y="1010" width="4" height="17" rx="2" fill="#4267ad"/>
+<text x="1282" y="1024" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Backtesting Loop</text>
+<text x="1270" y="1050" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Resolve validated expression</text>
+<text x="1270" y="1071" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Compute features / train / evaluate</text>
+<rect x="425" y="1140" width="350" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="443" y="1160" width="4" height="17" rx="2" fill="#397b72"/>
+<text x="457" y="1174" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Data Acquisition</text>
+<text x="445" y="1200" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Targeted search / read / extract</text>
+<text x="445" y="1221" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Validate availability / units / coverage</text>
+<rect x="870" y="1140" width="260" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="888" y="1160" width="4" height="17" rx="2" fill="#397b72"/>
+<text x="902" y="1174" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">InputBundle</text>
+<text x="890" y="1200" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Actual observations + provenance</text>
+<text x="890" y="1221" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Dates / versions / coverage gaps</text>
+<rect x="1250" y="1140" width="278" height="100" rx="14" fill="#fff" stroke="#dce3ed"/>
+<rect x="1268" y="1160" width="4" height="17" rx="2" fill="#4267ad"/>
+<text x="1282" y="1174" font-size="18" fill="#18283e" font-weight="700" text-anchor="start">Factor Execution</text>
+<text x="1270" y="1200" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Bind eligible input values</text>
+<text x="1270" y="1221" font-size="13" fill="#516176" font-weight="400" text-anchor="start">Feed the same backtesting path</text>
+<text x="379" y="1024" font-size="12" fill="#718196" font-weight="400" text-anchor="middle">DSL</text>
+<text x="379" y="1174" font-size="12" fill="#718196" font-weight="400" text-anchor="middle">Request</text>
+<text x="72" y="1280" font-size="14" fill="#69788b" font-weight="400" text-anchor="start">Missing inputs and operators return actionable diagnostics. Terminal results never return to research feedback.</text>
+<g transform="translate(0 390)">
 <rect x="72" y="922" width="1456" height="73" rx="14" fill="#fff" stroke="#dce3ed"/>
 <text x="96" y="950" font-size="14" fill="#34527f" font-weight="700">SHARED CONSTRAINTS</text>
 <text x="96" y="976" font-size="14" fill="#69788b">Time-aware data access</text>
@@ -127,4 +179,6 @@
 <text x="680" y="976" font-size="13" fill="#7b8797">Remember failures and data gaps</text>
 <text x="1060" y="951" font-size="16" fill="#344761" font-weight="600">Terminal evaluation after selection</text>
 <text x="1060" y="976" font-size="13" fill="#7b8797">Archive results; never feed them into same-run revisions</text>
+
+</g>
 </svg>
