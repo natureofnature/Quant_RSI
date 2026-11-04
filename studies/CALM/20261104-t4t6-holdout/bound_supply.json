@@ -1,0 +1,49 @@
+{
+  "failures": [
+    {
+      "source": "usda_ams_egg_reports",
+      "reason": "Retained shell egg snapshot identity changed"
+    }
+  ],
+  "nass": {
+    "provider": "nass_chickens_eggs",
+    "notice": "NASS Quick Stats national monthly series: average table-egg layer inventory, egg-type pullet placements, and egg-type chicks hatched. A value is hidden until its load_time, which is the database load time interpreted as US Eastern time, not the reference month. Quick Stats returns the current row, so a later reload is not a point-in-time revision history. Missing rows stay empty and are then carried forward only after they have loaded.",
+    "sha256": "b4184f60289178ab0c23026ce34d767d4896887388f7e373e17bdc4ba14cc3cf",
+    "first_year": 2024,
+    "observations": 99
+  },
+  "egg_catalog": {
+    "directory": "/tmp/qrsi_calm_egg/catalog_collect",
+    "fields": [
+      "bls_eggs",
+      "bls_food",
+      "breaking",
+      "corn",
+      "diesel",
+      "drought",
+      "easter",
+      "effr",
+      "egg_price",
+      "egg_volume",
+      "feed_index",
+      "gas",
+      "meal",
+      "mxn",
+      "nass_hatched",
+      "nass_incubators",
+      "nass_inventory",
+      "nass_layer_loss",
+      "nass_layers_ca",
+      "nass_layers_ia",
+      "nass_layers_in",
+      "nass_layers_oh",
+      "nass_layers_pa",
+      "nass_molt",
+      "nass_molt_completed",
+      "nass_placements",
+      "nass_rate_of_lay",
+      "ny_carton",
+      "thanksgiving"
+    ]
+  }
+}

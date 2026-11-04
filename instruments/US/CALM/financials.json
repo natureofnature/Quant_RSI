@@ -1,0 +1,23 @@
+{
+  "symbol": "CALM",
+  "cik": "16160",
+  "fields": {
+    "revenue": [
+      "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "Revenues",
+      "SalesRevenueNet"
+    ],
+    "operating_income": [
+      "OperatingIncomeLoss"
+    ],
+    "operating_cashflow": [
+      "NetCashProvidedByUsedInOperatingActivities"
+    ],
+    "capital_expenditure": [
+      "PaymentsToAcquirePropertyPlantAndEquipment"
+    ],
+    "inventory": [
+      "InventoryNet"
+    ]
+  }
+}

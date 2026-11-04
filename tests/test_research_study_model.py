@@ -168,7 +168,7 @@ def test_retained_prices_use_last_twenty_matured_origins_and_unobserved_latest_f
     assert prediction["development"]["currency"] == "TEST"
 
 
-@pytest.mark.parametrize("count", [0, -1, True, 1.5, 21])
+@pytest.mark.parametrize("count", [0, -1, True, 1.5, 757])
 def test_study_rejects_invalid_evaluation_counts(count):
     with pytest.raises(ValueError, match="evaluation_sessions"):
         LightGBMDemo(demo.load_catalog(CATALOG), evaluation_sessions=count)

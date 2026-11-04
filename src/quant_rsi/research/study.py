@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from quant_rsi.core.data import MarketData
 from quant_rsi.factors.contracts import InstrumentId
 from quant_rsi.market.market_contracts import SideCosts, decimal_text
 from quant_rsi.research.active_news import attach_research, research_news
@@ -116,6 +117,11 @@ def _configuration(args):
     estimator_configuration = model_configuration(
         args.model, args.ridge_alpha, horizon_sessions=horizon
     )
+    label_pair = (getattr(args, "label_endpoint", None), getattr(args, "label_average", 1))
+    if label_pair == (30, 5):
+        estimator_configuration["target"] = "log_five_day_average_close_ending_30_over_close"
+    elif label_pair == (6, 3):
+        estimator_configuration["target"] = "log_mean_close_t_plus_4_5_6_over_close"
     compare_external = getattr(args, "compare_qlib", False)
     if compare_external:
         if args.model != "lightgbm":
@@ -177,6 +183,25 @@ def _configuration(args):
         generated_recipes="bounded_price_news_and_business_expressions",
     )
     return symbol, root, configuration
+
+
+def _prefix_through(prices, through):
+    """Keep a leading date prefix. Later sessions stay out of train, development and test."""
+    if not through or prices is None:
+        return prices
+    data, info = prices
+    if through < data.dates[0] or through > data.dates[-1]:
+        raise ValueError("sample-through is outside the retained price sample")
+    kept = tuple(day for day in data.dates if day <= through)
+    if kept[-1] != through:
+        raise ValueError("sample-through must be a retained session")
+    n = len(kept)
+    info = dict(info)
+    info["session_close_times"] = list(info["session_close_times"][:n])
+    return (
+        MarketData(kept, data.instruments, data.opens[:n].copy(), data.closes[:n].copy()),
+        info,
+    )
 
 
 def _run_study(args, symbol, root, configuration, *, resume=False):
@@ -282,6 +307,16 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     from quant_rsi.research.study_walk_forward import price_history_sessions
 
     horizon = getattr(args, "horizon_sessions", 5)
+    label_endpoint = getattr(args, "label_endpoint", None)
+    label_average = getattr(args, "label_average", 1)
+    if label_endpoint is None:
+        if label_average != 1:
+            raise ValueError("An average label requires --label-endpoint 6 or 30")
+        model_horizon, model_average = horizon, 1
+    elif (label_endpoint, label_average) not in {(30, 5), (6, 3)}:
+        raise ValueError("Average labels are the t+4..t+6 mean, or the five-session mean at t+30")
+    else:
+        model_horizon, model_average = label_endpoint, label_average
     folds = getattr(args, "walk_forward_folds", 0)
     history_sessions = price_history_sessions(
         horizon, args.evaluation_sessions, folds, getattr(args, "historical_sessions", None)
@@ -298,6 +333,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         if args.prices == "daily"
         else None
     )
+    prices = _prefix_through(prices, getattr(args, "sample_through", None))
     if prices:
         cache.call(
             "target_inputs",
@@ -317,9 +353,18 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         estimator=args.model,
         ridge_alpha=args.ridge_alpha,
         fit_cache=cache,
-        horizon_sessions=getattr(args, "horizon_sessions", 5),
+        horizon_sessions=model_horizon,
+        label_average=model_average,
         walk_forward_folds=folds,
     )
+    account_policy = {
+        "commission_bps": args.commission_bps,
+        "slippage_bps": args.slippage_bps,
+        "initial_cash": args.initial_cash,
+        "threshold": args.threshold,
+        "horizon_sessions": model.horizon,
+        "label_average": model.label_average,
+    }
     _write(root / "walk_forward_plan.json", model.walk_forward_plan)
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
@@ -330,7 +375,9 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     )
     history_prices = (
         collection_snapshot(
-            symbol, prices[1]["collection_directory"], horizon_sessions=model.horizon
+            symbol,
+            prices[1]["collection_directory"],
+            horizon_sessions=prices[1]["horizon_sessions"],
         )
         if args.history_dir and prices
         else None
@@ -361,11 +408,18 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             },
         )
     progress.start("collect_news_context")
-    related = cache.call(
-        "related",
-        symbol,
-        lambda: (profile_related if args.related == "profile" else simulated_related)(symbol),
-    )
+
+    def load_related():
+        if args.related != "profile":
+            return simulated_related(symbol)
+        try:
+            return profile_related(symbol)
+        except ValueError as exc:
+            if "No relationship profile" not in str(exc):
+                raise
+            return {"provider": "not_configured", "stocks": [], "reason": str(exc)}
+
+    related = cache.call("related", symbol, load_related)
     news_context = {"symbol": symbol, "related": related}
     snapshot_path = getattr(args, "news_snapshot", None)
 
@@ -373,7 +427,17 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         if snapshot_path:
             return load_snapshot(snapshot_path, symbol, limit=args.news_limit)
         if args.news == "issuer-rss":
-            return issuer_news(news_context, limit=args.news_limit)
+            try:
+                return issuer_news(news_context, limit=args.news_limit)
+            except ValueError as exc:
+                if "No registered issuer RSS feed" not in str(exc):
+                    raise
+                return {
+                    "provider": "not_configured",
+                    "items": [],
+                    "coverage": [],
+                    "notice": str(exc),
+                }
         return simulated_news(news_context)
 
     current_news = cache.call(
@@ -391,6 +455,8 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     )
 
     def collect_snapshots():
+        if current_news.get("provider") == "not_configured":
+            return []
         snapshots = load_archive(archive)
         if args.prices == "daily" and any(
             snapshot["provider"] != "issuer_rss" for snapshot in snapshots
@@ -404,14 +470,15 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         return snapshots
 
     snapshots = cache.call("news_history", current_news, collect_snapshots)
-    history = NewsHistory(snapshots)
+    history = NewsHistory(snapshots) if snapshots else None
     cutoffs = (
         model.price_info["session_close_times"]
         if model.price_info
         else [model.data.timestamp(i, "close") for i in range(len(model.data.dates))]
     )
-    model.configure_news(history, cutoffs, symbol)
-    model.library["news_feature_support"] = model.context(symbol)["news_feature_support"]
+    if history is not None:
+        model.configure_news(history, cutoffs, symbol)
+        model.library["news_feature_support"] = model.context(symbol)["news_feature_support"]
     _write(root / "news_history.json", snapshots)
     _write(
         root / "inputs.json",
@@ -637,15 +704,6 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 )
                 support["alignment_scope"] = "training_and_development_only"
     model.configure_peers(peers)
-    if "instrument_profile" in library:
-        model.configure_profile(library["instrument_profile"])
-        _write(
-            root / "factor_profile.json",
-            {
-                "specification": library["instrument_profile"],
-                "execution": model.profile_features["definitions"],
-            },
-        )
     related["price_features"] = peers["support"]
     _write(
         root / "related_prices.json",
@@ -659,6 +717,28 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         },
     )
     progress.finish("load_related_prices", {"related": related})
+    if "instrument_profile" in library and args.prices == "daily":
+        from quant_rsi.research.study_bound_supply import load_bound_supply
+
+        progress.start("load_bound_supply")
+        bound_series, bound_report = load_bound_supply(
+            library["instrument_profile"],
+            list(model.data.dates),
+            cutoffs,
+            root / "bound_supply",
+        )
+        model.bound_series = bound_series
+        _write(root / "bound_supply.json", bound_report)
+        progress.finish("load_bound_supply", bound_report)
+    if "instrument_profile" in library:
+        model.configure_profile(library["instrument_profile"])
+        _write(
+            root / "factor_profile.json",
+            {
+                "specification": library["instrument_profile"],
+                "execution": model.profile_features["definitions"],
+            },
+        )
 
     from quant_rsi.market.market_contracts import trusted_now
     from quant_rsi.research.study_factor_memory import reuse_recipes
@@ -706,11 +786,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             model.data,
             symbol,
             prediction["development"]["rows"],
-            commission_bps=args.commission_bps,
-            slippage_bps=args.slippage_bps,
-            initial_cash=args.initial_cash,
-            threshold=args.threshold,
-            horizon_sessions=model.horizon,
+            **account_policy,
         )
         return prediction
 
@@ -741,11 +817,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 model.data,
                 symbol,
                 terminal["evaluation"]["rows"],
-                commission_bps=args.commission_bps,
-                slippage_bps=args.slippage_bps,
-                initial_cash=args.initial_cash,
-                threshold=args.threshold,
-                horizon_sessions=model.horizon,
+                **account_policy,
             )
             terminal["strategy"]["evidence_mode"] = "historical_terminal_hypothetical_account"
         _write(root / "terminal_evaluation.json", terminal)
@@ -911,7 +983,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             else "News was supplied as hypothesis context; no news column was fitted."
         ),
         "news_factors": {
-            "support": model.context(symbol)["news_feature_support"],
+            "support": model.context(symbol).get("news_feature_support"),
             "definitions": news_definitions,
             "snapshot_count": len(snapshots),
             "archive_directory": str(archive.resolve()) if args.news == "issuer-rss" else None,
@@ -968,13 +1040,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 model,
                 chosen,
                 attempts[chosen - 1]["prediction"],
-                {
-                    "commission_bps": args.commission_bps,
-                    "slippage_bps": args.slippage_bps,
-                    "initial_cash": args.initial_cash,
-                    "threshold": args.threshold,
-                    "horizon_sessions": model.horizon,
-                },
+                account_policy,
             ),
         )
         result["study"]["financial_comparison"] = comparison
@@ -1007,13 +1073,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 model,
                 chosen,
                 attempts[chosen - 1]["prediction"],
-                {
-                    "commission_bps": args.commission_bps,
-                    "slippage_bps": args.slippage_bps,
-                    "initial_cash": args.initial_cash,
-                    "threshold": args.threshold,
-                    "horizon_sessions": model.horizon,
-                },
+                account_policy,
             ),
         )
         result["study"]["external_comparison"] = comparison
@@ -1044,13 +1104,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 attempts[chosen - 1]["prediction"],
                 result.get("terminal_evaluation"),
                 comparison_root,
-                policy={
-                    "commission_bps": args.commission_bps,
-                    "slippage_bps": args.slippage_bps,
-                    "initial_cash": args.initial_cash,
-                    "threshold": args.threshold,
-                    "horizon_sessions": model.horizon,
-                },
+                policy=account_policy,
             )
 
         comparison = cache.call("qlib_comparison", model.comparison_inputs(chosen), compare)
@@ -1067,13 +1121,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         diagnostic = evaluate_windows(
             model,
             selection["selected_round"],
-            {
-                "commission_bps": args.commission_bps,
-                "slippage_bps": args.slippage_bps,
-                "initial_cash": args.initial_cash,
-                "threshold": args.threshold,
-                "horizon_sessions": model.horizon,
-            },
+            account_policy,
         )
         _write(root / "walk_forward.json", diagnostic)
         result["study"]["walk_forward"] = diagnostic

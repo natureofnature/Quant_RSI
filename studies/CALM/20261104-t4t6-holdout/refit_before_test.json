@@ -1,0 +1,21 @@
+{
+  "selected_round": 42,
+  "training_rows": 277,
+  "first_training_session": "2025-03-11",
+  "last_training_session": "2026-04-16",
+  "last_training_label_session": "2026-04-24",
+  "test_period": {
+    "start": "2026-04-27",
+    "end": "2026-07-30"
+  },
+  "test_origins": [
+    "2026-04-27",
+    "2026-07-22"
+  ],
+  "mae_price": 1.9652565166808278,
+  "unchanged_mae_price": 2.0882778591578353,
+  "strategy_net_return": "0.100057",
+  "strategy_sharpe": 1.3451903490958965,
+  "buy_and_hold_net_return": "0.104596",
+  "buy_and_hold_sharpe": 1.2908586937105857
+}

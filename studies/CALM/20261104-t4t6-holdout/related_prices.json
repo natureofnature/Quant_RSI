@@ -1,0 +1,6 @@
+{
+  "support": [],
+  "inputs": {},
+  "definitions": [],
+  "alignment": "exact_session_and_peer_close_at_or_before_target_close; no_fill_no_row_drop"
+}

@@ -12,12 +12,15 @@ from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.research.demo_features import (
     PRICE_RECIPE,
     compact_development,
+    label_levels,
     price_feature,
     price_metrics,
 )
 from quant_rsi.research.study_business import business_column
 from quant_rsi.research.study_estimators import StandardizedRidge, model_configuration
 from quant_rsi.research.study_factor_profiles import prepare_bound_features
+
+MAX_WINDOW_SESSIONS = 756
 
 
 class LightGBMDemo:
@@ -37,21 +40,37 @@ class LightGBMDemo:
         ridge_alpha=None,
         fit_cache=None,
         horizon_sessions=5,
+        label_average=1,
         walk_forward_folds=0,
     ):
         from quant_rsi.research.study_walk_forward import extra_history, freeze_windows
 
         self.fit_cache = fit_cache
+        if (horizon_sessions, label_average) not in {(5, 1), (20, 1), (60, 1), (30, 5), (6, 3)}:
+            raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
+        self.label_average = label_average
+        config_horizon = horizon_sessions if horizon_sessions in {5, 20, 60} else 5
         self.model_configuration = model_configuration(
-            estimator, ridge_alpha, horizon_sessions=horizon_sessions
+            estimator, ridge_alpha, horizon_sessions=config_horizon
         )
+        if (horizon_sessions, label_average) == (30, 5):
+            self.model_configuration["target"] = "log_five_day_average_close_ending_30_over_close"
+        elif (horizon_sessions, label_average) == (6, 3):
+            self.model_configuration["target"] = "log_mean_close_t_plus_4_5_6_over_close"
         self.estimator = estimator
         self.model_label = "LightGBM" if estimator == "lightgbm" else "Ridge"
-        if type(evaluation_sessions) is not int or not 1 <= evaluation_sessions <= 20:
-            raise ValueError("evaluation_sessions must be an integer from 1 through 20")
+        if (
+            type(evaluation_sessions) is not int
+            or not 1 <= evaluation_sessions <= MAX_WINDOW_SESSIONS
+        ):
+            raise ValueError(
+                f"evaluation_sessions must be an integer from 1 through {MAX_WINDOW_SESSIONS}"
+            )
         self.evaluation_sessions = evaluation_sessions
-        if type(terminal_sessions) is not int or not 0 <= terminal_sessions <= 20:
-            raise ValueError("terminal_sessions must be an integer from 0 through 20")
+        if type(terminal_sessions) is not int or not 0 <= terminal_sessions <= MAX_WINDOW_SESSIONS:
+            raise ValueError(
+                f"terminal_sessions must be an integer from 0 through {MAX_WINDOW_SESSIONS}"
+            )
         if terminal_sessions and evaluation_sessions == 1:
             raise ValueError("Terminal evaluation requires a multi-origin study")
         self._fits = []
@@ -99,7 +118,10 @@ class LightGBMDemo:
             )
         else:
             self.data, self.price_info = prices
-            if self.price_info.get("horizon_sessions", 5) != self.horizon:
+            collected = self.price_info.get("horizon_sessions", 5)
+            if collected != self.horizon and not (
+                self.label_average > 1 and collected < self.horizon
+            ):
                 raise ValueError("Retained price calendar was prepared for another horizon")
             self.origin = len(self.data.dates) - 1 - self.horizon
         self.price_provider = "public_daily_prices" if self.price_info else "synthetic_price_series"
@@ -282,7 +304,11 @@ class LightGBMDemo:
         if self._has_predicted or self.profile_features is not None:
             raise ValueError("Factor profile must be configured once before prediction")
         bundle = prepare_bound_features(
-            profile, self.data, self.peer_features or {}, np.concatenate((self.train, self.origins))
+            profile,
+            self.data,
+            self.peer_features or {},
+            np.concatenate((self.train, self.origins)),
+            getattr(self, "bound_series", None),
         )
         existing = {item["factor_id"] for item in self.library["definitions"]}
         if existing.intersection(item["factor_id"] for item in bundle["definitions"]):
@@ -485,7 +511,7 @@ class LightGBMDemo:
                 )
         matrix = np.column_stack(columns)
         x = matrix[self.train]
-        y = np.log(self.data.closes[self.train + self.horizon, 0] / self.data.closes[self.train, 0])
+        y = np.log(self._levels(self.train) / self.data.closes[self.train, 0])
         if not np.isfinite(x).all() or not np.isfinite(y).all():
             raise ValueError("Non-finite numerical training inputs")
         if not np.isfinite(matrix[self.origins]).all():
@@ -560,6 +586,10 @@ class LightGBMDemo:
             "last_training_label_session": self.data.dates[self.train[-1] + self.horizon],
             "training_target": self.model_configuration["target"],
         }
+        if (self.horizon, self.label_average) == (30, 5):
+            result["label_description"] = "30-session five-day-average close"
+        elif (self.horizon, self.label_average) == (6, 3):
+            result["label_description"] = "mean close at t+4, t+5 and t+6"
         if self.estimator == "ridge":
             result["fitted_model"] = model.state()
         else:
@@ -576,7 +606,13 @@ class LightGBMDemo:
             result["input_usage"] = self._input_usage(list(effective.values()))
         if bound_inputs:
             result["bound_factor_inputs"] = bound_inputs
-        if self.price_info:
+        if self.price_info and self.price_info.get("horizon_sessions", 5) < self.horizon:
+            result["latest_forecast_unavailable"] = {
+                "origin_session": self.data.dates[-1],
+                "reasons": ["target_session_beyond_retained_calendar"],
+                "missing_factor_ids": [],
+            }
+        elif self.price_info:
             if not np.isfinite(matrix[-1:]).all():
                 external_factors = [
                     item for item in factors if item["recipe"].get("op") == "external"
@@ -822,12 +858,16 @@ class LightGBMDemo:
         evaluation["evaluation_note"] = "retrospective_terminal_reserved_from_feedback_selection"
         return result | {"status": "completed", "evaluation": evaluation}
 
+    def _levels(self, origins):
+        return label_levels(self.data.closes[:, 0], origins, self.horizon, self.label_average)
+
     def _development(self, predicted_returns, training_mean, *, origins=None):
         origins = self.origins if origins is None else origins
+        observed_levels = self._levels(origins)
 
         def rows(returns):
             result = []
-            for origin, value in zip(origins, returns, strict=True):
+            for index, (origin, value) in enumerate(zip(origins, returns, strict=True)):
                 reference = float(self.data.closes[origin, 0])
                 predicted = float(reference * np.exp(value))
                 if not np.isfinite(predicted) or predicted <= 0:
@@ -838,7 +878,7 @@ class LightGBMDemo:
                         "target_session": self.data.dates[origin + self.horizon],
                         "reference_price": reference,
                         "predicted_price": predicted,
-                        "observed_price": float(self.data.closes[origin + self.horizon, 0]),
+                        "observed_price": float(observed_levels[index]),
                         "predicted_log_return": float(value),
                     }
                 )
@@ -878,7 +918,7 @@ class LightGBMDemo:
             "provider": "public_daily_observation"
             if self.price_info
             else "synthetic_price_observation",
-            "observed_price": float(self.data.closes[self.origin + self.horizon, 0]),
+            "observed_price": float(self._levels([self.origin])[0]),
             "observed_session": self.data.dates[self.origin + self.horizon],
             "origin_session": self.data.dates[self.origin],
         }
@@ -920,9 +960,16 @@ class LightGBMDemo:
                 "baselines": deepcopy(compact_development(first["development"])["baselines"]),
                 "evaluation_note": "retrospective_development_same_data_feedback_reuse",
             }
+            if self.label_average > 1:
+                label_note = (
+                    f"{self.label_average}-session average labels ending {self.horizon} "
+                    "sessions ahead"
+                )
+            else:
+                label_note = f"{self.horizon}-session labels"
             result["text"] += (
                 f" Metrics describe the same {len(self.origins)} matured origins; "
                 "news informs retrospective selection and the revised fit reuses these disclosed "
-                f"outcomes. Overlapping {self.horizon}-session labels are not independent samples."
+                f"outcomes. Overlapping {label_note} are not independent samples."
             )
         return result

@@ -28,7 +28,7 @@ class Hypothesis(BaseModel):
 
     hypothesis: str = Field(min_length=1)
     factor_ids: list[str] = Field(min_length=1)
-    evidence_news_ids: list[str] = Field(min_length=1)
+    evidence_news_ids: list[str] = Field(default_factory=list)
     event_signal: float = Field(ge=-1, le=1, allow_inf_nan=False)
 
 
@@ -109,6 +109,8 @@ class LLMHypothesizer:
             ]
         news_ids = [item["id"] for item in context["news"]["items"]]
         schema["properties"]["evidence_news_ids"]["items"]["enum"] = news_ids
+        if news_ids:
+            schema["properties"]["evidence_news_ids"]["minItems"] = 1
         prompt = (
             "You are the hypothesis stage of a stock research demonstration. "
             "context.research_question, when nonempty, is the user's requested research focus. "
@@ -281,6 +283,8 @@ class LLMHypothesizer:
         for claim in result.get("question_map", []):
             if not set(claim["factor_ids"]).issubset(result["factor_ids"]):
                 raise ValueError("Question map must bind only this round's selected factors")
+        if news_ids and not result["evidence_news_ids"]:
+            raise ValueError("LLM omitted the supplied news evidence")
         if not set(result["evidence_news_ids"]).issubset(news_ids):
             raise ValueError("LLM cited news outside the supplied context")
         research_ids = context["news"].get("research_evidence_ids", [])

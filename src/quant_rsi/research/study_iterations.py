@@ -7,8 +7,8 @@ from quant_rsi.research.demo_proposals import extend_library
 
 def validate_limits(rounds, fit_budget, patience):
     for name, value in (("rounds", rounds), ("fit_budget", fit_budget)):
-        if type(value) is not int or not 2 <= value <= 10:
-            raise ValueError(f"{name} must be an integer from 2 through 10")
+        if type(value) is not int or not 2 <= value <= 50:
+            raise ValueError(f"{name} must be an integer from 2 through 50")
     if patience is not None and (type(patience) is not int or not 1 <= patience <= 10):
         raise ValueError("patience must be an integer from 1 through 10")
 
@@ -54,14 +54,15 @@ def iterate(
                     value["incumbent_round"] = incumbent["round"]
                     value["research_history"] = [
                         {
-                            key: deepcopy(item[key])
-                            for key in (
-                                "round",
-                                "hypothesis",
-                                "factor_ids",
-                                "decision",
-                                "development_metrics",
-                            )
+                            "round": item["round"],
+                            "hypothesis": {
+                                key: deepcopy(entry)
+                                for key, entry in item["hypothesis"].items()
+                                if key != "feedback_used"
+                            },
+                            "factor_ids": deepcopy(item["factor_ids"]),
+                            "decision": deepcopy(item["decision"]),
+                            "development_metrics": deepcopy(item["development_metrics"]),
                         }
                         for item in attempts
                     ]

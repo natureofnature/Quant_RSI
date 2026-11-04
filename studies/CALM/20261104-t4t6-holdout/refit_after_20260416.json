@@ -1,0 +1,207 @@
+{
+  "factors": [
+    "research.log_return_volatility_30",
+    "bound.effr",
+    "bound.drought",
+    "bound.easter",
+    "bound.thanksgiving",
+    "financial.revenue_yoy",
+    "financial.operating_margin",
+    "financial.operating_margin_yoy",
+    "financial.inventory_yoy",
+    "financial.operating_cashflow_yoy",
+    "financial.free_cashflow_yoy",
+    "bound.price_momentum",
+    "bound.corn",
+    "bound.meal",
+    "bound.feed_index",
+    "bound.gas",
+    "bound.mxn",
+    "bound.diesel"
+  ],
+  "training_rows": 277,
+  "last_training_session": "2026-04-16",
+  "last_training_label_session": "2026-04-24",
+  "periods": {
+    "whole": {
+      "period": {
+        "start": "2026-04-27",
+        "end": "2026-11-02"
+      },
+      "origins": [
+        "2026-04-27",
+        "2026-10-23"
+      ],
+      "n": 126,
+      "mae": 2.1304,
+      "unchanged_mae": 2.357,
+      "direction_hit_rate": 0.5952,
+      "strategy": "0.014839",
+      "strategy_sharpe": 0.23914779617858192,
+      "buy_and_hold": "-0.160508",
+      "buy_and_hold_sharpe": -0.893099284122975
+    },
+    "through_2026-07-30": {
+      "period": {
+        "start": "2026-04-27",
+        "end": "2026-07-30"
+      },
+      "origins": [
+        "2026-04-27",
+        "2026-07-22"
+      ],
+      "n": 60,
+      "mae": 1.9653,
+      "unchanged_mae": 2.0883,
+      "direction_hit_rate": 0.6,
+      "strategy": "0.100057",
+      "strategy_sharpe": 1.3451903490958965,
+      "buy_and_hold": "0.104596",
+      "buy_and_hold_sharpe": 1.2908586937105857
+    },
+    "after_2026-07-30": {
+      "period": {
+        "start": "2026-07-23",
+        "end": "2026-11-02"
+      },
+      "origins": [
+        "2026-07-23",
+        "2026-10-23"
+      ],
+      "n": 66,
+      "mae": 2.2806,
+      "unchanged_mae": 2.6014,
+      "direction_hit_rate": 0.5909,
+      "strategy": "-0.087185",
+      "strategy_sharpe": -2.3361762306713847,
+      "buy_and_hold": "-0.250726",
+      "buy_and_hold_sharpe": -2.955851784851106
+    },
+    "2026-04": {
+      "period": {
+        "start": "2026-04-27",
+        "end": "2026-05-08"
+      },
+      "origins": [
+        "2026-04-27",
+        "2026-04-30"
+      ],
+      "n": 4,
+      "mae": 1.5132,
+      "unchanged_mae": 1.4158,
+      "direction_hit_rate": 0.25,
+      "strategy": "-0.033878",
+      "strategy_sharpe": -2.8112286231888555,
+      "buy_and_hold": "-0.033878",
+      "buy_and_hold_sharpe": -2.8112286231888555
+    },
+    "2026-05": {
+      "period": {
+        "start": "2026-05-01",
+        "end": "2026-06-08"
+      },
+      "origins": [
+        "2026-05-01",
+        "2026-05-29"
+      ],
+      "n": 20,
+      "mae": 1.5739,
+      "unchanged_mae": 1.4895,
+      "direction_hit_rate": 0.4,
+      "strategy": "-0.01026",
+      "strategy_sharpe": -0.3041786695094976,
+      "buy_and_hold": "0.005425",
+      "buy_and_hold_sharpe": 0.33758407830821463
+    },
+    "2026-06": {
+      "period": {
+        "start": "2026-06-01",
+        "end": "2026-07-09"
+      },
+      "origins": [
+        "2026-06-01",
+        "2026-06-30"
+      ],
+      "n": 21,
+      "mae": 2.0587,
+      "unchanged_mae": 2.611,
+      "direction_hit_rate": 0.8571,
+      "strategy": "0.125037",
+      "strategy_sharpe": 4.405288540133384,
+      "buy_and_hold": "0.127521",
+      "buy_and_hold_sharpe": 4.290877858491389
+    },
+    "2026-07": {
+      "period": {
+        "start": "2026-07-01",
+        "end": "2026-08-10"
+      },
+      "origins": [
+        "2026-07-01",
+        "2026-07-31"
+      ],
+      "n": 22,
+      "mae": 3.0566,
+      "unchanged_mae": 2.8633,
+      "direction_hit_rate": 0.5455,
+      "strategy": "0.057318",
+      "strategy_sharpe": 2.3198261318040716,
+      "buy_and_hold": "0.003762",
+      "buy_and_hold_sharpe": 0.28733189223896033
+    },
+    "2026-08": {
+      "period": {
+        "start": "2026-08-03",
+        "end": "2026-09-09"
+      },
+      "origins": [
+        "2026-08-03",
+        "2026-08-31"
+      ],
+      "n": 21,
+      "mae": 2.8047,
+      "unchanged_mae": 3.0384,
+      "direction_hit_rate": 0.4286,
+      "strategy": "-0.062089",
+      "strategy_sharpe": -4.261287727592723,
+      "buy_and_hold": "-0.148156",
+      "buy_and_hold_sharpe": -5.968153861946802
+    },
+    "2026-09": {
+      "period": {
+        "start": "2026-09-01",
+        "end": "2026-10-08"
+      },
+      "origins": [
+        "2026-09-01",
+        "2026-09-30"
+      ],
+      "n": 21,
+      "mae": 2.0785,
+      "unchanged_mae": 2.8873,
+      "direction_hit_rate": 0.8571,
+      "strategy": "-0.03193",
+      "strategy_sharpe": -1.7874794613635192,
+      "buy_and_hold": "-0.179664",
+      "buy_and_hold_sharpe": -6.5975325953724635
+    },
+    "2026-10": {
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-11-02"
+      },
+      "origins": [
+        "2026-10-01",
+        "2026-10-23"
+      ],
+      "n": 17,
+      "mae": 1.0519,
+      "unchanged_mae": 1.1335,
+      "direction_hit_rate": 0.5294,
+      "strategy": "-0.025083",
+      "strategy_sharpe": -2.4712115404485844,
+      "buy_and_hold": "0.002026",
+      "buy_and_hold_sharpe": 0.22981607996034964
+    }
+  }
+}

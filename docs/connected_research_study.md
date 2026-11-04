@@ -259,7 +259,7 @@ The workbench exposes the same **Minimum price history** field and retains it in
 templates, queued tasks and resumed studies. Leave it blank for the existing automatic
 window. With an explicit value, the minimum is `120 + 3 * (horizon - 5)` plus
 `(folds - 1) * (evaluation_sessions + horizon)` when the time-window diagnostic is enabled.
-The maximum is 445 sessions, so a 60-session horizon with three diagnostic folds requires
+The maximum is 2600 sessions, so a 60-session horizon with three diagnostic folds requires
 445. Invalid combinations fail before acquisition or paid work. Synthetic mode requires
 the automatic window.
 

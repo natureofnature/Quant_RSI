@@ -33,6 +33,31 @@ def price_feature(data, recipe):
     return result
 
 
+def label_levels(closes, origins, endpoint, average):
+    """Price level at each origin. Average 1 is the close `endpoint` sessions ahead."""
+    closes = np.asarray(closes, dtype=float).reshape(-1)
+    origins = np.asarray(origins, dtype=int).reshape(-1)
+    if (
+        type(endpoint) is not int
+        or type(average) is not int
+        or endpoint < 1
+        or not 1 <= average <= endpoint
+    ):
+        raise ValueError("Label endpoint and average must be positive integers")
+    end = origins + endpoint
+    start = end - average + 1
+    if len(origins) and (int(start.min()) < 0 or int(end.max()) >= len(closes)):
+        raise ValueError("Label window is outside the price sample")
+    if average == 1:
+        levels = closes[end]
+    else:
+        totals = np.cumsum(np.insert(closes, 0, 0.0))
+        levels = (totals[end + 1] - totals[start]) / average
+    if not np.isfinite(levels).all() or np.any(levels <= 0):
+        raise ValueError("Label price must be positive")
+    return levels
+
+
 def price_metrics(rows):
     """Score identical matured origins; zero predicted change is its own direction."""
     reference = np.array([row["reference_price"] for row in rows])

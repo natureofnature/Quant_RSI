@@ -260,6 +260,43 @@ def test_nonobserved_holiday_requires_exact_evidence_and_other_dates(old, new):
         daily_data._calendar(body)
 
 
+def test_older_nyse_pages_keep_observed_closures_and_blank_new_year():
+    listed = """
+    <p>NYSE Group holiday calendar</p>
+    <table>
+    <tr><td>2017 Holidays</td></tr>
+    <tr><td>New Year’s Day</td><td>Sunday, January 1 (Observed Monday, January 2)</td></tr>
+    <tr><td>Christmas Day</td><td>Monday, December 25</td></tr>
+    <tr><td>* Each market will close early at 1:00 p.m. on Friday, November 24, 2017.
+    All times are Eastern Time.</td></tr>
+    </table>
+    """
+    columns = """
+    <p>NYSE</p>
+    <p>* No holiday observed.</p>
+    <table>
+    <tr><td>HOLIDAY</td><td></td><td>2022</td><td></td><td>2023</td></tr>
+    <tr><td>New Year’s Day</td><td></td><td>—*</td><td></td><td>Monday, January 2</td></tr>
+    <tr><td>Christmas Day</td><td></td><td>Monday, December 26</td>
+    <td></td><td>Monday, December 25</td></tr>
+    </table>
+    <p>Each market will close early at 1:00 p.m. on Friday, November 25, 2022.</p>
+    """
+    holidays, early = daily_data._historical_nyse_calendar(listed.encode())
+    assert holidays[2017] == {date(2017, 1, 2), date(2017, 12, 25)}
+    assert date(2017, 11, 24) in early
+    holidays, early = daily_data._historical_nyse_calendar(columns.encode())
+    assert date(2022, 1, 1) not in holidays[2022]
+    assert holidays[2022] == {date(2022, 12, 26)}
+    assert holidays[2023] == {date(2023, 1, 2), date(2023, 12, 25)}
+    assert date(2022, 11, 25) in early
+    bush = (
+        "<p>The New York Stock Exchange will be closed on Wednesday, December 5, 2018 "
+        "in observance of the National Day of Mourning.</p>"
+    )
+    assert daily_data._mourning_closure(bush.encode()) == date(2018, 12, 5)
+
+
 @pytest.mark.parametrize(
     "last,received,problem,error",
     [

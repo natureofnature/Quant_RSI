@@ -5,6 +5,7 @@ from copy import deepcopy
 import numpy as np
 
 from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.market.daily_data import MAX_HISTORY_SESSIONS
 from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.study_estimators import StandardizedRidge
@@ -29,10 +30,10 @@ def price_history_sessions(horizon, sessions, folds, requested=None):
     minimum = 120 + 3 * (horizon - 5) + extra_history(folds, sessions, horizon)
     if requested is None:
         return minimum
-    if type(requested) is not int or not minimum <= requested <= 445:
+    if type(requested) is not int or not minimum <= requested <= MAX_HISTORY_SESSIONS:
         raise ValueError(
-            f"Historical sessions must be an integer from {minimum} through 445 "
-            "for this horizon and diagnostic plan"
+            f"Historical sessions must be an integer from {minimum} through "
+            f"{MAX_HISTORY_SESSIONS} for this horizon and diagnostic plan"
         )
     return requested
 
@@ -70,7 +71,7 @@ def evaluate_windows(model, selected_round, policy):
     for window in model.walk_forward_plan["folds"]:
         origins = np.asarray(window["origin_indices"])
         requested = np.arange(30, origins[0] - h)
-        labels = np.log(model.data.closes[requested + h, 0] / model.data.closes[requested, 0])
+        labels = np.log(model._levels(requested) / model.data.closes[requested, 0])
         available = np.isfinite(matrix[requested]).all(axis=1) & np.isfinite(labels)
         training, labels = requested[available], labels[available]
         missing = origins[~np.isfinite(matrix[origins]).all(axis=1)]

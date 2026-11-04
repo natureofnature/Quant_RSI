@@ -88,7 +88,7 @@ require a published future calendar. See [prediction horizons](docs/connected_re
 
 Use `--historical-sessions 252` with daily prices, or **Minimum price history** in the
 workbench, to request a longer input window. The horizon and optional time-window
-diagnostic set the minimum; the current maximum is 445 sessions. Existing longer
+diagnostic set the minimum; the current maximum is 2600 sessions. Existing longer
 collections are used in full and disclosed, while insufficient collections fail without
 being overwritten. Input checks and financial reports distinguish training rows from
 distinct financial values: repeating a quarterly value each day does not add independent

@@ -7,7 +7,7 @@ import numpy as np
 
 from quant_rsi.core.artifacts import digest
 from quant_rsi.core.data import MarketData
-from quant_rsi.market.daily_data import HISTORY_SESSIONS, collect_daily
+from quant_rsi.market.daily_data import HISTORY_SESSIONS, MAX_HISTORY_SESSIONS, collect_daily
 from quant_rsi.market.market_contracts import DataContract
 from quant_rsi.market.market_data import parse_csv
 
@@ -17,8 +17,13 @@ def load_daily_prices(symbol, directory, *, horizon_sessions=5, historical_sessi
         raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
     required = HISTORY_SESSIONS + 3 * (horizon_sessions - 5)
     if historical_sessions is not None:
-        if type(historical_sessions) is not int or not required <= historical_sessions <= 445:
-            raise ValueError("Historical sessions must cover the horizon and not exceed 445")
+        if (
+            type(historical_sessions) is not int
+            or not required <= historical_sessions <= MAX_HISTORY_SESSIONS
+        ):
+            raise ValueError(
+                f"Historical sessions must cover the horizon and not exceed {MAX_HISTORY_SESSIONS}"
+            )
         required = historical_sessions
     root = Path(directory).resolve()
     if not root.exists() or not any(root.iterdir()):

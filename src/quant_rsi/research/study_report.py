@@ -599,12 +599,14 @@ def render_study(result):
         )
     news_factors = result["study"].get("news_factors")
     if news_factors:
-        support = news_factors["support"]
+        support = news_factors.get("support") or {}
         section(
             "News factor execution",
             (
-                "Historical news inputs are usable. "
-                if support["runnable"]
+                "No issuer RSS feed was configured, so no news column was built. "
+                if not support
+                else "Historical news inputs are usable. "
+                if support.get("runnable")
                 else "News proposals are pending: too few usable historical snapshots. "
             )
             + result["study"]["news_use"]
@@ -658,7 +660,8 @@ def render_study(result):
         "Prediction comparison",
         f"{dev['first_evaluation_session']} to "
         f"{dev['last_evaluation_session']}: overlapping "
-        f"{first['horizon_sessions']}-session labels, "
+        f"{first.get('label_description') or str(first['horizon_sessions']) + '-session'} "
+        "labels, "
         "retrospective development observations. MAPE is price error percent; "
         "direction hit rate is a sample frequency, not confidence or independent accuracy. "
         "Current news and feedback influenced recipe selection. No independent holdout. "

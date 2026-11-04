@@ -1,0 +1,4434 @@
+{
+  "status": "completed",
+  "horizon_sessions": 6,
+  "sample_count": 60,
+  "origin_sessions": [
+    "2026-04-27",
+    "2026-04-28",
+    "2026-04-29",
+    "2026-04-30",
+    "2026-05-01",
+    "2026-05-04",
+    "2026-05-05",
+    "2026-05-06",
+    "2026-05-07",
+    "2026-05-08",
+    "2026-05-11",
+    "2026-05-12",
+    "2026-05-13",
+    "2026-05-14",
+    "2026-05-15",
+    "2026-05-18",
+    "2026-05-19",
+    "2026-05-20",
+    "2026-05-21",
+    "2026-05-22",
+    "2026-05-26",
+    "2026-05-27",
+    "2026-05-28",
+    "2026-05-29",
+    "2026-06-01",
+    "2026-06-02",
+    "2026-06-03",
+    "2026-06-04",
+    "2026-06-05",
+    "2026-06-08",
+    "2026-06-09",
+    "2026-06-10",
+    "2026-06-11",
+    "2026-06-12",
+    "2026-06-15",
+    "2026-06-16",
+    "2026-06-17",
+    "2026-06-18",
+    "2026-06-22",
+    "2026-06-23",
+    "2026-06-24",
+    "2026-06-25",
+    "2026-06-26",
+    "2026-06-29",
+    "2026-06-30",
+    "2026-07-01",
+    "2026-07-02",
+    "2026-07-06",
+    "2026-07-07",
+    "2026-07-08",
+    "2026-07-09",
+    "2026-07-10",
+    "2026-07-13",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22"
+  ],
+  "target_sessions": [
+    "2026-05-05",
+    "2026-05-06",
+    "2026-05-07",
+    "2026-05-08",
+    "2026-05-11",
+    "2026-05-12",
+    "2026-05-13",
+    "2026-05-14",
+    "2026-05-15",
+    "2026-05-18",
+    "2026-05-19",
+    "2026-05-20",
+    "2026-05-21",
+    "2026-05-22",
+    "2026-05-26",
+    "2026-05-27",
+    "2026-05-28",
+    "2026-05-29",
+    "2026-06-01",
+    "2026-06-02",
+    "2026-06-03",
+    "2026-06-04",
+    "2026-06-05",
+    "2026-06-08",
+    "2026-06-09",
+    "2026-06-10",
+    "2026-06-11",
+    "2026-06-12",
+    "2026-06-15",
+    "2026-06-16",
+    "2026-06-17",
+    "2026-06-18",
+    "2026-06-22",
+    "2026-06-23",
+    "2026-06-24",
+    "2026-06-25",
+    "2026-06-26",
+    "2026-06-29",
+    "2026-06-30",
+    "2026-07-01",
+    "2026-07-02",
+    "2026-07-06",
+    "2026-07-07",
+    "2026-07-08",
+    "2026-07-09",
+    "2026-07-10",
+    "2026-07-13",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22",
+    "2026-07-23",
+    "2026-07-24",
+    "2026-07-27",
+    "2026-07-28",
+    "2026-07-29",
+    "2026-07-30"
+  ],
+  "development_last_target_session": "2026-04-24",
+  "rule": "select_on_development_then_evaluate_selected_fitted_model_once_no_refit",
+  "limitation": "Reserved from research feedback and selection, but retrospective. Current news and pretrained LLM knowledge are not historically isolated. This is not prospective validation or calibrated evidence of predictive gain.",
+  "selected_round": 42,
+  "factor_ids": [
+    "research.log_return_volatility_30",
+    "bound.effr",
+    "bound.drought",
+    "bound.easter",
+    "bound.thanksgiving",
+    "financial.revenue_yoy",
+    "financial.operating_margin",
+    "financial.operating_margin_yoy",
+    "financial.inventory_yoy",
+    "financial.operating_cashflow_yoy",
+    "financial.free_cashflow_yoy",
+    "bound.price_momentum",
+    "bound.corn",
+    "bound.meal",
+    "bound.feed_index",
+    "bound.gas",
+    "bound.mxn",
+    "bound.diesel"
+  ],
+  "refitted": false,
+  "evaluation": {
+    "rows": [
+      {
+        "origin_session": "2026-04-27",
+        "target_session": "2026-05-05",
+        "reference_price": 77.779998779297,
+        "predicted_price": 76.74707638475051,
+        "observed_price": 75.95666758219402,
+        "predicted_log_return": -0.01336901999836942
+      },
+      {
+        "origin_session": "2026-04-28",
+        "target_session": "2026-05-06",
+        "reference_price": 77.279998779297,
+        "predicted_price": 77.24482405669626,
+        "observed_price": 75.89000193277995,
+        "predicted_log_return": -0.00045526307764298603
+      },
+      {
+        "origin_session": "2026-04-29",
+        "target_session": "2026-05-07",
+        "reference_price": 75.069999694824,
+        "predicted_price": 75.03583087421566,
+        "observed_price": 76.22000122070312,
+        "predicted_log_return": -0.00045526307764298603
+      },
+      {
+        "origin_session": "2026-04-30",
+        "target_session": "2026-05-08",
+        "reference_price": 77.26000213623,
+        "predicted_price": 77.22483651529055,
+        "observed_price": 75.95999908447266,
+        "predicted_log_return": -0.00045526307764298603
+      },
+      {
+        "origin_session": "2026-05-01",
+        "target_session": "2026-05-11",
+        "reference_price": 76.25,
+        "predicted_price": 76.34929581348719,
+        "observed_price": 75.75999704996745,
+        "predicted_log_return": 0.0013013929975496962
+      },
+      {
+        "origin_session": "2026-05-04",
+        "target_session": "2026-05-12",
+        "reference_price": 74.75,
+        "predicted_price": 74.3162126313247,
+        "observed_price": 76.8066635131836,
+        "predicted_log_return": -0.005820079352689521
+      },
+      {
+        "origin_session": "2026-05-05",
+        "target_session": "2026-05-13",
+        "reference_price": 76.870002746582,
+        "predicted_price": 77.6513405166659,
+        "observed_price": 77.94666544596355,
+        "predicted_log_return": 0.0101130939302872
+      },
+      {
+        "origin_session": "2026-05-06",
+        "target_session": "2026-05-14",
+        "reference_price": 76.050003051758,
+        "predicted_price": 76.6881728757623,
+        "observed_price": 78.8000005086263,
+        "predicted_log_return": 0.008356437855094516
+      },
+      {
+        "origin_session": "2026-05-07",
+        "target_session": "2026-05-15",
+        "reference_price": 75.73999786377,
+        "predicted_price": 76.37556629463401,
+        "observed_price": 78.13333384195964,
+        "predicted_log_return": 0.008356437855094516
+      },
+      {
+        "origin_session": "2026-05-08",
+        "target_session": "2026-05-18",
+        "reference_price": 76.089996337891,
+        "predicted_price": 76.72850176356984,
+        "observed_price": 77.5,
+        "predicted_log_return": 0.008356437855094516
+      },
+      {
+        "origin_session": "2026-05-11",
+        "target_session": "2026-05-19",
+        "reference_price": 75.449996948242,
+        "predicted_price": 76.08313185082466,
+        "observed_price": 77.68666585286458,
+        "predicted_log_return": 0.008356437855094516
+      },
+      {
+        "origin_session": "2026-05-12",
+        "target_session": "2026-05-20",
+        "reference_price": 78.879997253418,
+        "predicted_price": 79.0098970768506,
+        "observed_price": 78.14666748046875,
+        "predicted_log_return": 0.001645448599383449
+      },
+      {
+        "origin_session": "2026-05-13",
+        "target_session": "2026-05-21",
+        "reference_price": 79.51000213623,
+        "predicted_price": 78.54999154291092,
+        "observed_price": 77.91666666666667,
+        "predicted_log_return": -0.012147569744247902
+      },
+      {
+        "origin_session": "2026-05-14",
+        "target_session": "2026-05-22",
+        "reference_price": 78.01000213623,
+        "predicted_price": 78.13846924901296,
+        "observed_price": 77.39666748046875,
+        "predicted_log_return": 0.001645448599383449
+      },
+      {
+        "origin_session": "2026-05-15",
+        "target_session": "2026-05-26",
+        "reference_price": 76.879997253418,
+        "predicted_price": 77.62902144070003,
+        "observed_price": 76.6433334350586,
+        "predicted_log_return": 0.009695615974650613
+      },
+      {
+        "origin_session": "2026-05-18",
+        "target_session": "2026-05-27",
+        "reference_price": 77.610000610352,
+        "predicted_price": 77.31270396676877,
+        "observed_price": 76.34666697184245,
+        "predicted_log_return": -0.0038380043691227167
+      },
+      {
+        "origin_session": "2026-05-19",
+        "target_session": "2026-05-28",
+        "reference_price": 78.569999694824,
+        "predicted_price": 78.87874424880243,
+        "observed_price": 76.17333221435547,
+        "predicted_log_return": 0.0039218470973543295
+      },
+      {
+        "origin_session": "2026-05-20",
+        "target_session": "2026-05-29",
+        "reference_price": 78.26000213623,
+        "predicted_price": 78.42963356620426,
+        "observed_price": 75.74666595458984,
+        "predicted_log_return": 0.002165191022161647
+      },
+      {
+        "origin_session": "2026-05-21",
+        "target_session": "2026-06-01",
+        "reference_price": 76.919998168945,
+        "predicted_price": 76.87686242515478,
+        "observed_price": 75.4499994913737,
+        "predicted_log_return": -0.0005609444140105427
+      },
+      {
+        "origin_session": "2026-05-22",
+        "target_session": "2026-06-02",
+        "reference_price": 77.01000213623,
+        "predicted_price": 77.17692414527812,
+        "observed_price": 74.79666646321614,
+        "predicted_log_return": 0.002165191022161647
+      },
+      {
+        "origin_session": "2026-05-26",
+        "target_session": "2026-06-03",
+        "reference_price": 76.0,
+        "predicted_price": 76.16473279230945,
+        "observed_price": 75.0066655476888,
+        "predicted_log_return": 0.002165191022161647
+      },
+      {
+        "origin_session": "2026-05-27",
+        "target_session": "2026-06-04",
+        "reference_price": 76.029998779297,
+        "predicted_price": 75.98723479114396,
+        "observed_price": 74.77999877929688,
+        "predicted_log_return": -0.0005626202803022933
+      },
+      {
+        "origin_session": "2026-05-28",
+        "target_session": "2026-06-05",
+        "reference_price": 76.48999786377,
+        "predicted_price": 76.7905689515387,
+        "observed_price": 75.15333302815755,
+        "predicted_log_return": 0.0039218470973543295
+      },
+      {
+        "origin_session": "2026-05-29",
+        "target_session": "2026-06-08",
+        "reference_price": 74.720001220703,
+        "predicted_price": 75.0136170224054,
+        "observed_price": 75.48333231608073,
+        "predicted_log_return": 0.0039218470973543295
+      },
+      {
+        "origin_session": "2026-06-01",
+        "target_session": "2026-06-09",
+        "reference_price": 75.139999389648,
+        "predicted_price": 75.43526559414849,
+        "observed_price": 76.56000010172527,
+        "predicted_log_return": 0.0039218470973543295
+      },
+      {
+        "origin_session": "2026-06-02",
+        "target_session": "2026-06-10",
+        "reference_price": 74.529998779297,
+        "predicted_price": 74.8228679573612,
+        "observed_price": 77.6999994913737,
+        "predicted_log_return": 0.0039218470973543295
+      },
+      {
+        "origin_session": "2026-06-03",
+        "target_session": "2026-06-11",
+        "reference_price": 75.349998474121,
+        "predicted_price": 76.0945868732071,
+        "observed_price": 78.87666829427083,
+        "predicted_log_return": 0.009833225757583813
+      },
+      {
+        "origin_session": "2026-06-04",
+        "target_session": "2026-06-12",
+        "reference_price": 74.459999084473,
+        "predicted_price": 74.59643609901896,
+        "observed_price": 79.01333363850911,
+        "predicted_log_return": 0.0018306764479147021
+      },
+      {
+        "origin_session": "2026-06-05",
+        "target_session": "2026-06-15",
+        "reference_price": 75.650001525879,
+        "predicted_price": 75.78861904515776,
+        "observed_price": 79.18000030517578,
+        "predicted_log_return": 0.0018306764479147021
+      },
+      {
+        "origin_session": "2026-06-08",
+        "target_session": "2026-06-16",
+        "reference_price": 76.339996337891,
+        "predicted_price": 76.38651883321656,
+        "observed_price": 78.89999898274739,
+        "predicted_log_return": 0.0006092261937931824
+      },
+      {
+        "origin_session": "2026-06-09",
+        "target_session": "2026-06-17",
+        "reference_price": 77.690002441406,
+        "predicted_price": 76.73992056198246,
+        "observed_price": 78.96666717529297,
+        "predicted_log_return": -0.01230453072693325
+      },
+      {
+        "origin_session": "2026-06-10",
+        "target_session": "2026-06-18",
+        "reference_price": 79.069999694824,
+        "predicted_price": 78.1030416364466,
+        "observed_price": 78.35333506266277,
+        "predicted_log_return": -0.01230453072693325
+      },
+      {
+        "origin_session": "2026-06-11",
+        "target_session": "2026-06-22",
+        "reference_price": 79.870002746582,
+        "predicted_price": 78.66878890326866,
+        "observed_price": 77.33333587646484,
+        "predicted_log_return": -0.015153853739917227
+      },
+      {
+        "origin_session": "2026-06-12",
+        "target_session": "2026-06-23",
+        "reference_price": 78.099998474121,
+        "predicted_price": 77.45004069290827,
+        "observed_price": 77.75666809082031,
+        "predicted_log_return": -0.008356945036639543
+      },
+      {
+        "origin_session": "2026-06-15",
+        "target_session": "2026-06-24",
+        "reference_price": 79.569999694824,
+        "predicted_price": 78.90780838287563,
+        "observed_price": 78.18999989827473,
+        "predicted_log_return": -0.008356945036639543
+      },
+      {
+        "origin_session": "2026-06-16",
+        "target_session": "2026-06-25",
+        "reference_price": 79.029998779297,
+        "predicted_price": 79.46078146841755,
+        "observed_price": 78.94666544596355,
+        "predicted_log_return": 0.005436073306991807
+      },
+      {
+        "origin_session": "2026-06-17",
+        "target_session": "2026-06-26",
+        "reference_price": 78.300003051758,
+        "predicted_price": 78.98664621610742,
+        "observed_price": 79.16666666666667,
+        "predicted_log_return": 0.00873116096785424
+      },
+      {
+        "origin_session": "2026-06-18",
+        "target_session": "2026-06-29",
+        "reference_price": 77.730003356934,
+        "predicted_price": 77.73004402871916,
+        "observed_price": 79.26999918619792,
+        "predicted_log_return": 5.232442140493685e-07
+      },
+      {
+        "origin_session": "2026-06-22",
+        "target_session": "2026-06-30",
+        "reference_price": 75.970001220703,
+        "predicted_price": 76.1398543800471,
+        "observed_price": 80.04333241780598,
+        "predicted_log_return": 0.002233296840235796
+      },
+      {
+        "origin_session": "2026-06-23",
+        "target_session": "2026-07-01",
+        "reference_price": 79.569999694824,
+        "predicted_price": 79.71531053145739,
+        "observed_price": 80.11666361490886,
+        "predicted_log_return": 0.0018245358186235769
+      },
+      {
+        "origin_session": "2026-06-24",
+        "target_session": "2026-07-02",
+        "reference_price": 79.029998779297,
+        "predicted_price": 79.17432346555816,
+        "observed_price": 81.61999766031902,
+        "predicted_log_return": 0.0018245358186235769
+      },
+      {
+        "origin_session": "2026-06-25",
+        "target_session": "2026-07-06",
+        "reference_price": 78.23999786377,
+        "predicted_price": 78.52069262079523,
+        "observed_price": 83.16333262125652,
+        "predicted_log_return": 0.0035811918938162598
+      },
+      {
+        "origin_session": "2026-06-26",
+        "target_session": "2026-07-07",
+        "reference_price": 80.230003356934,
+        "predicted_price": 80.02386758376431,
+        "observed_price": 84.81666819254436,
+        "predicted_log_return": -0.0025726166319684322
+      },
+      {
+        "origin_session": "2026-06-29",
+        "target_session": "2026-07-08",
+        "reference_price": 79.339996337891,
+        "predicted_price": 78.46503784652197,
+        "observed_price": 85.22666931152223,
+        "predicted_log_return": -0.011089221102102857
+      },
+      {
+        "origin_session": "2026-06-30",
+        "target_session": "2026-07-09",
+        "reference_price": 80.559997558594,
+        "predicted_price": 81.23324772059858,
+        "observed_price": 85.28000132242717,
+        "predicted_log_return": 0.00832239994624202
+      },
+      {
+        "origin_session": "2026-07-01",
+        "target_session": "2026-07-10",
+        "reference_price": 80.449996948242,
+        "predicted_price": 80.76640367839597,
+        "observed_price": 86.2566655476888,
+        "predicted_log_return": 0.003925247495650012
+      },
+      {
+        "origin_session": "2026-07-02",
+        "target_session": "2026-07-13",
+        "reference_price": 83.849998474121,
+        "predicted_price": 82.68935917336788,
+        "observed_price": 85.6999994913737,
+        "predicted_log_return": -0.013938544115086833
+      },
+      {
+        "origin_session": "2026-07-06",
+        "target_session": "2026-07-14",
+        "reference_price": 85.190002441406,
+        "predicted_price": 83.47903394431522,
+        "observed_price": 84.96333312988281,
+        "predicted_log_return": -0.020288574872039496
+      },
+      {
+        "origin_session": "2026-07-07",
+        "target_session": "2026-07-15",
+        "reference_price": 85.410003662109,
+        "predicted_price": 83.35460734017072,
+        "observed_price": 83.97000122070312,
+        "predicted_log_return": -0.024359348139144987
+      },
+      {
+        "origin_session": "2026-07-08",
+        "target_session": "2026-07-16",
+        "reference_price": 85.080001831055,
+        "predicted_price": 83.26947094404657,
+        "observed_price": 85.5933329264323,
+        "predicted_log_return": -0.021510025126161014
+      },
+      {
+        "origin_session": "2026-07-09",
+        "target_session": "2026-07-17",
+        "reference_price": 85.349998474121,
+        "predicted_price": 84.40876190555309,
+        "observed_price": 87.39666748046875,
+        "predicted_log_return": -0.011089221102102857
+      },
+      {
+        "origin_session": "2026-07-10",
+        "target_session": "2026-07-20",
+        "reference_price": 88.339996337891,
+        "predicted_price": 87.30254793270082,
+        "observed_price": 88.41666666666667,
+        "predicted_log_return": -0.011813316352425015
+      },
+      {
+        "origin_session": "2026-07-13",
+        "target_session": "2026-07-21",
+        "reference_price": 83.410003662109,
+        "predicted_price": 83.37771712405764,
+        "observed_price": 88.07333374023438,
+        "predicted_log_return": -0.0003871572595688371
+      },
+      {
+        "origin_session": "2026-07-14",
+        "target_session": "2026-07-22",
+        "reference_price": 83.139999389648,
+        "predicted_price": 83.84337459300761,
+        "observed_price": 87.8433329264323,
+        "predicted_log_return": 0.008424543673168665
+      },
+      {
+        "origin_session": "2026-07-15",
+        "target_session": "2026-07-23",
+        "reference_price": 85.360000610352,
+        "predicted_price": 85.7184983135223,
+        "observed_price": 87.75,
+        "predicted_log_return": 0.004191037800426894
+      },
+      {
+        "origin_session": "2026-07-16",
+        "target_session": "2026-07-24",
+        "reference_price": 88.279998779297,
+        "predicted_price": 87.0527654790482,
+        "observed_price": 88.77333323160808,
+        "predicted_log_return": -0.013999132993796466
+      },
+      {
+        "origin_session": "2026-07-17",
+        "target_session": "2026-07-27",
+        "reference_price": 88.550003051758,
+        "predicted_price": 89.26265303790605,
+        "observed_price": 89.06000010172527,
+        "predicted_log_return": 0.008015782651556448
+      },
+      {
+        "origin_session": "2026-07-20",
+        "target_session": "2026-07-28",
+        "reference_price": 88.419998168945,
+        "predicted_price": 87.1908186530713,
+        "observed_price": 90.75,
+        "predicted_log_return": -0.013999132993796466
+      },
+      {
+        "origin_session": "2026-07-21",
+        "target_session": "2026-07-29",
+        "reference_price": 87.25,
+        "predicted_price": 85.89640815541452,
+        "observed_price": 91.81000010172527,
+        "predicted_log_return": -0.015635547222509885
+      },
+      {
+        "origin_session": "2026-07-22",
+        "target_session": "2026-07-30",
+        "reference_price": 87.860000610352,
+        "predicted_price": 87.37962369425736,
+        "observed_price": 91.26333363850911,
+        "predicted_log_return": -0.0054825285236620395
+      }
+    ],
+    "metrics": {
+      "mae_price": 2.104601612738776,
+      "rmse_price": 2.6213393953725084,
+      "mape_percent": 2.562782489377265,
+      "direction_hit_rate": 0.6,
+      "sample_count": 60
+    },
+    "baselines": {
+      "unchanged_price": {
+        "prediction": "zero_log_return",
+        "predicted_log_return": 0.0,
+        "rows": [
+          {
+            "origin_session": "2026-04-27",
+            "target_session": "2026-05-05",
+            "reference_price": 77.779998779297,
+            "predicted_price": 77.779998779297,
+            "observed_price": 75.95666758219402,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-04-28",
+            "target_session": "2026-05-06",
+            "reference_price": 77.279998779297,
+            "predicted_price": 77.279998779297,
+            "observed_price": 75.89000193277995,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-04-29",
+            "target_session": "2026-05-07",
+            "reference_price": 75.069999694824,
+            "predicted_price": 75.069999694824,
+            "observed_price": 76.22000122070312,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-04-30",
+            "target_session": "2026-05-08",
+            "reference_price": 77.26000213623,
+            "predicted_price": 77.26000213623,
+            "observed_price": 75.95999908447266,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-01",
+            "target_session": "2026-05-11",
+            "reference_price": 76.25,
+            "predicted_price": 76.25,
+            "observed_price": 75.75999704996745,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-04",
+            "target_session": "2026-05-12",
+            "reference_price": 74.75,
+            "predicted_price": 74.75,
+            "observed_price": 76.8066635131836,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-05",
+            "target_session": "2026-05-13",
+            "reference_price": 76.870002746582,
+            "predicted_price": 76.870002746582,
+            "observed_price": 77.94666544596355,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-06",
+            "target_session": "2026-05-14",
+            "reference_price": 76.050003051758,
+            "predicted_price": 76.050003051758,
+            "observed_price": 78.8000005086263,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-07",
+            "target_session": "2026-05-15",
+            "reference_price": 75.73999786377,
+            "predicted_price": 75.73999786377,
+            "observed_price": 78.13333384195964,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-08",
+            "target_session": "2026-05-18",
+            "reference_price": 76.089996337891,
+            "predicted_price": 76.089996337891,
+            "observed_price": 77.5,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-11",
+            "target_session": "2026-05-19",
+            "reference_price": 75.449996948242,
+            "predicted_price": 75.449996948242,
+            "observed_price": 77.68666585286458,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-12",
+            "target_session": "2026-05-20",
+            "reference_price": 78.879997253418,
+            "predicted_price": 78.879997253418,
+            "observed_price": 78.14666748046875,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-13",
+            "target_session": "2026-05-21",
+            "reference_price": 79.51000213623,
+            "predicted_price": 79.51000213623,
+            "observed_price": 77.91666666666667,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-14",
+            "target_session": "2026-05-22",
+            "reference_price": 78.01000213623,
+            "predicted_price": 78.01000213623,
+            "observed_price": 77.39666748046875,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-15",
+            "target_session": "2026-05-26",
+            "reference_price": 76.879997253418,
+            "predicted_price": 76.879997253418,
+            "observed_price": 76.6433334350586,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-18",
+            "target_session": "2026-05-27",
+            "reference_price": 77.610000610352,
+            "predicted_price": 77.610000610352,
+            "observed_price": 76.34666697184245,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-19",
+            "target_session": "2026-05-28",
+            "reference_price": 78.569999694824,
+            "predicted_price": 78.569999694824,
+            "observed_price": 76.17333221435547,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-20",
+            "target_session": "2026-05-29",
+            "reference_price": 78.26000213623,
+            "predicted_price": 78.26000213623,
+            "observed_price": 75.74666595458984,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-21",
+            "target_session": "2026-06-01",
+            "reference_price": 76.919998168945,
+            "predicted_price": 76.919998168945,
+            "observed_price": 75.4499994913737,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-22",
+            "target_session": "2026-06-02",
+            "reference_price": 77.01000213623,
+            "predicted_price": 77.01000213623,
+            "observed_price": 74.79666646321614,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-26",
+            "target_session": "2026-06-03",
+            "reference_price": 76.0,
+            "predicted_price": 76.0,
+            "observed_price": 75.0066655476888,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-27",
+            "target_session": "2026-06-04",
+            "reference_price": 76.029998779297,
+            "predicted_price": 76.029998779297,
+            "observed_price": 74.77999877929688,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-28",
+            "target_session": "2026-06-05",
+            "reference_price": 76.48999786377,
+            "predicted_price": 76.48999786377,
+            "observed_price": 75.15333302815755,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-05-29",
+            "target_session": "2026-06-08",
+            "reference_price": 74.720001220703,
+            "predicted_price": 74.720001220703,
+            "observed_price": 75.48333231608073,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-01",
+            "target_session": "2026-06-09",
+            "reference_price": 75.139999389648,
+            "predicted_price": 75.139999389648,
+            "observed_price": 76.56000010172527,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-02",
+            "target_session": "2026-06-10",
+            "reference_price": 74.529998779297,
+            "predicted_price": 74.529998779297,
+            "observed_price": 77.6999994913737,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-03",
+            "target_session": "2026-06-11",
+            "reference_price": 75.349998474121,
+            "predicted_price": 75.349998474121,
+            "observed_price": 78.87666829427083,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-04",
+            "target_session": "2026-06-12",
+            "reference_price": 74.459999084473,
+            "predicted_price": 74.459999084473,
+            "observed_price": 79.01333363850911,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-05",
+            "target_session": "2026-06-15",
+            "reference_price": 75.650001525879,
+            "predicted_price": 75.650001525879,
+            "observed_price": 79.18000030517578,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-08",
+            "target_session": "2026-06-16",
+            "reference_price": 76.339996337891,
+            "predicted_price": 76.339996337891,
+            "observed_price": 78.89999898274739,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-09",
+            "target_session": "2026-06-17",
+            "reference_price": 77.690002441406,
+            "predicted_price": 77.690002441406,
+            "observed_price": 78.96666717529297,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-10",
+            "target_session": "2026-06-18",
+            "reference_price": 79.069999694824,
+            "predicted_price": 79.069999694824,
+            "observed_price": 78.35333506266277,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-11",
+            "target_session": "2026-06-22",
+            "reference_price": 79.870002746582,
+            "predicted_price": 79.870002746582,
+            "observed_price": 77.33333587646484,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-12",
+            "target_session": "2026-06-23",
+            "reference_price": 78.099998474121,
+            "predicted_price": 78.099998474121,
+            "observed_price": 77.75666809082031,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-15",
+            "target_session": "2026-06-24",
+            "reference_price": 79.569999694824,
+            "predicted_price": 79.569999694824,
+            "observed_price": 78.18999989827473,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-16",
+            "target_session": "2026-06-25",
+            "reference_price": 79.029998779297,
+            "predicted_price": 79.029998779297,
+            "observed_price": 78.94666544596355,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-17",
+            "target_session": "2026-06-26",
+            "reference_price": 78.300003051758,
+            "predicted_price": 78.300003051758,
+            "observed_price": 79.16666666666667,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-18",
+            "target_session": "2026-06-29",
+            "reference_price": 77.730003356934,
+            "predicted_price": 77.730003356934,
+            "observed_price": 79.26999918619792,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-22",
+            "target_session": "2026-06-30",
+            "reference_price": 75.970001220703,
+            "predicted_price": 75.970001220703,
+            "observed_price": 80.04333241780598,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-23",
+            "target_session": "2026-07-01",
+            "reference_price": 79.569999694824,
+            "predicted_price": 79.569999694824,
+            "observed_price": 80.11666361490886,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-24",
+            "target_session": "2026-07-02",
+            "reference_price": 79.029998779297,
+            "predicted_price": 79.029998779297,
+            "observed_price": 81.61999766031902,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-25",
+            "target_session": "2026-07-06",
+            "reference_price": 78.23999786377,
+            "predicted_price": 78.23999786377,
+            "observed_price": 83.16333262125652,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-26",
+            "target_session": "2026-07-07",
+            "reference_price": 80.230003356934,
+            "predicted_price": 80.230003356934,
+            "observed_price": 84.81666819254436,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-29",
+            "target_session": "2026-07-08",
+            "reference_price": 79.339996337891,
+            "predicted_price": 79.339996337891,
+            "observed_price": 85.22666931152223,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-06-30",
+            "target_session": "2026-07-09",
+            "reference_price": 80.559997558594,
+            "predicted_price": 80.559997558594,
+            "observed_price": 85.28000132242717,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-01",
+            "target_session": "2026-07-10",
+            "reference_price": 80.449996948242,
+            "predicted_price": 80.449996948242,
+            "observed_price": 86.2566655476888,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-02",
+            "target_session": "2026-07-13",
+            "reference_price": 83.849998474121,
+            "predicted_price": 83.849998474121,
+            "observed_price": 85.6999994913737,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-06",
+            "target_session": "2026-07-14",
+            "reference_price": 85.190002441406,
+            "predicted_price": 85.190002441406,
+            "observed_price": 84.96333312988281,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-07",
+            "target_session": "2026-07-15",
+            "reference_price": 85.410003662109,
+            "predicted_price": 85.410003662109,
+            "observed_price": 83.97000122070312,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-08",
+            "target_session": "2026-07-16",
+            "reference_price": 85.080001831055,
+            "predicted_price": 85.080001831055,
+            "observed_price": 85.5933329264323,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-09",
+            "target_session": "2026-07-17",
+            "reference_price": 85.349998474121,
+            "predicted_price": 85.349998474121,
+            "observed_price": 87.39666748046875,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-10",
+            "target_session": "2026-07-20",
+            "reference_price": 88.339996337891,
+            "predicted_price": 88.339996337891,
+            "observed_price": 88.41666666666667,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-13",
+            "target_session": "2026-07-21",
+            "reference_price": 83.410003662109,
+            "predicted_price": 83.410003662109,
+            "observed_price": 88.07333374023438,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-14",
+            "target_session": "2026-07-22",
+            "reference_price": 83.139999389648,
+            "predicted_price": 83.139999389648,
+            "observed_price": 87.8433329264323,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-15",
+            "target_session": "2026-07-23",
+            "reference_price": 85.360000610352,
+            "predicted_price": 85.360000610352,
+            "observed_price": 87.75,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-16",
+            "target_session": "2026-07-24",
+            "reference_price": 88.279998779297,
+            "predicted_price": 88.279998779297,
+            "observed_price": 88.77333323160808,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-17",
+            "target_session": "2026-07-27",
+            "reference_price": 88.550003051758,
+            "predicted_price": 88.550003051758,
+            "observed_price": 89.06000010172527,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-20",
+            "target_session": "2026-07-28",
+            "reference_price": 88.419998168945,
+            "predicted_price": 88.419998168945,
+            "observed_price": 90.75,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-21",
+            "target_session": "2026-07-29",
+            "reference_price": 87.25,
+            "predicted_price": 87.25,
+            "observed_price": 91.81000010172527,
+            "predicted_log_return": 0.0
+          },
+          {
+            "origin_session": "2026-07-22",
+            "target_session": "2026-07-30",
+            "reference_price": 87.860000610352,
+            "predicted_price": 87.860000610352,
+            "observed_price": 91.26333363850911,
+            "predicted_log_return": 0.0
+          }
+        ],
+        "metrics": {
+          "mae_price": 2.0882778591578353,
+          "rmse_price": 2.5778627663953024,
+          "mape_percent": 2.5619623824432813,
+          "direction_hit_rate": 0.0,
+          "sample_count": 60
+        }
+      },
+      "training_label_mean": {
+        "prediction": "training_mean_log_return",
+        "predicted_log_return": -0.0030557290530261226,
+        "rows": [
+          {
+            "origin_session": "2026-04-27",
+            "target_session": "2026-05-05",
+            "reference_price": 77.779998779297,
+            "predicted_price": 77.54268694227812,
+            "observed_price": 75.95666758219402,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-04-28",
+            "target_session": "2026-05-06",
+            "reference_price": 77.279998779297,
+            "predicted_price": 77.04421247481055,
+            "observed_price": 75.89000193277995,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-04-29",
+            "target_session": "2026-05-07",
+            "reference_price": 75.069999694824,
+            "predicted_price": 74.84095624133751,
+            "observed_price": 76.22000122070312,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-04-30",
+            "target_session": "2026-05-08",
+            "reference_price": 77.26000213623,
+            "predicted_price": 77.02427684280262,
+            "observed_price": 75.95999908447266,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-01",
+            "target_session": "2026-05-11",
+            "reference_price": 76.25,
+            "predicted_price": 76.01735628880589,
+            "observed_price": 75.75999704996745,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-04",
+            "target_session": "2026-05-12",
+            "reference_price": 74.75,
+            "predicted_price": 74.52193288640315,
+            "observed_price": 76.8066635131836,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-05",
+            "target_session": "2026-05-13",
+            "reference_price": 76.870002746582,
+            "predicted_price": 76.63546736666768,
+            "observed_price": 77.94666544596355,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-06",
+            "target_session": "2026-05-14",
+            "reference_price": 76.050003051758,
+            "predicted_price": 75.81796954426574,
+            "observed_price": 78.8000005086263,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-07",
+            "target_session": "2026-05-15",
+            "reference_price": 75.73999786377,
+            "predicted_price": 75.50891020227672,
+            "observed_price": 78.13333384195964,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-08",
+            "target_session": "2026-05-18",
+            "reference_price": 76.089996337891,
+            "predicted_price": 75.85784080828059,
+            "observed_price": 77.5,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-11",
+            "target_session": "2026-05-19",
+            "reference_price": 75.449996948242,
+            "predicted_price": 75.21979409841087,
+            "observed_price": 77.68666585286458,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-12",
+            "target_session": "2026-05-20",
+            "reference_price": 78.879997253418,
+            "predicted_price": 78.63932924948335,
+            "observed_price": 78.14666748046875,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-13",
+            "target_session": "2026-05-21",
+            "reference_price": 79.51000213623,
+            "predicted_price": 79.26741194640672,
+            "observed_price": 77.91666666666667,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-14",
+            "target_session": "2026-05-22",
+            "reference_price": 78.01000213623,
+            "predicted_price": 77.77198854400399,
+            "observed_price": 77.39666748046875,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-15",
+            "target_session": "2026-05-26",
+            "reference_price": 76.879997253418,
+            "predicted_price": 76.64543137961303,
+            "observed_price": 76.6433334350586,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-18",
+            "target_session": "2026-05-27",
+            "reference_price": 77.610000610352,
+            "predicted_price": 77.37320744880748,
+            "observed_price": 76.34666697184245,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-19",
+            "target_session": "2026-05-28",
+            "reference_price": 78.569999694824,
+            "predicted_price": 78.33027751361057,
+            "observed_price": 76.17333221435547,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-20",
+            "target_session": "2026-05-29",
+            "reference_price": 78.26000213623,
+            "predicted_price": 78.02122577773778,
+            "observed_price": 75.74666595458984,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-21",
+            "target_session": "2026-06-01",
+            "reference_price": 76.919998168945,
+            "predicted_price": 76.6853102497441,
+            "observed_price": 75.4499994913737,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-22",
+            "target_session": "2026-06-02",
+            "reference_price": 77.01000213623,
+            "predicted_price": 76.77503960906883,
+            "observed_price": 74.79666646321614,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-26",
+            "target_session": "2026-06-03",
+            "reference_price": 76.0,
+            "predicted_price": 75.76811905507209,
+            "observed_price": 75.0066655476888,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-27",
+            "target_session": "2026-06-04",
+            "reference_price": 76.029998779297,
+            "predicted_price": 75.7980263061416,
+            "observed_price": 74.77999877929688,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-28",
+            "target_session": "2026-06-05",
+            "reference_price": 76.48999786377,
+            "predicted_price": 76.25662190347809,
+            "observed_price": 75.15333302815755,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-05-29",
+            "target_session": "2026-06-08",
+            "reference_price": 74.720001220703,
+            "predicted_price": 74.49202563533365,
+            "observed_price": 75.48333231608073,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-01",
+            "target_session": "2026-06-09",
+            "reference_price": 75.139999389648,
+            "predicted_price": 74.91074236253807,
+            "observed_price": 76.56000010172527,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-02",
+            "target_session": "2026-06-10",
+            "reference_price": 74.529998779297,
+            "predicted_price": 74.30260290373886,
+            "observed_price": 77.6999994913737,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-03",
+            "target_session": "2026-06-11",
+            "reference_price": 75.349998474121,
+            "predicted_price": 75.12010072614079,
+            "observed_price": 78.87666829427083,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-04",
+            "target_session": "2026-06-12",
+            "reference_price": 74.459999084473,
+            "predicted_price": 74.23281678253828,
+            "observed_price": 79.01333363850911,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-05",
+            "target_session": "2026-06-15",
+            "reference_price": 75.650001525879,
+            "predicted_price": 75.41918844906824,
+            "observed_price": 79.18000030517578,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-08",
+            "target_session": "2026-06-16",
+            "reference_price": 76.339996337891,
+            "predicted_price": 76.10707804201438,
+            "observed_price": 78.89999898274739,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-09",
+            "target_session": "2026-06-17",
+            "reference_price": 77.690002441406,
+            "predicted_price": 77.45296518906962,
+            "observed_price": 78.96666717529297,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-10",
+            "target_session": "2026-06-18",
+            "reference_price": 79.069999694824,
+            "predicted_price": 78.82875198107816,
+            "observed_price": 78.35333506266277,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-11",
+            "target_session": "2026-06-22",
+            "reference_price": 79.870002746582,
+            "predicted_price": 79.62631417147317,
+            "observed_price": 77.33333587646484,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-12",
+            "target_session": "2026-06-23",
+            "reference_price": 78.099998474121,
+            "predicted_price": 77.86171029721248,
+            "observed_price": 77.75666809082031,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-15",
+            "target_session": "2026-06-24",
+            "reference_price": 79.569999694824,
+            "predicted_price": 79.32722644854573,
+            "observed_price": 78.18999989827473,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-16",
+            "target_session": "2026-06-25",
+            "reference_price": 79.029998779297,
+            "predicted_price": 78.78887311094708,
+            "observed_price": 78.94666544596355,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-17",
+            "target_session": "2026-06-26",
+            "reference_price": 78.300003051758,
+            "predicted_price": 78.06110464786984,
+            "observed_price": 79.16666666666667,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-18",
+            "target_session": "2026-06-29",
+            "reference_price": 77.730003356934,
+            "predicted_price": 77.4928440592017,
+            "observed_price": 79.26999918619792,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-22",
+            "target_session": "2026-06-30",
+            "reference_price": 75.970001220703,
+            "predicted_price": 75.73821180400259,
+            "observed_price": 80.04333241780598,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-23",
+            "target_session": "2026-07-01",
+            "reference_price": 79.569999694824,
+            "predicted_price": 79.32722644854573,
+            "observed_price": 80.11666361490886,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-24",
+            "target_session": "2026-07-02",
+            "reference_price": 79.029998779297,
+            "predicted_price": 78.78887311094708,
+            "observed_price": 81.61999766031902,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-25",
+            "target_session": "2026-07-06",
+            "reference_price": 78.23999786377,
+            "predicted_price": 78.00128253961462,
+            "observed_price": 83.16333262125652,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-26",
+            "target_session": "2026-07-07",
+            "reference_price": 80.230003356934,
+            "predicted_price": 79.9852163965396,
+            "observed_price": 84.81666819254436,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-29",
+            "target_session": "2026-07-08",
+            "reference_price": 79.339996337891,
+            "predicted_price": 79.09792484681985,
+            "observed_price": 85.22666931152223,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-06-30",
+            "target_session": "2026-07-09",
+            "reference_price": 80.559997558594,
+            "predicted_price": 80.31420376441932,
+            "observed_price": 85.28000132242717,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-01",
+            "target_session": "2026-07-10",
+            "reference_price": 80.449996948242,
+            "predicted_price": 80.20453877308667,
+            "observed_price": 86.2566655476888,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-02",
+            "target_session": "2026-07-13",
+            "reference_price": 83.849998474121,
+            "predicted_price": 83.59416667308965,
+            "observed_price": 85.6999994913737,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-06",
+            "target_session": "2026-07-14",
+            "reference_price": 85.190002441406,
+            "predicted_price": 84.93008220108331,
+            "observed_price": 84.96333312988281,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-07",
+            "target_session": "2026-07-15",
+            "reference_price": 85.410003662109,
+            "predicted_price": 85.14941218374761,
+            "observed_price": 83.97000122070312,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-08",
+            "target_session": "2026-07-16",
+            "reference_price": 85.080001831055,
+            "predicted_price": 84.82041720975167,
+            "observed_price": 85.5933329264323,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-09",
+            "target_session": "2026-07-17",
+            "reference_price": 85.349998474121,
+            "predicted_price": 85.08959007549238,
+            "observed_price": 87.39666748046875,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-10",
+            "target_session": "2026-07-20",
+            "reference_price": 88.339996337891,
+            "predicted_price": 88.07046526123628,
+            "observed_price": 88.41666666666667,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-13",
+            "target_session": "2026-07-21",
+            "reference_price": 83.410003662109,
+            "predicted_price": 83.15551431387729,
+            "observed_price": 88.07333374023438,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-14",
+            "target_session": "2026-07-22",
+            "reference_price": 83.139999389648,
+            "predicted_price": 82.88633384201935,
+            "observed_price": 87.8433329264323,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-15",
+            "target_session": "2026-07-23",
+            "reference_price": 85.360000610352,
+            "predicted_price": 85.09956169455496,
+            "observed_price": 87.75,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-16",
+            "target_session": "2026-07-24",
+            "reference_price": 88.279998779297,
+            "predicted_price": 88.01065075909729,
+            "observed_price": 88.77333323160808,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-17",
+            "target_session": "2026-07-27",
+            "reference_price": 88.550003051758,
+            "predicted_price": 88.27983123095522,
+            "observed_price": 89.06000010172527,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-20",
+            "target_session": "2026-07-28",
+            "reference_price": 88.419998168945,
+            "predicted_price": 88.15022300149843,
+            "observed_price": 90.75,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-21",
+            "target_session": "2026-07-29",
+            "reference_price": 87.25,
+            "predicted_price": 86.98379457309264,
+            "observed_price": 91.81000010172527,
+            "predicted_log_return": -0.0030557290530261226
+          },
+          {
+            "origin_session": "2026-07-22",
+            "target_session": "2026-07-30",
+            "reference_price": 87.860000610352,
+            "predicted_price": 87.59193403189286,
+            "observed_price": 91.26333363850911,
+            "predicted_log_return": -0.0030557290530261226
+          }
+        ],
+        "metrics": {
+          "mae_price": 2.153288963425253,
+          "rmse_price": 2.6951503706969806,
+          "mape_percent": 2.6333041097884835,
+          "direction_hit_rate": 0.38333333333333336,
+          "sample_count": 60
+        }
+      }
+    },
+    "metric_units": {
+      "mae_price": "quote_price",
+      "rmse_price": "quote_price",
+      "mape_percent": "percent",
+      "direction_hit_rate": "fraction",
+      "sample_count": "observations"
+    },
+    "currency": "USD",
+    "first_evaluation_session": "2026-04-27",
+    "last_evaluation_session": "2026-07-22",
+    "evaluation_note": "retrospective_terminal_reserved_from_feedback_selection"
+  },
+  "strategy": {
+    "evidence_mode": "historical_terminal_hypothetical_account",
+    "clock_basis": "MarketData.timestamp simulation, not live or durable submission evidence",
+    "policy": "log_return_above_threshold_long_otherwise_cash; hold units until signal changes",
+    "threshold": 0.0,
+    "prediction_horizon_sessions": 6,
+    "execution_note": "6-session labels differ from next-open trade intervals. Account quotes are rounded half-even to 12 decimal places; original model prices are unchanged.",
+    "period": {
+      "start": "2026-04-27",
+      "end": "2026-07-30"
+    },
+    "account_rules": {
+      "currency": "USD",
+      "currency_precision": 2,
+      "rounding_policy": "half_even_per_component",
+      "initial_cash": "10000",
+      "cash_settlement": "immediate_simulation",
+      "inventory_unlock": "immediate_simulation",
+      "sizing": "long_only_topk",
+      "allocation": "1",
+      "max_positions": 1,
+      "lot_size": 1,
+      "cost_policy": "linear_side_bps",
+      "buy_costs": {
+        "commission_bps": "5",
+        "tax_bps": "0",
+        "slippage_bps": "5"
+      },
+      "sell_costs": {
+        "commission_bps": "5",
+        "tax_bps": "0",
+        "slippage_bps": "5"
+      },
+      "cost_claim": "explicit_observation_assumption",
+      "fill_policy": "next_registered_open_market",
+      "fill_cap_units": {
+        "CALM": 1000000000000
+      },
+      "funding_policy": "pre_funded_no_unfilled_sale_credit",
+      "valuation": "close_fresh_quote_only",
+      "benchmark": "cash_zero_interest",
+      "action_policy": "notice_suspend_unresolved",
+      "termination": "preserve_inventory",
+      "stop_policy": "cancel_unelapsed_targets",
+      "max_drawdown": "1"
+    },
+    "strategy": {
+      "metrics": {
+        "sharpe_ratio": 1.7468195809185003,
+        "annualized_volatility": 0.2195576816011394,
+        "risk_statistics": {
+          "return_basis": "consecutive_daily_net_account_nav_simple_returns",
+          "annualization_sessions": 252,
+          "annual_risk_free_rate": 0.0,
+          "standard_deviation_ddof": 1,
+          "daily_return_count": 65,
+          "status": "available",
+          "interpretation": "Short retrospective development sample; not independent evidence."
+        },
+        "net_return": "0.097274",
+        "max_drawdown": "-0.0691712615840631239796134266",
+        "fees": {
+          "commission": "100.50",
+          "tax": "0.00",
+          "slippage": "100.48"
+        },
+        "turnover": "20.10154",
+        "turnover_definition": "sum_absolute_raw_fill_notional_divided_by_initial_cash",
+        "ending_inventory": {
+          "CALM": {
+            "quantity": 0,
+            "cost_basis": "0.00"
+          }
+        },
+        "ending_cash": "10972.74"
+      },
+      "cash": "10972.74",
+      "holdings": {
+        "CALM": {
+          "quantity": 0,
+          "cost_basis": "0.00"
+        }
+      },
+      "orders": [
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 131,
+          "requested_quantity": 131,
+          "reference_price": "76.25",
+          "decision_ref": "197a3bd7ddb6d5f5a924e7b2aec8bf7178d409e77c4eeaafe723c956440e34fd",
+          "target_session": "2026-05-04",
+          "target_at": "2026-05-04T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-01T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-01T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 131,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "1ab54c49fe9d18a9df120e11d8ef3bfedb78d9d49a186f30659312af14eb8d9b"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 131,
+          "requested_quantity": 131,
+          "reference_price": "74.75",
+          "decision_ref": "004d3cb2e7eb1214dea54d05d82939623220282d6f9b507712cbd64983d0ecdd",
+          "target_session": "2026-05-05",
+          "target_at": "2026-05-05T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-04T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-04T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 131,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "9c6f2eb15544f4eca2da319a065097554fa5b2d07a5f53a6ea8d0c6fbc7cfae0"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 127,
+          "requested_quantity": 127,
+          "reference_price": "76.870002746582",
+          "decision_ref": "a121bd73a357f77a949dca7a6e7c38abbb78d2220d43012f86172b398dbf2a8b",
+          "target_session": "2026-05-06",
+          "target_at": "2026-05-06T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-05T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-05T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 1,
+          "cancellation_reason": "target_resolved_remainder_cancelled",
+          "order_id": "f1c0a8e38a3c9684c257e22f9acea24efd1dc18111ae83eaec53e8f5bf67a9dc"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 126,
+          "requested_quantity": 126,
+          "reference_price": "79.51000213623",
+          "decision_ref": "61e20127805a7f8b93b305c6cbc5c2c5a702a0fa31874b4c63a4f72d7a9413bc",
+          "target_session": "2026-05-14",
+          "target_at": "2026-05-14T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-13T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-13T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "dad1218ecdcfe5012647492adfe504f53786ffea237b66e0220f21918366c322"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 130,
+          "requested_quantity": 130,
+          "reference_price": "78.01000213623",
+          "decision_ref": "513195abb4f4029cd0b539eb0c63a404c46486a266ecefbe150d24ccc3d55447",
+          "target_session": "2026-05-15",
+          "target_at": "2026-05-15T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-14T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-14T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 129,
+          "cancelled_quantity": 1,
+          "cancellation_reason": "target_resolved_remainder_cancelled",
+          "order_id": "9f5ebe92198a988716485edba0bfe553fed842e3facaf8fe52cca03a5f180b74"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 129,
+          "requested_quantity": 129,
+          "reference_price": "77.610000610352",
+          "decision_ref": "d6fe71531974584a0024308b009b80e79ea11ac2fcd3702955301e4534e8165b",
+          "target_session": "2026-05-19",
+          "target_at": "2026-05-19T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-18T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-18T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 129,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "a40455b71cbed2468c1da898e3d87c74eae4471a1d3d78a39e9875008f0bd5cd"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 127,
+          "requested_quantity": 128,
+          "reference_price": "78.569999694824",
+          "decision_ref": "e747ff01855ca09078d40b6b5410a476f6be693fcf5feb29c36a55f038eabf17",
+          "target_session": "2026-05-20",
+          "target_at": "2026-05-20T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-19T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-19T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 1,
+          "cancellation_reason": "target_resolved_remainder_cancelled",
+          "order_id": "0850bf98393608ee813acd726662d38488619cc12981480d28acff7a282be0cf"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 126,
+          "requested_quantity": 126,
+          "reference_price": "76.919998168945",
+          "decision_ref": "45aa6086a88b40cdaae2063730c209707f11a6320b65619b65b60250cba01ec4",
+          "target_session": "2026-05-22",
+          "target_at": "2026-05-22T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-21T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-21T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "d87235c60817a0bce129ce33667ff829d4d73e4737c2b5fa6ceda0a09193e311"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 126,
+          "requested_quantity": 126,
+          "reference_price": "77.01000213623",
+          "decision_ref": "cb1754f541d85340ccd03d741237d2c4982d7b6dc09bf8de15bb86bd6d29f26f",
+          "target_session": "2026-05-26",
+          "target_at": "2026-05-26T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-22T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-22T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "4406728f39d7b82ca302bf90d7d60f81b10ee67c33444ea05e7fe66c56975fe6"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 126,
+          "requested_quantity": 126,
+          "reference_price": "76.029998779297",
+          "decision_ref": "69dc0fdeeafdf82694519d8a2d52ea6154e0d5a3f323555757f7c48b5f7cc2c2",
+          "target_session": "2026-05-28",
+          "target_at": "2026-05-28T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-27T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-27T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "de9ce163077875e176c43f53989c57e837a3d9a29018c8ef65fe2f3953f84451"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 126,
+          "requested_quantity": 126,
+          "reference_price": "76.48999786377",
+          "decision_ref": "8aba62c1c91b974c3960aca99ab16de6a7b30f011d30e6da1540f4859d7ed98d",
+          "target_session": "2026-05-29",
+          "target_at": "2026-05-29T09:00:00+00:00",
+          "prediction_finished_at": "2026-05-28T16:00:00+00:00",
+          "submission_confirmed_at": "2026-05-28T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "b8aea47f81480d39c01c77d817ef3af58200462020570c75c3e20f8e5ceba8f4"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 126,
+          "requested_quantity": 126,
+          "reference_price": "77.690002441406",
+          "decision_ref": "904a0c82694425513e49bd29e8bdab2e62de5a3f3e2cb5e0639b431df945c2f3",
+          "target_session": "2026-06-10",
+          "target_at": "2026-06-10T09:00:00+00:00",
+          "prediction_finished_at": "2026-06-09T16:00:00+00:00",
+          "submission_confirmed_at": "2026-06-09T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "248c2fcdedc4bd125fd5a00ca3090a805bf11845512884273460edb1979137cb"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 125,
+          "requested_quantity": 125,
+          "reference_price": "79.029998779297",
+          "decision_ref": "574beae3c4bd978c08a9ac59e3667e2e99acde868391fe4c80130c552f3a67f8",
+          "target_session": "2026-06-17",
+          "target_at": "2026-06-17T09:00:00+00:00",
+          "prediction_finished_at": "2026-06-16T16:00:00+00:00",
+          "submission_confirmed_at": "2026-06-16T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 125,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "62fc7c27f5790f4e895cfcb220ce521a6209cd284a7b038095ba3a98357f7109"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 125,
+          "requested_quantity": 125,
+          "reference_price": "80.230003356934",
+          "decision_ref": "0fe59b9f738d1bafa7e1e6b92407e48554a6999525a31dfd2c40dc9da6238ae7",
+          "target_session": "2026-06-29",
+          "target_at": "2026-06-29T09:00:00+00:00",
+          "prediction_finished_at": "2026-06-26T16:00:00+00:00",
+          "submission_confirmed_at": "2026-06-26T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 125,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "687d90d9b824d27a87d09ae7d5c035ddd92fa589bc0f77c4c1b66874dcb5578f"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 123,
+          "requested_quantity": 123,
+          "reference_price": "80.559997558594",
+          "decision_ref": "750c9e01f89c624cf300fd4747624220401c3f9b358bf56a0e08f05f47bb14ce",
+          "target_session": "2026-07-01",
+          "target_at": "2026-07-01T09:00:00+00:00",
+          "prediction_finished_at": "2026-06-30T16:00:00+00:00",
+          "submission_confirmed_at": "2026-06-30T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 123,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "fcf281909a370cd39e13abc93aa8dee6471e4c1f545a1a9eebb40998f7252a81"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 123,
+          "requested_quantity": 123,
+          "reference_price": "83.849998474121",
+          "decision_ref": "768ce0d710bb3ee2fb549cb69ce00d3fdf728f1e5f96fb5f80b2bc23d72e4b64",
+          "target_session": "2026-07-06",
+          "target_at": "2026-07-06T09:00:00+00:00",
+          "prediction_finished_at": "2026-07-02T16:00:00+00:00",
+          "submission_confirmed_at": "2026-07-02T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 123,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "3633c4bfc3e84dd2a2950c970373844d77a53d2c39972f64d60aa5a10c818391"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 124,
+          "requested_quantity": 124,
+          "reference_price": "83.139999389648",
+          "decision_ref": "3db740c1c0dd3fe8ada4868a96718258d68591a177340cd9d3cf7204484db114",
+          "target_session": "2026-07-15",
+          "target_at": "2026-07-15T09:00:00+00:00",
+          "prediction_finished_at": "2026-07-14T16:00:00+00:00",
+          "submission_confirmed_at": "2026-07-14T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 124,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "a69d49a6c316fea8fd449e4ba78fb6ab48b0a216569e8b0ad1e7e10bd5cc694f"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 124,
+          "requested_quantity": 124,
+          "reference_price": "88.279998779297",
+          "decision_ref": "9ed68730c29dcd50454356376e3cbbad57f2585a8a7da2d40e4b46d292e77e85",
+          "target_session": "2026-07-17",
+          "target_at": "2026-07-17T09:00:00+00:00",
+          "prediction_finished_at": "2026-07-16T16:00:00+00:00",
+          "submission_confirmed_at": "2026-07-16T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 124,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "7d463501aa8f8bc83f3158bd5064dfc8fb6fa5cd8f143e1e436424a78a774557"
+        },
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 124,
+          "requested_quantity": 124,
+          "reference_price": "88.550003051758",
+          "decision_ref": "659ad406f0bf7d1f47139e87711744778da305ebf6bc98de92dbf30a08d4d97b",
+          "target_session": "2026-07-20",
+          "target_at": "2026-07-20T09:00:00+00:00",
+          "prediction_finished_at": "2026-07-17T16:00:00+00:00",
+          "submission_confirmed_at": "2026-07-17T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 123,
+          "cancelled_quantity": 1,
+          "cancellation_reason": "target_resolved_remainder_cancelled",
+          "order_id": "e58f1525f289836e27147ddc5011cfcbbd239741f7758a3f33d19208fc6fbaa3"
+        },
+        {
+          "instrument": "CALM",
+          "side": "sell",
+          "submitted_quantity": 123,
+          "requested_quantity": 123,
+          "reference_price": "88.419998168945",
+          "decision_ref": "e50fde9f4fdc5fd62e4eea4186a9a36a7fd09045bd989b51e5e29419897f30d7",
+          "target_session": "2026-07-21",
+          "target_at": "2026-07-21T09:00:00+00:00",
+          "prediction_finished_at": "2026-07-20T16:00:00+00:00",
+          "submission_confirmed_at": "2026-07-20T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 123,
+          "cancelled_quantity": 0,
+          "cancellation_reason": null,
+          "order_id": "b7861e8390dca4e7e335511b5c4bc5f95cdb5ebc4dca5841984aafe608f0e7e3"
+        }
+      ],
+      "fills": [
+        {
+          "order_id": "1ab54c49fe9d18a9df120e11d8ef3bfedb78d9d49a186f30659312af14eb8d9b",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 131,
+          "price": "75.849998474121",
+          "quote_ref": "e6ffe30efbc3b422c83cfbd03e0b6b097b6087410b6c09f3bb325025154fd87f",
+          "resolved_at": "2026-05-04T09:00:00+00:00",
+          "raw_notional": "9936.35",
+          "notional": "9941.32",
+          "commission": "4.97",
+          "tax": "0.00",
+          "slippage": "4.97",
+          "cash_amount": "9946.29"
+        },
+        {
+          "order_id": "9c6f2eb15544f4eca2da319a065097554fa5b2d07a5f53a6ea8d0c6fbc7cfae0",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 131,
+          "price": "74.75",
+          "quote_ref": "f406a07b26ba6fc448dfeb156659f5ee9e220e2e4aee3b584a53a6c68ce1ac6e",
+          "resolved_at": "2026-05-05T09:00:00+00:00",
+          "raw_notional": "9792.25",
+          "notional": "9787.35",
+          "commission": "4.89",
+          "tax": "0.00",
+          "slippage": "4.90",
+          "cash_amount": "9782.46"
+        },
+        {
+          "order_id": "f1c0a8e38a3c9684c257e22f9acea24efd1dc18111ae83eaec53e8f5bf67a9dc",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 126,
+          "price": "77.330001831055",
+          "quote_ref": "c6be4137edd96660034e730207598e3f0ad9713b787f340ddf998848ec0d6ce9",
+          "resolved_at": "2026-05-06T09:00:00+00:00",
+          "raw_notional": "9743.58",
+          "notional": "9748.45",
+          "commission": "4.87",
+          "tax": "0.00",
+          "slippage": "4.87",
+          "cash_amount": "9753.32"
+        },
+        {
+          "order_id": "dad1218ecdcfe5012647492adfe504f53786ffea237b66e0220f21918366c322",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 126,
+          "price": "80.069999694824",
+          "quote_ref": "c34395422bb9730333492ffa39d753c7adb954c0cc1644cee7fed41a4a51bd3a",
+          "resolved_at": "2026-05-14T09:00:00+00:00",
+          "raw_notional": "10088.82",
+          "notional": "10083.78",
+          "commission": "5.04",
+          "tax": "0.00",
+          "slippage": "5.04",
+          "cash_amount": "10078.74"
+        },
+        {
+          "order_id": "9f5ebe92198a988716485edba0bfe553fed842e3facaf8fe52cca03a5f180b74",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 129,
+          "price": "78.370002746582",
+          "quote_ref": "122596df6b17d74e216f7fcdc6f7f861519f3a1e4f29e7e1bc4260c85bc39e2a",
+          "resolved_at": "2026-05-15T09:00:00+00:00",
+          "raw_notional": "10109.73",
+          "notional": "10114.79",
+          "commission": "5.06",
+          "tax": "0.00",
+          "slippage": "5.06",
+          "cash_amount": "10119.85"
+        },
+        {
+          "order_id": "a40455b71cbed2468c1da898e3d87c74eae4471a1d3d78a39e9875008f0bd5cd",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 129,
+          "price": "77.75",
+          "quote_ref": "a45ca2e6802fabaebdce94e0e2e9bdc9a9fd527d1ff598412b51781e8066a4c3",
+          "resolved_at": "2026-05-19T09:00:00+00:00",
+          "raw_notional": "10029.75",
+          "notional": "10024.74",
+          "commission": "5.01",
+          "tax": "0.00",
+          "slippage": "5.01",
+          "cash_amount": "10019.73"
+        },
+        {
+          "order_id": "0850bf98393608ee813acd726662d38488619cc12981480d28acff7a282be0cf",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 126,
+          "price": "78.830001831055",
+          "quote_ref": "11865562f33431b7e9ed42d8d5f7bb1927edf41da55a03e65a3cf78f742db9b0",
+          "resolved_at": "2026-05-20T09:00:00+00:00",
+          "raw_notional": "9932.58",
+          "notional": "9937.55",
+          "commission": "4.97",
+          "tax": "0.00",
+          "slippage": "4.97",
+          "cash_amount": "9942.52"
+        },
+        {
+          "order_id": "d87235c60817a0bce129ce33667ff829d4d73e4737c2b5fa6ceda0a09193e311",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 126,
+          "price": "76.720001220703",
+          "quote_ref": "d3b7b9715a2a20e65f95af8f19f0b43f28c5c7e8520fad2b3bc2f5f8f19dc0b2",
+          "resolved_at": "2026-05-22T09:00:00+00:00",
+          "raw_notional": "9666.72",
+          "notional": "9661.89",
+          "commission": "4.83",
+          "tax": "0.00",
+          "slippage": "4.83",
+          "cash_amount": "9657.06"
+        },
+        {
+          "order_id": "4406728f39d7b82ca302bf90d7d60f81b10ee67c33444ea05e7fe66c56975fe6",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 126,
+          "price": "76.620002746582",
+          "quote_ref": "08b05444b92f80ab2380d34c57d0bfbaeb056dda17a9da9b443ada0329391b34",
+          "resolved_at": "2026-05-26T09:00:00+00:00",
+          "raw_notional": "9654.12",
+          "notional": "9658.95",
+          "commission": "4.83",
+          "tax": "0.00",
+          "slippage": "4.83",
+          "cash_amount": "9663.78"
+        },
+        {
+          "order_id": "de9ce163077875e176c43f53989c57e837a3d9a29018c8ef65fe2f3953f84451",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 126,
+          "price": "75.790000915527",
+          "quote_ref": "8b555cfeed5b4965504fb4715500e88fdecb7469e085bb43a4a0c83ad0364163",
+          "resolved_at": "2026-05-28T09:00:00+00:00",
+          "raw_notional": "9549.54",
+          "notional": "9544.77",
+          "commission": "4.77",
+          "tax": "0.00",
+          "slippage": "4.77",
+          "cash_amount": "9540.00"
+        },
+        {
+          "order_id": "b8aea47f81480d39c01c77d817ef3af58200462020570c75c3e20f8e5ceba8f4",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 126,
+          "price": "75.919998168945",
+          "quote_ref": "00905b082593903a50bfceb195d8738e3f94d151940ec0bc0e28c7e347bc3860",
+          "resolved_at": "2026-05-29T09:00:00+00:00",
+          "raw_notional": "9565.92",
+          "notional": "9570.70",
+          "commission": "4.79",
+          "tax": "0.00",
+          "slippage": "4.78",
+          "cash_amount": "9575.49"
+        },
+        {
+          "order_id": "248c2fcdedc4bd125fd5a00ca3090a805bf11845512884273460edb1979137cb",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 126,
+          "price": "78.300003051758",
+          "quote_ref": "b7a30290b3af2585d4ef9cc307fd46c06f1fe480b24345ed1299c9083fda3620",
+          "resolved_at": "2026-06-10T09:00:00+00:00",
+          "raw_notional": "9865.80",
+          "notional": "9860.87",
+          "commission": "4.93",
+          "tax": "0.00",
+          "slippage": "4.93",
+          "cash_amount": "9855.94"
+        },
+        {
+          "order_id": "62fc7c27f5790f4e895cfcb220ce521a6209cd284a7b038095ba3a98357f7109",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 125,
+          "price": "78.910003662109",
+          "quote_ref": "fb6eff6e7b37fb899daea89f9923a4052611dcc8994d069742c0388969dbe7b2",
+          "resolved_at": "2026-06-17T09:00:00+00:00",
+          "raw_notional": "9863.75",
+          "notional": "9868.68",
+          "commission": "4.93",
+          "tax": "0.00",
+          "slippage": "4.93",
+          "cash_amount": "9873.61"
+        },
+        {
+          "order_id": "687d90d9b824d27a87d09ae7d5c035ddd92fa589bc0f77c4c1b66874dcb5578f",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 125,
+          "price": "79.410003662109",
+          "quote_ref": "b3495bb85c524c354b82fdade868f5b1a528929adcb0fa6a500cb1bc93298315",
+          "resolved_at": "2026-06-29T09:00:00+00:00",
+          "raw_notional": "9926.25",
+          "notional": "9921.29",
+          "commission": "4.96",
+          "tax": "0.00",
+          "slippage": "4.96",
+          "cash_amount": "9916.33"
+        },
+        {
+          "order_id": "fcf281909a370cd39e13abc93aa8dee6471e4c1f545a1a9eebb40998f7252a81",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 123,
+          "price": "80.559997558594",
+          "quote_ref": "6d586c84c1aadc8123fc88bb04eeafdb313f195d9ceb0f3edfff5912a24144f4",
+          "resolved_at": "2026-07-01T09:00:00+00:00",
+          "raw_notional": "9908.88",
+          "notional": "9913.83",
+          "commission": "4.96",
+          "tax": "0.00",
+          "slippage": "4.95",
+          "cash_amount": "9918.79"
+        },
+        {
+          "order_id": "3633c4bfc3e84dd2a2950c970373844d77a53d2c39972f64d60aa5a10c818391",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 123,
+          "price": "83.970001220703",
+          "quote_ref": "0fc31ab2adf99366685bbbe674d7e288298d034e84732fca7efb5d017c9fc84b",
+          "resolved_at": "2026-07-06T09:00:00+00:00",
+          "raw_notional": "10328.31",
+          "notional": "10323.15",
+          "commission": "5.16",
+          "tax": "0.00",
+          "slippage": "5.16",
+          "cash_amount": "10317.99"
+        },
+        {
+          "order_id": "a69d49a6c316fea8fd449e4ba78fb6ab48b0a216569e8b0ad1e7e10bd5cc694f",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 124,
+          "price": "83.139999389648",
+          "quote_ref": "d83b71b83e17946772468d4127667e2b0fdb42469d85a562e7e6ab8197dd5724",
+          "resolved_at": "2026-07-15T09:00:00+00:00",
+          "raw_notional": "10309.36",
+          "notional": "10314.51",
+          "commission": "5.16",
+          "tax": "0.00",
+          "slippage": "5.15",
+          "cash_amount": "10319.67"
+        },
+        {
+          "order_id": "7d463501aa8f8bc83f3158bd5064dfc8fb6fa5cd8f143e1e436424a78a774557",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 124,
+          "price": "88.419998168945",
+          "quote_ref": "8624a8cde73db38dc0815574af5b59fef4e0ebd3172c3ac976e15c145e130968",
+          "resolved_at": "2026-07-17T09:00:00+00:00",
+          "raw_notional": "10964.08",
+          "notional": "10958.60",
+          "commission": "5.48",
+          "tax": "0.00",
+          "slippage": "5.48",
+          "cash_amount": "10953.12"
+        },
+        {
+          "order_id": "e58f1525f289836e27147ddc5011cfcbbd239741f7758a3f33d19208fc6fbaa3",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 123,
+          "price": "88.589996337891",
+          "quote_ref": "e9ae4f9cadca07bd409a36ce7156d67bd473640119a9f5187dd5fd66712b5221",
+          "resolved_at": "2026-07-20T09:00:00+00:00",
+          "raw_notional": "10896.57",
+          "notional": "10902.02",
+          "commission": "5.45",
+          "tax": "0.00",
+          "slippage": "5.45",
+          "cash_amount": "10907.47"
+        },
+        {
+          "order_id": "b7861e8390dca4e7e335511b5c4bc5f95cdb5ebc4dca5841984aafe608f0e7e3",
+          "instrument": "CALM",
+          "side": "sell",
+          "quantity": 123,
+          "price": "88.480003356934",
+          "quote_ref": "6c9d307e9aabb07894f7101934dae73d3601face45973f5b071e5ec9607c3352",
+          "resolved_at": "2026-07-21T09:00:00+00:00",
+          "raw_notional": "10883.04",
+          "notional": "10877.60",
+          "commission": "5.44",
+          "tax": "0.00",
+          "slippage": "5.44",
+          "cash_amount": "10872.16"
+        }
+      ],
+      "valuations": [
+        {
+          "session_id": "2026-04-27",
+          "close_at": "2026-04-27T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10000.00",
+          "return_value": "0.00",
+          "drawdown": "0.00",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-04-28",
+          "close_at": "2026-04-28T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10000.00",
+          "return_value": "0",
+          "drawdown": "0.00",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-04-29",
+          "close_at": "2026-04-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10000.00",
+          "return_value": "0",
+          "drawdown": "0.00",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-04-30",
+          "close_at": "2026-04-30T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10000.00",
+          "return_value": "0",
+          "drawdown": "0.00",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-01",
+          "close_at": "2026-05-01T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10000.00",
+          "return_value": "0",
+          "drawdown": "0.00",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-04",
+          "close_at": "2026-05-04T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9845.96",
+          "return_value": "-0.015404",
+          "drawdown": "-0.015404",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.75",
+              "payload_ref": "d25aa7c2c48b3c34b7103496307316eff99a17f231378005c9529618e68819ea"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-05",
+          "close_at": "2026-05-05T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9836.17",
+          "return_value": "-0.0009943164506051212883253639",
+          "drawdown": "-0.016383",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-06",
+          "close_at": "2026-05-06T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9665.15",
+          "return_value": "-0.0173868487429558456187723474",
+          "drawdown": "-0.033485",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.050003051758",
+              "payload_ref": "14c58ce1176014915993850e248700ea2ee25bdcf98dff56032d7b0916c7f0ca"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-07",
+          "close_at": "2026-05-07T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9626.09",
+          "return_value": "-0.0040413237249292561419119207",
+          "drawdown": "-0.037391",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.73999786377",
+              "payload_ref": "4abe80138cb3e5eeffef5f66f739317c4863f8ee5fcb33c65ae58ecfe3ee356a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-08",
+          "close_at": "2026-05-08T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9670.19",
+          "return_value": "0.004581299364539496306392315",
+          "drawdown": "-0.032981",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.089996337891",
+              "payload_ref": "afdbcb82f3c3df39692486fd7d0e347f47c65c6154f8e0304ad5410f5a5469e9"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-11",
+          "close_at": "2026-05-11T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9589.55",
+          "return_value": "-0.0083390295330288236322140516",
+          "drawdown": "-0.041045",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.449996948242",
+              "payload_ref": "dc66e864edb257ef25982cf069dd49a9e1c1647d35374a299f13a9690b0efa14"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-12",
+          "close_at": "2026-05-12T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10021.73",
+          "return_value": "0.045067808187036930825742605",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.879997253418",
+              "payload_ref": "5b8213975daf4b0d8ddbe5087d3024c8c28383e35f90d7d3efe56dfa4ea50238"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-13",
+          "close_at": "2026-05-13T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10101.11",
+          "return_value": "0.007920788127399161621795838",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.51000213623",
+              "payload_ref": "a1e951b437e909e89aa0c1fee2a2a6d7f3ba19f517b2ec2331976e1626704d11"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-14",
+          "close_at": "2026-05-14T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10161.59",
+          "return_value": "0.005987460784012846112951943",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-15",
+          "close_at": "2026-05-15T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9959.26",
+          "return_value": "-0.0199112540458727423562651121",
+          "drawdown": "-0.0199112540458727423562651121",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.879997253418",
+              "payload_ref": "59f784ffa07d7dab04034513d8f696830af13cfa5d76c51cafaadc10e5e81af6"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-18",
+          "close_at": "2026-05-18T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10053.43",
+          "return_value": "0.009455521795796073202225868",
+          "drawdown": "-0.0106440035466890516149539590",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.610000610352",
+              "payload_ref": "74446abad3b28d89aecd062d5c288152c96307503ba8400a863ddeae525d8bb3"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-19",
+          "close_at": "2026-05-19T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10061.47",
+          "return_value": "0.000799727058327356931912790",
+          "drawdown": "-0.0098527887860069142722743193",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-20",
+          "close_at": "2026-05-20T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9979.71",
+          "return_value": "-0.0081260491757168684098844403",
+          "drawdown": "-0.0178987737155307387918622971",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.26000213623",
+              "payload_ref": "0da2a3f805c740bfb0665d3710371a3212c31c8d074610143de10daad8789bc1"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-21",
+          "close_at": "2026-05-21T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9810.87",
+          "return_value": "-0.0169183272860634226846271084",
+          "drawdown": "-0.0345142836898556229881347309",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.919998168945",
+              "payload_ref": "e4a5a43113e74bad2041d0ffb891b38c516d4f28fed652200f47e31be9ca8a1f"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-22",
+          "close_at": "2026-05-22T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9776.01",
+          "return_value": "-0.0035532017038244314724382241",
+          "drawdown": "-0.0379448491820669796754248105",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-26",
+          "close_at": "2026-05-26T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9688.23",
+          "return_value": "-0.0089791233846937554278279175",
+          "drawdown": "-0.0465832610841413597675166977",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76",
+              "payload_ref": "8b8d7423d6f003dfb56233222daa6075f77db7a32b952956af87030985fdaae1"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-27",
+          "close_at": "2026-05-27T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9692.01",
+          "return_value": "0.000390164147630681765399872",
+          "drawdown": "-0.0462112720548654295243165686",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.029998779297",
+              "payload_ref": "7aa37797b00a286254887aeb3c9a9cd3e7c5fc7262c9a72659b14ad769e83d41"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-28",
+          "close_at": "2026-05-28T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9652.23",
+          "return_value": "-0.0041044117783617639684647457",
+          "drawdown": "-0.0501260137439121239884703083",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-29",
+          "close_at": "2026-05-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9491.46",
+          "return_value": "-0.0166562545650072573902611106",
+          "drawdown": "-0.0659473566636717285385456410",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.720001220703",
+              "payload_ref": "287ea5692813653aa5128387ba0671082fd151ae291a0333e1d2f150e6937873"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-01",
+          "close_at": "2026-06-01T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9544.38",
+          "return_value": "0.005575538431389902080396483",
+          "drawdown": "-0.0607395102538087051337438334",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.139999389648",
+              "payload_ref": "e0ae4ce8695986a8ad2d546be983109d855f76dea9e5e9ab85723b766f20d4c3"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-02",
+          "close_at": "2026-06-02T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9467.52",
+          "return_value": "-0.0080529065271919181759318049",
+          "drawdown": "-0.0683032871824192867454797920",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.529998779297",
+              "payload_ref": "6cc95a23d6ec7030c4243e11d24a38b8809e1583e96598f72f948896b2c5548c"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-03",
+          "close_at": "2026-06-03T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9570.84",
+          "return_value": "0.010913100790914621780571892",
+          "drawdown": "-0.0581355870488771934313429296",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.349998474121",
+              "payload_ref": "ef8226c87d77faade714a44b53d1068e24c721eeae99e67046778e383730460a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-04",
+          "close_at": "2026-06-04T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9458.70",
+          "return_value": "-0.0117168399011998946800907757",
+          "drawdown": "-0.0691712615840631239796134266",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.459999084473",
+              "payload_ref": "599a247aebf4f4f03d3dad8bd7a516e8de37179deadb21d646f2a04659730313"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-05",
+          "close_at": "2026-06-05T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9608.64",
+          "return_value": "0.015852072694979225474959561",
+          "drawdown": "-0.0544156967561178909993416385",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.650001525879",
+              "payload_ref": "368b81025e1040a10025055df89605df7c2d71649b88a9bf7f4c9d772e06dc22"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-08",
+          "close_at": "2026-06-08T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9695.58",
+          "return_value": "0.009048106703966430212808472",
+          "drawdown": "-0.0458599490827714954057386689",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.339996337891",
+              "payload_ref": "c4fa4d07dd1f72d836e1835d8a0da84ff5fc1297df74c7bc4a61efa02ced5b71"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-09",
+          "close_at": "2026-06-09T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9865.68",
+          "return_value": "0.017544076785504322588230926",
+          "drawdown": "-0.0291204427653546344617328587",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.690002441406",
+              "payload_ref": "a2d677635342052801d588d993b1c18b8c6ba09efd7d13d62e5373cfcd94a284"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-10",
+          "close_at": "2026-06-10T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9932.68",
+          "return_value": "0.006791219662506791219662507",
+          "drawdown": "-0.0225269864263368232727358612",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-11",
+          "close_at": "2026-06-11T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9932.68",
+          "return_value": "0",
+          "drawdown": "-0.0225269864263368232727358612",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-12",
+          "close_at": "2026-06-12T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9932.68",
+          "return_value": "0",
+          "drawdown": "-0.0225269864263368232727358612",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-15",
+          "close_at": "2026-06-15T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9932.68",
+          "return_value": "0",
+          "drawdown": "-0.0225269864263368232727358612",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-16",
+          "close_at": "2026-06-16T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9932.68",
+          "return_value": "0",
+          "drawdown": "-0.0225269864263368232727358612",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-17",
+          "close_at": "2026-06-17T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9846.57",
+          "return_value": "-0.0086693621459666474707732455",
+          "drawdown": "-0.0310010539689162818023557337",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.300003051758",
+              "payload_ref": "7a1c375d115366565c6bcc5605ed1c62dfdcd2d5f72eb201dd9539f4a53beb56"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-18",
+          "close_at": "2026-06-18T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9775.32",
+          "return_value": "-0.0072360222899953994131966766",
+          "drawdown": "-0.0380127519413792526563264214",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.730003356934",
+              "payload_ref": "e987e0ea5d4204dff51c7be1920f4fbf77b2e250997cb20555290bcad42d2dec"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-22",
+          "close_at": "2026-06-22T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9555.32",
+          "return_value": "-0.0225056571038083663757298994",
+          "drawdown": "-0.0596629070844228117843762640",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.970001220703",
+              "payload_ref": "6a4e16fbdb29c46e63fda33fad6acfe1f3af521fc5f4cc04a4c9ba8d1bcc8b87"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-23",
+          "close_at": "2026-06-23T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10005.32",
+          "return_value": "0.047094184182214724362972669",
+          "drawdown": "-0.0153784988372882590224561314",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.569999694824",
+              "payload_ref": "939661dc74d0f54cbfad1cab8734998166512c2d12e8ffd0d025723649f10828"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-24",
+          "close_at": "2026-06-24T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9937.82",
+          "return_value": "-0.0067464109093962012209504544",
+          "drawdown": "-0.0220211600743584419367441513",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.029998779297",
+              "payload_ref": "58376da7fc0e9c08cba72ef81198a8a59ab1b39a944bcc9fbcf0843083763e06"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-25",
+          "close_at": "2026-06-25T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9839.07",
+          "return_value": "-0.0099367869412003839876351151",
+          "drawdown": "-0.0317391274397018576817210692",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.23999786377",
+              "payload_ref": "c538d393fe57ee3a22a5ff49af59d13b2bc70d97105846b55a30015a5f2178aa"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-26",
+          "close_at": "2026-06-26T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10087.82",
+          "return_value": "0.025281860988894275576858382",
+          "drawdown": "-0.0072596906586469243494374404",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "80.230003356934",
+              "payload_ref": "74f4e644d50ee990a80d5c56fd6aaac17a9c7f002a7880503fc7c0496a0c3291"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-29",
+          "close_at": "2026-06-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9975.40",
+          "return_value": "-0.0111441322307495573870271278",
+          "drawdown": "-0.0183229199367421830638709100",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-30",
+          "close_at": "2026-06-30T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9975.40",
+          "return_value": "0",
+          "drawdown": "-0.0183229199367421830638709100",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-01",
+          "close_at": "2026-07-01T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9951.96",
+          "return_value": "-0.0023497804599314313210497825",
+          "drawdown": "-0.0206296455574373695455140386",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "80.449996948242",
+              "payload_ref": "170400f7f6ba3a902e283d15a12b96beee5925422f04aeb503cb5fc37e29a24f"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-02",
+          "close_at": "2026-07-02T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10370.16",
+          "return_value": "0.042021873078267999469451244",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "83.849998474121",
+              "payload_ref": "46ac63bcd457c7076f2cf648686be0be4a6671f7b0456fc60126581b47439b6b"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-06",
+          "close_at": "2026-07-06T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0.000428151542502719340878058",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-07",
+          "close_at": "2026-07-07T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-08",
+          "close_at": "2026-07-08T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-09",
+          "close_at": "2026-07-09T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-10",
+          "close_at": "2026-07-10T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-13",
+          "close_at": "2026-07-13T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-14",
+          "close_at": "2026-07-14T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10374.60",
+          "return_value": "0",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-15",
+          "close_at": "2026-07-15T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10639.57",
+          "return_value": "0.025540261793225762920980086",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "85.360000610352",
+              "payload_ref": "71a3f7a046c1e848428102b085c24184d437366a58194d537787a756264d7814"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-16",
+          "close_at": "2026-07-16T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11001.65",
+          "return_value": "0.034031450519146920411257222",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.279998779297",
+              "payload_ref": "f52dd8cffa2d781794231087cc876f16d28b3dc3e28a5090feb3d76834aac848"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-17",
+          "close_at": "2026-07-17T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11008.05",
+          "return_value": "0.000581730922179854839955825",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-20",
+          "close_at": "2026-07-20T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10976.24",
+          "return_value": "-0.0028897034442975822239179510",
+          "drawdown": "-0.0028897034442975822239179510",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.419998168945",
+              "payload_ref": "7dae5ecd3f1274a5be5848a5b11e3934c99427689dbc0ddec8e0e4092cf5668a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-21",
+          "close_at": "2026-07-21T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "-0.0003188705786316625729758096",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-22",
+          "close_at": "2026-07-22T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-23",
+          "close_at": "2026-07-23T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-24",
+          "close_at": "2026-07-24T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-27",
+          "close_at": "2026-07-27T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-28",
+          "close_at": "2026-07-28T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-29",
+          "close_at": "2026-07-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-30",
+          "close_at": "2026-07-30T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10972.74",
+          "return_value": "0",
+          "drawdown": "-0.0032076525815198877185332552",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        }
+      ],
+      "cumulative_commission": "100.50",
+      "cumulative_tax": "0.00",
+      "cumulative_slippage": "100.48",
+      "realized_gross_pnl": "1173.72",
+      "last_nav": "10972.74",
+      "high_water": "11008.05",
+      "return_continuity": true,
+      "suspended_reasons": [],
+      "action_instruments": [],
+      "stop_receipt": null
+    },
+    "buy_and_hold": {
+      "metrics": {
+        "sharpe_ratio": 1.2908586937105857,
+        "annualized_volatility": 0.34432051864392854,
+        "risk_statistics": {
+          "return_basis": "consecutive_daily_net_account_nav_simple_returns",
+          "annualization_sessions": 252,
+          "annual_risk_free_rate": 0.0,
+          "standard_deviation_ddof": 1,
+          "daily_return_count": 65,
+          "status": "available",
+          "interpretation": "Short retrospective development sample; not independent evidence."
+        },
+        "net_return": "0.104596",
+        "max_drawdown": "-0.0682351909087228213191529564",
+        "fees": {
+          "commission": "4.96",
+          "tax": "0.00",
+          "slippage": "4.96"
+        },
+        "turnover": "0.99162",
+        "turnover_definition": "sum_absolute_raw_fill_notional_divided_by_initial_cash",
+        "ending_inventory": {
+          "CALM": {
+            "quantity": 126,
+            "cost_basis": "9916.20"
+          }
+        },
+        "ending_cash": "73.88"
+      },
+      "cash": "73.88",
+      "holdings": {
+        "CALM": {
+          "quantity": 126,
+          "cost_basis": "9916.20"
+        }
+      },
+      "orders": [
+        {
+          "instrument": "CALM",
+          "side": "buy",
+          "submitted_quantity": 128,
+          "requested_quantity": 128,
+          "reference_price": "77.779998779297",
+          "decision_ref": "7e4372a3b4aaf9abd159b0c85b6e858c21311dc07cb65054cc6cdf06b57afb3b",
+          "target_session": "2026-04-28",
+          "target_at": "2026-04-28T09:00:00+00:00",
+          "prediction_finished_at": "2026-04-27T16:00:00+00:00",
+          "submission_confirmed_at": "2026-04-27T16:00:00+00:00",
+          "reserved_cash": "0",
+          "status": "resolved",
+          "filled_quantity": 126,
+          "cancelled_quantity": 2,
+          "cancellation_reason": "target_resolved_remainder_cancelled",
+          "order_id": "9afce0030d14461ad6b64f20bee60c20eae039ed8cb9e8dc717e19aae11a92a0"
+        }
+      ],
+      "fills": [
+        {
+          "order_id": "9afce0030d14461ad6b64f20bee60c20eae039ed8cb9e8dc717e19aae11a92a0",
+          "instrument": "CALM",
+          "side": "buy",
+          "quantity": 126,
+          "price": "78.699996948242",
+          "quote_ref": "4b6a286747e4efd9f1592333f369329dc6dd16e9e7e32ba03478a754bbe9e6ae",
+          "resolved_at": "2026-04-28T09:00:00+00:00",
+          "raw_notional": "9916.20",
+          "notional": "9921.16",
+          "commission": "4.96",
+          "tax": "0.00",
+          "slippage": "4.96",
+          "cash_amount": "9926.12"
+        }
+      ],
+      "valuations": [
+        {
+          "session_id": "2026-04-27",
+          "close_at": "2026-04-27T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10000.00",
+          "return_value": "0.00",
+          "drawdown": "0.00",
+          "reasons": [],
+          "marks": {},
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-04-28",
+          "close_at": "2026-04-28T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9811.16",
+          "return_value": "-0.018884",
+          "drawdown": "-0.018884",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.279998779297",
+              "payload_ref": "11cd5d40b64ba0d676b37991df7ad584b3de5fe531ad35bb9074f7d2c02fa0f6"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-04-29",
+          "close_at": "2026-04-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9532.70",
+          "return_value": "-0.0283819650275808365167829288",
+          "drawdown": "-0.04673",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.069999694824",
+              "payload_ref": "0c34d0ff9646ad9b901c16fc4f5f516b44bb4f7a7881cce657f1feafe04d59e6"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-04-30",
+          "close_at": "2026-04-30T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9808.64",
+          "return_value": "0.028946678275829513149474965",
+          "drawdown": "-0.019136",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.26000213623",
+              "payload_ref": "ce46ac2482d62d72d3bbb385a9cd3c693536110ec50e9721c40f7baa18eada46"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-01",
+          "close_at": "2026-05-01T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9681.38",
+          "return_value": "-0.0129742757405715777110792118",
+          "drawdown": "-0.031862",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.25",
+              "payload_ref": "47a5daa1b98c2fe25384a358481c839186ead21d079bc0496edcc43cea8ff1ec"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-04",
+          "close_at": "2026-05-04T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9492.38",
+          "return_value": "-0.0195220102919211930530564857",
+          "drawdown": "-0.050762",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.75",
+              "payload_ref": "d25aa7c2c48b3c34b7103496307316eff99a17f231378005c9529618e68819ea"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-05",
+          "close_at": "2026-05-05T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9759.50",
+          "return_value": "0.028140466353011573493686515",
+          "drawdown": "-0.02405",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.870002746582",
+              "payload_ref": "bf4ac0e4613aeb6fc26753ca0fab33ebd21ff619fb4896c59ab5d49c85ab47d9"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-06",
+          "close_at": "2026-05-06T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9656.18",
+          "return_value": "-0.0105866079204877299041959117",
+          "drawdown": "-0.034382",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.050003051758",
+              "payload_ref": "14c58ce1176014915993850e248700ea2ee25bdcf98dff56032d7b0916c7f0ca"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-07",
+          "close_at": "2026-05-07T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9617.12",
+          "return_value": "-0.0040450778672311410930616455",
+          "drawdown": "-0.038288",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.73999786377",
+              "payload_ref": "4abe80138cb3e5eeffef5f66f739317c4863f8ee5fcb33c65ae58ecfe3ee356a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-08",
+          "close_at": "2026-05-08T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9661.22",
+          "return_value": "0.004585572395893989052855741",
+          "drawdown": "-0.033878",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.089996337891",
+              "payload_ref": "afdbcb82f3c3df39692486fd7d0e347f47c65c6154f8e0304ad5410f5a5469e9"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-11",
+          "close_at": "2026-05-11T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9580.58",
+          "return_value": "-0.0083467719397757219067571176",
+          "drawdown": "-0.041942",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.449996948242",
+              "payload_ref": "dc66e864edb257ef25982cf069dd49a9e1c1647d35374a299f13a9690b0efa14"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-12",
+          "close_at": "2026-05-12T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10012.76",
+          "return_value": "0.045110003778476877182801041",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.879997253418",
+              "payload_ref": "5b8213975daf4b0d8ddbe5087d3024c8c28383e35f90d7d3efe56dfa4ea50238"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-13",
+          "close_at": "2026-05-13T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10092.14",
+          "return_value": "0.007927884019990492132039518",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.51000213623",
+              "payload_ref": "a1e951b437e909e89aa0c1fee2a2a6d7f3ba19f517b2ec2331976e1626704d11"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-14",
+          "close_at": "2026-05-14T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9903.14",
+          "return_value": "-0.0187274453188322793778128326",
+          "drawdown": "-0.0187274453188322793778128326",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.01000213623",
+              "payload_ref": "79d190e7e92b8fc628fce687339a9e8ae5f6a40990597ffc09b7a5d82b4564bd"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-15",
+          "close_at": "2026-05-15T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9760.76",
+          "return_value": "-0.0143772581221713517126891067",
+          "drawdown": "-0.0328354541256859298424318331",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.879997253418",
+              "payload_ref": "59f784ffa07d7dab04034513d8f696830af13cfa5d76c51cafaadc10e5e81af6"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-18",
+          "close_at": "2026-05-18T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9852.74",
+          "return_value": "0.009423446534900970826042234",
+          "drawdown": "-0.0237214307371875538785629212",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.610000610352",
+              "payload_ref": "74446abad3b28d89aecd062d5c288152c96307503ba8400a863ddeae525d8bb3"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-19",
+          "close_at": "2026-05-19T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9973.70",
+          "return_value": "0.012276787979790393332210126",
+          "drawdown": "-0.0117358657331348950767627084",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.569999694824",
+              "payload_ref": "3e269ea84edbd8d6d1638e5b947ec14ebd03a4ad271773a0fecf77d937a075f7"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-20",
+          "close_at": "2026-05-20T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9934.64",
+          "return_value": "-0.0039162998686545614967364168",
+          "drawdown": "-0.0156062044323602328148440271",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.26000213623",
+              "payload_ref": "0da2a3f805c740bfb0665d3710371a3212c31c8d074610143de10daad8789bc1"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-21",
+          "close_at": "2026-05-21T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9765.80",
+          "return_value": "-0.0169950798418463074655951298",
+          "drawdown": "-0.0323360555838504023923568242",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.919998168945",
+              "payload_ref": "e4a5a43113e74bad2041d0ffb891b38c516d4f28fed652200f47e31be9ca8a1f"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-22",
+          "close_at": "2026-05-22T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9777.14",
+          "return_value": "0.001161195191382170431505867",
+          "drawdown": "-0.0312124088647204656296880543",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.01000213623",
+              "payload_ref": "5083e584406a7ab34f8a1247625ea914c72f71972c6c09ce176ed8faaa4ea350"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-26",
+          "close_at": "2026-05-26T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9649.88",
+          "return_value": "-0.0130160762758843588206776215",
+          "drawdown": "-0.0438222220460675337440820282",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76",
+              "payload_ref": "8b8d7423d6f003dfb56233222daa6075f77db7a32b952956af87030985fdaae1"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-27",
+          "close_at": "2026-05-27T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9653.66",
+          "return_value": "0.000391714715623406715938437",
+          "drawdown": "-0.0434476731396908881565257715",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.029998779297",
+              "payload_ref": "7aa37797b00a286254887aeb3c9a9cd3e7c5fc7262c9a72659b14ad769e83d41"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-28",
+          "close_at": "2026-05-28T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9711.62",
+          "return_value": "0.006003940474390024094488515",
+          "drawdown": "-0.0377045899085823224806631696",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.48999786377",
+              "payload_ref": "2c3a05745d2fbb392f857985ce2adc99e2bb3779560838473319a32eaa28e836"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-05-29",
+          "close_at": "2026-05-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9488.60",
+          "return_value": "-0.0229642428348720398862393710",
+          "drawdown": "-0.0598029753848044121464823120",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.720001220703",
+              "payload_ref": "287ea5692813653aa5128387ba0671082fd151ae291a0333e1d2f150e6937873"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-01",
+          "close_at": "2026-06-01T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9541.52",
+          "return_value": "0.005577218978563750184431845",
+          "drawdown": "-0.0545592906955313739206947189",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.139999389648",
+              "payload_ref": "e0ae4ce8695986a8ad2d546be983109d855f76dea9e5e9ab85723b766f20d4c3"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-02",
+          "close_at": "2026-06-02T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9464.66",
+          "return_value": "-0.0080553203263211731464169231",
+          "drawdown": "-0.0621751184585231675343386041",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.529998779297",
+              "payload_ref": "6cc95a23d6ec7030c4243e11d24a38b8809e1583e96598f72f948896b2c5548c"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-03",
+          "close_at": "2026-06-03T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9567.98",
+          "return_value": "0.010916398476014986275259756",
+          "drawdown": "-0.0519374483508948548078009223",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.349998474121",
+              "payload_ref": "ef8226c87d77faade714a44b53d1068e24c721eeae99e67046778e383730460a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-04",
+          "close_at": "2026-06-04T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9455.84",
+          "return_value": "-0.0117203422247956203921830940",
+          "drawdown": "-0.0630490659067353405719698696",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "74.459999084473",
+              "payload_ref": "599a247aebf4f4f03d3dad8bd7a516e8de37179deadb21d646f2a04659730313"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-05",
+          "close_at": "2026-06-05T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9605.78",
+          "return_value": "0.015856867290478688302678556",
+          "drawdown": "-0.0481919592871283989322383558",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.650001525879",
+              "payload_ref": "368b81025e1040a10025055df89605df7c2d71649b88a9bf7f4c9d772e06dc22"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-08",
+          "close_at": "2026-06-08T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9692.72",
+          "return_value": "0.009050800663767023604538101",
+          "drawdown": "-0.0395773344404655504184444528",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "76.339996337891",
+              "payload_ref": "c4fa4d07dd1f72d836e1835d8a0da84ff5fc1297df74c7bc4a61efa02ced5b71"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-09",
+          "close_at": "2026-06-09T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9862.82",
+          "return_value": "0.017549253460328989179507919",
+          "drawdown": "-0.0227226336535164989784129035",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.690002441406",
+              "payload_ref": "a2d677635342052801d588d993b1c18b8c6ba09efd7d13d62e5373cfcd94a284"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-10",
+          "close_at": "2026-06-10T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10036.70",
+          "return_value": "0.017629846230591250778175005",
+          "drawdown": "-0.0054933839601908019508250976",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.069999694824",
+              "payload_ref": "63d1d62f9d0d18d64c0c0f1a1608d0121acafc2fb9ac8024e4c39e9f379387d3"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-11",
+          "close_at": "2026-06-11T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10137.50",
+          "return_value": "0.010043141670070840017137107",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.870002746582",
+              "payload_ref": "cffd8f26a294e407133b4c7be7f0664df43285a2209324ef8ca5a16083329793"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-12",
+          "close_at": "2026-06-12T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9914.48",
+          "return_value": "-0.0219995067817509247842170160",
+          "drawdown": "-0.0219995067817509247842170160",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.099998474121",
+              "payload_ref": "cf978428a27f8015f6b68c1fbbf0c62d8c385381b9dbf6960b838179b20fe06a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-15",
+          "close_at": "2026-06-15T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10099.70",
+          "return_value": "0.018681766466824281253278034",
+          "drawdown": "-0.0037287299630086313193588163",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.569999694824",
+              "payload_ref": "cf2987494bb1d23453a20e25acd49f253a84a657de1a09fbd46f80cc4b345494"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-16",
+          "close_at": "2026-06-16T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10031.66",
+          "return_value": "-0.0067368337673396239492262146",
+          "drawdown": "-0.0104404438964241676942046856",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.029998779297",
+              "payload_ref": "a13bab307444860b8f98126eda1cbedaaab1311213461034e234c349a09645b9"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-17",
+          "close_at": "2026-06-17T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9939.68",
+          "return_value": "-0.0091689710376946587105224858",
+          "drawdown": "-0.0195136868064118372379778052",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.300003051758",
+              "payload_ref": "7a1c375d115366565c6bcc5605ed1c62dfdcd2d5f72eb201dd9539f4a53beb56"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-18",
+          "close_at": "2026-06-18T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9867.86",
+          "return_value": "-0.0072255847270737086103375561",
+          "drawdown": "-0.0265982737361282367447595561",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "77.730003356934",
+              "payload_ref": "e987e0ea5d4204dff51c7be1920f4fbf77b2e250997cb20555290bcad42d2dec"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-22",
+          "close_at": "2026-06-22T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9646.10",
+          "return_value": "-0.0224729576625529750118060045",
+          "drawdown": "-0.0484734895191122071516646116",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "75.970001220703",
+              "payload_ref": "6a4e16fbdb29c46e63fda33fad6acfe1f3af521fc5f4cc04a4c9ba8d1bcc8b87"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-23",
+          "close_at": "2026-06-23T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10099.70",
+          "return_value": "0.047024185940431884388509346",
+          "drawdown": "-0.0037287299630086313193588163",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.569999694824",
+              "payload_ref": "939661dc74d0f54cbfad1cab8734998166512c2d12e8ffd0d025723649f10828"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-24",
+          "close_at": "2026-06-24T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10031.66",
+          "return_value": "-0.0067368337673396239492262146",
+          "drawdown": "-0.0104404438964241676942046856",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.029998779297",
+              "payload_ref": "58376da7fc0e9c08cba72ef81198a8a59ab1b39a944bcc9fbcf0843083763e06"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-25",
+          "close_at": "2026-06-25T16:00:00+00:00",
+          "status": "complete",
+          "nav": "9932.12",
+          "return_value": "-0.0099225850955873703853599504",
+          "drawdown": "-0.0202594327990135635018495684",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "78.23999786377",
+              "payload_ref": "c538d393fe57ee3a22a5ff49af59d13b2bc70d97105846b55a30015a5f2178aa"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-26",
+          "close_at": "2026-06-26T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10182.86",
+          "return_value": "0.025245365541294305747413442",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "80.230003356934",
+              "payload_ref": "74f4e644d50ee990a80d5c56fd6aaac17a9c7f002a7880503fc7c0496a0c3291"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-29",
+          "close_at": "2026-06-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10070.72",
+          "return_value": "-0.0110126231726646541344965953",
+          "drawdown": "-0.0110126231726646541344965953",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "79.339996337891",
+              "payload_ref": "775231ec58c09f6b47e87bc74e94025b66a5fa597502cb5054c7ef1f1d499fef"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-06-30",
+          "close_at": "2026-06-30T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10224.44",
+          "return_value": "0.015264052619872263353563598",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "80.559997558594",
+              "payload_ref": "63df46d6a43ef9c6f572331b749915d790af30a002d2cc3a36d3893a6385bb6b"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-01",
+          "close_at": "2026-07-01T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10210.58",
+          "return_value": "-0.0013555754642797062724217659",
+          "drawdown": "-0.0013555754642797062724217659",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "80.449996948242",
+              "payload_ref": "170400f7f6ba3a902e283d15a12b96beee5925422f04aeb503cb5fc37e29a24f"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-02",
+          "close_at": "2026-07-02T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10638.98",
+          "return_value": "0.041956480434999774743452380",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "83.849998474121",
+              "payload_ref": "46ac63bcd457c7076f2cf648686be0be4a6671f7b0456fc60126581b47439b6b"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-06",
+          "close_at": "2026-07-06T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10807.82",
+          "return_value": "0.015869942419292074992151503",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "85.190002441406",
+              "payload_ref": "20fe2c5338ada47e06e998320abb6fe9751dc6a05af701956bb33c6f2501ae74"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-07",
+          "close_at": "2026-07-07T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10835.54",
+          "return_value": "0.002564809554563269928625754",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "85.410003662109",
+              "payload_ref": "20ea4e9925d24ae6b956abedd0974807f1826da7d88fd437b805d4341bd78a9a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-08",
+          "close_at": "2026-07-08T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10793.96",
+          "return_value": "-0.0038373722029543520673635093",
+          "drawdown": "-0.0038373722029543520673635093",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "85.080001831055",
+              "payload_ref": "25807923db65285d3537c457db4387b66f59a2fdaea32b4ed6230b3dccf4ef26"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-09",
+          "close_at": "2026-07-09T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10827.98",
+          "return_value": "0.003151762652446368154041705",
+          "drawdown": "-0.0006977040369007912849751835",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "85.349998474121",
+              "payload_ref": "71727ebd5b498e2bfe3333b49cfde05ae24e6651ba7cc3e069208bbbec636a8a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-10",
+          "close_at": "2026-07-10T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11204.72",
+          "return_value": "0.034793193190234928398463979",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.339996337891",
+              "payload_ref": "f387af1e548ead740ecca142e80c3040f70fd2c08d73891ccac8d76832a8f250"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-13",
+          "close_at": "2026-07-13T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10583.54",
+          "return_value": "-0.0554391363639609021912194147",
+          "drawdown": "-0.0554391363639609021912194147",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "83.410003662109",
+              "payload_ref": "d46c3d9ea145ed3b47244a8c2b4f83fb4f62588d312d4c43207926729b329aa8"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-14",
+          "close_at": "2026-07-14T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10549.52",
+          "return_value": "-0.0032144254190941783184076405",
+          "drawdown": "-0.0584753568139141361854646970",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "83.139999389648",
+              "payload_ref": "19ec493d1bc8be35067209f478e4f75724a60ef1af59fe13ed721c2f2997e595"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-15",
+          "close_at": "2026-07-15T16:00:00+00:00",
+          "status": "complete",
+          "nav": "10829.24",
+          "return_value": "0.026514950443242915317474160",
+          "drawdown": "-0.0335108775587431011216701533",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "85.360000610352",
+              "payload_ref": "71a3f7a046c1e848428102b085c24184d437366a58194d537787a756264d7814"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-16",
+          "close_at": "2026-07-16T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11197.16",
+          "return_value": "0.033974683357280843346347481",
+          "drawdown": "-0.0006747156555451631098322850",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.279998779297",
+              "payload_ref": "f52dd8cffa2d781794231087cc876f16d28b3dc3e28a5090feb3d76834aac848"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-17",
+          "close_at": "2026-07-17T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11231.18",
+          "return_value": "0.003038270418570423214457952",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.550003051758",
+              "payload_ref": "abfcc2eb72ee61f73d7a8bd8186034fc02e82d37b0984420c58e60723e460de1"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-20",
+          "close_at": "2026-07-20T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11214.80",
+          "return_value": "-0.0014584398077494973813971462",
+          "drawdown": "-0.0014584398077494973813971462",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.419998168945",
+              "payload_ref": "7dae5ecd3f1274a5be5848a5b11e3934c99427689dbc0ddec8e0e4092cf5668a"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-21",
+          "close_at": "2026-07-21T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11067.38",
+          "return_value": "-0.0131451296501052181046474302",
+          "drawdown": "-0.0145843980774949738139714616",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "87.25",
+              "payload_ref": "25c751899bcc37c30aa94e14515e4cbbe47eade1bf7190b49622efcf2b590c18"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-22",
+          "close_at": "2026-07-22T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11144.24",
+          "return_value": "0.006944733080458066859545800",
+          "drawdown": "-0.0077409497488242553320310065",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "87.860000610352",
+              "payload_ref": "ba7961a31daba11acd0f05f9c2d5ea13ea8c86ebb88d5f31d531efa34726ec68"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-23",
+          "close_at": "2026-07-23T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11179.52",
+          "return_value": "0.003165760967100493169565623",
+          "drawdown": "-0.0045996947782868763567140763",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.139999389648",
+              "payload_ref": "e9baaa0e390573a2a87357222a855666f1eda5c474d8a38e1da0d35189ae26d4"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-24",
+          "close_at": "2026-07-24T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11454.20",
+          "return_value": "0.024569927868101671628119991",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "90.319999694824",
+              "payload_ref": "909a88bcbdb28eead5fbf155edbe2c68adc57a21cba662e47bdc08078821fff0"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-27",
+          "close_at": "2026-07-27T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11252.60",
+          "return_value": "-0.0176005308096593389324439943",
+          "drawdown": "-0.0176005308096593389324439943",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "88.720001220703",
+              "payload_ref": "7cfc1acfe3663132fae370dcec329a190b1caf5f4d8896d9af6725228c1ebb0b"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-28",
+          "close_at": "2026-07-28T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11818.34",
+          "return_value": "0.050276380569823862929456303",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "93.209999084473",
+              "payload_ref": "f0d0c200188a571d6a90795a3ef01f061d0814b9096fd681a1d321a8c92d0062"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-29",
+          "close_at": "2026-07-29T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11854.88",
+          "return_value": "0.003091804771228446634637352",
+          "drawdown": "0",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "93.5",
+              "payload_ref": "625e8ea2a1d76d649b7bac575ef1fae824573b020607d40af223407909f5c580"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        },
+        {
+          "session_id": "2026-07-30",
+          "close_at": "2026-07-30T16:00:00+00:00",
+          "status": "complete",
+          "nav": "11045.96",
+          "return_value": "-0.0682351909087228213191529564",
+          "drawdown": "-0.0682351909087228213191529564",
+          "reasons": [],
+          "marks": {
+            "CALM": {
+              "price": "87.080001831055",
+              "payload_ref": "1085e1f24a5dccba480334355b0187d2bb9c1cc0258f76de418459676850037e"
+            }
+          },
+          "benchmark": "cash_zero_interest"
+        }
+      ],
+      "cumulative_commission": "4.96",
+      "cumulative_tax": "0.00",
+      "cumulative_slippage": "4.96",
+      "realized_gross_pnl": "0",
+      "last_nav": "11045.96",
+      "high_water": "11854.88",
+      "return_continuity": true,
+      "suspended_reasons": [],
+      "action_instruments": [],
+      "stop_receipt": null
+    }
+  }
+}

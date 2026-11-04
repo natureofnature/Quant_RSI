@@ -6,10 +6,13 @@ from pathlib import Path
 import numpy as np
 
 from quant_rsi.core.artifacts import canonical
+from quant_rsi.core.schemas import FactorSpec
 from quant_rsi.factors.catalog import resolve_instrument_factors
 from quant_rsi.factors.expressions import FactorExpression, evaluate_expression
 from quant_rsi.research.demo import load_catalog
 from quant_rsi.research.demo_features import price_feature
+
+SUPPLY_SOURCES = {"usda_ams_egg_reports", "nass_chickens_eggs", "egg_catalog"}
 
 
 def load_study_catalog(symbol, catalog, root):
@@ -27,7 +30,29 @@ def load_study_catalog(symbol, catalog, root):
     }
 
 
-def prepare_bound_features(profile, data, peers, required):
+def _supply_feature(prices, recipe):
+    spec = FactorSpec.model_validate(recipe)
+    prices = np.asarray(prices, dtype=float)
+    values = np.full(prices.shape, np.nan)
+    finite = np.isfinite(prices) & (prices > 0)
+    window = spec.window
+    if spec.op == "momentum":
+        for index in range(window, len(prices)):
+            if finite[index] and finite[index - window]:
+                values[index] = prices[index] / prices[index - window] - 1
+        return values
+    daily = np.full(prices.shape, np.nan)
+    for index in range(1, len(prices)):
+        if finite[index] and finite[index - 1]:
+            daily[index] = prices[index] / prices[index - 1] - 1
+    for index in range(window, len(prices)):
+        sample = daily[index - window + 1 : index + 1]
+        if np.isfinite(sample).all():
+            values[index] = float(sample.mean())
+    return values
+
+
+def prepare_bound_features(profile, data, peers, required, series=None):
     """No collection, row dropping, implicit target substitution or terminal eligibility."""
     definitions, columns = {}, {}
     symbol = data.instruments[0]
@@ -49,6 +74,17 @@ def prepare_bound_features(profile, data, peers, required):
         values, reason = None, "unsupported_source_or_field"
         if definition["kind"] != "numeric":
             reason = "text_extraction_not_executable_in_this_profile"
+        elif source["source_id"] in SUPPLY_SOURCES:
+            column = (series or {}).get((source["source_id"], source["entity"], source["field"]))
+            if column is None:
+                reason = "retained_series_not_supplied"
+            elif len(column) != len(data.dates):
+                raise ValueError("Bound supply series length differs from the price sample")
+            else:
+                try:
+                    values = _supply_feature(column, definition["recipe"])
+                except ValueError:
+                    reason = "bound_series_recipe_not_supported"
         elif source == {"source_id": "target_daily_prices", "entity": symbol, "field": "close"}:
             values = price_feature(data, definition["recipe"])
         elif source["source_id"] == "related_daily_prices" and source["field"] == "close":

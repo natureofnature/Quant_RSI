@@ -8,6 +8,7 @@ from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.data import MarketData
 from quant_rsi.execution import execution_account as account
 from quant_rsi.market.market_contracts import AccountRules, decimal_text
+from quant_rsi.research.demo_features import label_levels
 
 
 def evaluate_strategy(
@@ -20,14 +21,15 @@ def evaluate_strategy(
     initial_cash="10000",
     threshold=0.0,
     horizon_sessions=5,
+    label_average=1,
 ):
     """Review each supplied close signal; unchanged long signals preserve held units."""
     if symbol not in data.instruments or not predictions or not math.isfinite(threshold):
         raise ValueError("A supported symbol, predictions and finite threshold are required")
     column = data.instruments.index(symbol)
-    if type(horizon_sessions) is not int or horizon_sessions not in (5, 20, 60):
+    if (horizon_sessions, label_average) not in {(5, 1), (20, 1), (60, 1), (30, 5), (6, 3)}:
         raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
-    signals = _signals(data, column, predictions, horizon_sessions)
+    signals = _signals(data, column, predictions, horizon_sessions, label_average)
     first, last = min(signals), max(signals) + horizon_sessions
     costs = dict(commission_bps=commission_bps, tax_bps="0", slippage_bps=slippage_bps)
     rules = AccountRules(
@@ -98,7 +100,7 @@ def evaluate_strategy(
     }
 
 
-def _signals(data, column, predictions, horizon_sessions=5):
+def _signals(data, column, predictions, horizon_sessions=5, label_average=1):
     positions = {session: index for index, session in enumerate(data.dates)}
     result = {}
     for row in predictions:
@@ -121,7 +123,15 @@ def _signals(data, column, predictions, horizon_sessions=5):
             or not all(math.isfinite(value) for value in (reference, predicted, observed, score))
             or min(reference, predicted, observed) <= 0
             or not math.isclose(reference, float(data.closes[origin, column]), rel_tol=1e-9)
-            or not math.isclose(observed, float(data.closes[target, column]), rel_tol=1e-9)
+            or not math.isclose(
+                observed,
+                float(
+                    label_levels(data.closes[:, column], [origin], horizon_sessions, label_average)[
+                        0
+                    ]
+                ),
+                rel_tol=1e-9,
+            )
             or not math.isclose(math.log(predicted / reference), score, abs_tol=1e-9)
         ):
             raise ValueError(

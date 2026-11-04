@@ -1,0 +1,777 @@
+{
+  "specification": {
+    "schema_version": 1,
+    "kind": "resolved_instrument_factor_config",
+    "status": "specification_only",
+    "runnable": false,
+    "market": "US",
+    "instrument": "CALM",
+    "factors": [
+      {
+        "binding_id": "price_momentum",
+        "definition_scope": "shared",
+        "definition_owner": "equities",
+        "definition": {
+          "factor_id": "equity.price_momentum_5",
+          "description": "Five-session momentum of the explicitly bound stock closing-price series.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "target_daily_prices",
+          "entity": "CALM",
+          "field": "close"
+        }
+      },
+      {
+        "binding_id": "announced_events",
+        "definition_scope": "shared",
+        "definition_owner": "equities",
+        "definition": {
+          "factor_id": "equity.announced_events",
+          "description": "Proposed extraction of company events from issuer announcements; no extractor is connected.",
+          "kind": "text",
+          "extraction_instruction": "Identify the issuer and announced event, distinguishing confirmed events from forecasts and preserving the supporting passage. Leave quantities unknown when absent.",
+          "output_fields": [
+            "entity",
+            "event_type",
+            "event_status",
+            "quantity",
+            "unit",
+            "evidence_text"
+          ]
+        },
+        "source": {
+          "source_id": "issuer_announcements",
+          "entity": "CALM",
+          "field": "text"
+        }
+      },
+      {
+        "binding_id": "egg_price",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.egg_price_momentum_5",
+          "description": "Five-session momentum of the USDA AMS national FOB caged white-large shell-egg index. The report date is visible on the next target session.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "usda_ams_egg_reports",
+          "entity": "US shell eggs",
+          "field": "wholesale_price"
+        }
+      },
+      {
+        "binding_id": "confirmed_layer_culls",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.confirmed_layer_culls",
+          "description": "Proposed extraction of confirmed layer culls relevant to egg supply; not a pre-outbreak disease predictor.",
+          "kind": "text",
+          "extraction_instruction": "Extract only confirmed HPAI-related layer culls, their region and reported count. Distinguish layers from other birds, unknown quantities from zero, and retain the supporting passage.",
+          "output_fields": [
+            "region",
+            "bird_type",
+            "confirmed_count",
+            "unit",
+            "evidence_text"
+          ]
+        },
+        "source": {
+          "source_id": "confirmed_hpai_reports",
+          "entity": "US layers",
+          "field": "text"
+        }
+      },
+      {
+        "binding_id": "table_egg_layers",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.table_egg_layers_momentum_20",
+          "description": "Twenty-session momentum of the NASS national average table-egg layer inventory. Visible from Quick Stats load_time, not the reference month. A later database reload is not a historical vintage.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 20
+          }
+        },
+        "source": {
+          "source_id": "nass_chickens_eggs",
+          "entity": "US table-egg layers",
+          "field": "inventory"
+        }
+      },
+      {
+        "binding_id": "egg_type_pullets",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.egg_type_pullets_momentum_20",
+          "description": "Twenty-session momentum of NASS national egg-type pullet placements. Visible from Quick Stats load_time, not the reference month. A later database reload is not a historical vintage.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 20
+          }
+        },
+        "source": {
+          "source_id": "nass_chickens_eggs",
+          "entity": "US egg-type pullets",
+          "field": "placements"
+        }
+      },
+      {
+        "binding_id": "egg_type_chicks_hatched",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.egg_type_chicks_hatched_momentum_20",
+          "description": "Twenty-session momentum of NASS national egg-type chicks hatched. Visible from Quick Stats load_time, not the reference month. A later database reload is not a historical vintage.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 20
+          }
+        },
+        "source": {
+          "source_id": "nass_chickens_eggs",
+          "entity": "US egg-type chicks hatched",
+          "field": "hatched"
+        }
+      },
+      {
+        "binding_id": "corn",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.corn_momentum_5",
+          "description": "Five-session momentum of the CBOT corn future. The session uses that day's close, carried at most six calendar days.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "corn"
+        }
+      },
+      {
+        "binding_id": "meal",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.meal_momentum_5",
+          "description": "Five-session momentum of the CBOT soybean-meal future. The session uses that day's close, carried at most six calendar days.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "meal"
+        }
+      },
+      {
+        "binding_id": "feed_index",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.feed_index_momentum_5",
+          "description": "Five-session momentum of an equal-weight corn and soybean-meal index. Each leg is rebased to 100 on the first overlapping day.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "feed_index"
+        }
+      },
+      {
+        "binding_id": "gas",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.gas_momentum_5",
+          "description": "Five-session momentum of the Henry Hub natural-gas future.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "gas"
+        }
+      },
+      {
+        "binding_id": "mxn",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.mxn_momentum_5",
+          "description": "Five-session momentum of the dollar-peso rate.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "mxn"
+        }
+      },
+      {
+        "binding_id": "diesel",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.diesel_momentum_5",
+          "description": "Five-session momentum of weekly U.S. on-highway diesel. The price date is hidden that day and carried at most ten calendar days.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "diesel"
+        }
+      },
+      {
+        "binding_id": "effr",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.effr_momentum_5",
+          "description": "Five-session momentum of the effective federal funds rate. The effective date is hidden that day.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 5
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "effr"
+        }
+      },
+      {
+        "binding_id": "drought",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.drought_momentum_20",
+          "description": "Twenty-session momentum of the share of the contiguous United States in moderate drought or worse. This is not a corn-belt index.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 20
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "drought"
+        }
+      },
+      {
+        "binding_id": "easter",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.easter_momentum_20",
+          "description": "Twenty-session momentum of the days until the next Easter, plus one so the holiday itself stays positive.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 20
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "easter"
+        }
+      },
+      {
+        "binding_id": "thanksgiving",
+        "definition_scope": "instrument",
+        "definition_owner": "US/CALM",
+        "definition": {
+          "factor_id": "calm.thanksgiving_momentum_20",
+          "description": "Twenty-session momentum of the days until the next Thanksgiving, plus one so the holiday itself stays positive.",
+          "kind": "numeric",
+          "input_kind": "positive_price_series",
+          "recipe": {
+            "op": "momentum",
+            "window": 20
+          }
+        },
+        "source": {
+          "source_id": "egg_catalog",
+          "entity": "US",
+          "field": "thanksgiving"
+        }
+      }
+    ],
+    "compositions": []
+  },
+  "execution": [
+    {
+      "factor_id": "bound.price_momentum",
+      "description": "Five-session momentum of the explicitly bound stock closing-price series.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "equity.price_momentum_5",
+      "definition_scope": "shared",
+      "definition_owner": "equities",
+      "binding_id": "price_momentum",
+      "source": {
+        "source_id": "target_daily_prices",
+        "entity": "CALM",
+        "field": "close"
+      },
+      "input_factor_ids": [
+        "bound.price_momentum"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.announced_events",
+      "description": "Proposed extraction of company events from issuer announcements; no extractor is connected.",
+      "kind": "text",
+      "extraction_instruction": "Identify the issuer and announced event, distinguishing confirmed events from forecasts and preserving the supporting passage. Leave quantities unknown when absent.",
+      "output_fields": [
+        "entity",
+        "event_type",
+        "event_status",
+        "quantity",
+        "unit",
+        "evidence_text"
+      ],
+      "definition_id": "equity.announced_events",
+      "definition_scope": "shared",
+      "definition_owner": "equities",
+      "binding_id": "announced_events",
+      "source": {
+        "source_id": "issuer_announcements",
+        "entity": "CALM",
+        "field": "text"
+      },
+      "input_factor_ids": [
+        "bound.announced_events"
+      ],
+      "runnable": false,
+      "availability_reason": "text_extraction_not_executable_in_this_profile"
+    },
+    {
+      "factor_id": "bound.egg_price",
+      "description": "Five-session momentum of the USDA AMS national FOB caged white-large shell-egg index. The report date is visible on the next target session.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.egg_price_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "egg_price",
+      "source": {
+        "source_id": "usda_ams_egg_reports",
+        "entity": "US shell eggs",
+        "field": "wholesale_price"
+      },
+      "input_factor_ids": [
+        "bound.egg_price"
+      ],
+      "runnable": false,
+      "availability_reason": "retained_series_not_supplied"
+    },
+    {
+      "factor_id": "bound.confirmed_layer_culls",
+      "description": "Proposed extraction of confirmed layer culls relevant to egg supply; not a pre-outbreak disease predictor.",
+      "kind": "text",
+      "extraction_instruction": "Extract only confirmed HPAI-related layer culls, their region and reported count. Distinguish layers from other birds, unknown quantities from zero, and retain the supporting passage.",
+      "output_fields": [
+        "region",
+        "bird_type",
+        "confirmed_count",
+        "unit",
+        "evidence_text"
+      ],
+      "definition_id": "calm.confirmed_layer_culls",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "confirmed_layer_culls",
+      "source": {
+        "source_id": "confirmed_hpai_reports",
+        "entity": "US layers",
+        "field": "text"
+      },
+      "input_factor_ids": [
+        "bound.confirmed_layer_culls"
+      ],
+      "runnable": false,
+      "availability_reason": "text_extraction_not_executable_in_this_profile"
+    },
+    {
+      "factor_id": "bound.table_egg_layers",
+      "description": "Twenty-session momentum of the NASS national average table-egg layer inventory. Visible from Quick Stats load_time, not the reference month. A later database reload is not a historical vintage.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 20
+      },
+      "definition_id": "calm.table_egg_layers_momentum_20",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "table_egg_layers",
+      "source": {
+        "source_id": "nass_chickens_eggs",
+        "entity": "US table-egg layers",
+        "field": "inventory"
+      },
+      "input_factor_ids": [
+        "bound.table_egg_layers"
+      ],
+      "runnable": false,
+      "availability_reason": "missing_bound_input_on_fixed_sample"
+    },
+    {
+      "factor_id": "bound.egg_type_pullets",
+      "description": "Twenty-session momentum of NASS national egg-type pullet placements. Visible from Quick Stats load_time, not the reference month. A later database reload is not a historical vintage.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 20
+      },
+      "definition_id": "calm.egg_type_pullets_momentum_20",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "egg_type_pullets",
+      "source": {
+        "source_id": "nass_chickens_eggs",
+        "entity": "US egg-type pullets",
+        "field": "placements"
+      },
+      "input_factor_ids": [
+        "bound.egg_type_pullets"
+      ],
+      "runnable": false,
+      "availability_reason": "missing_bound_input_on_fixed_sample"
+    },
+    {
+      "factor_id": "bound.egg_type_chicks_hatched",
+      "description": "Twenty-session momentum of NASS national egg-type chicks hatched. Visible from Quick Stats load_time, not the reference month. A later database reload is not a historical vintage.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 20
+      },
+      "definition_id": "calm.egg_type_chicks_hatched_momentum_20",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "egg_type_chicks_hatched",
+      "source": {
+        "source_id": "nass_chickens_eggs",
+        "entity": "US egg-type chicks hatched",
+        "field": "hatched"
+      },
+      "input_factor_ids": [
+        "bound.egg_type_chicks_hatched"
+      ],
+      "runnable": false,
+      "availability_reason": "missing_bound_input_on_fixed_sample"
+    },
+    {
+      "factor_id": "bound.corn",
+      "description": "Five-session momentum of the CBOT corn future. The session uses that day's close, carried at most six calendar days.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.corn_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "corn",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "corn"
+      },
+      "input_factor_ids": [
+        "bound.corn"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.meal",
+      "description": "Five-session momentum of the CBOT soybean-meal future. The session uses that day's close, carried at most six calendar days.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.meal_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "meal",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "meal"
+      },
+      "input_factor_ids": [
+        "bound.meal"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.feed_index",
+      "description": "Five-session momentum of an equal-weight corn and soybean-meal index. Each leg is rebased to 100 on the first overlapping day.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.feed_index_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "feed_index",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "feed_index"
+      },
+      "input_factor_ids": [
+        "bound.feed_index"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.gas",
+      "description": "Five-session momentum of the Henry Hub natural-gas future.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.gas_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "gas",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "gas"
+      },
+      "input_factor_ids": [
+        "bound.gas"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.mxn",
+      "description": "Five-session momentum of the dollar-peso rate.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.mxn_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "mxn",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "mxn"
+      },
+      "input_factor_ids": [
+        "bound.mxn"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.diesel",
+      "description": "Five-session momentum of weekly U.S. on-highway diesel. The price date is hidden that day and carried at most ten calendar days.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.diesel_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "diesel",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "diesel"
+      },
+      "input_factor_ids": [
+        "bound.diesel"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.effr",
+      "description": "Five-session momentum of the effective federal funds rate. The effective date is hidden that day.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 5
+      },
+      "definition_id": "calm.effr_momentum_5",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "effr",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "effr"
+      },
+      "input_factor_ids": [
+        "bound.effr"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.drought",
+      "description": "Twenty-session momentum of the share of the contiguous United States in moderate drought or worse. This is not a corn-belt index.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 20
+      },
+      "definition_id": "calm.drought_momentum_20",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "drought",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "drought"
+      },
+      "input_factor_ids": [
+        "bound.drought"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.easter",
+      "description": "Twenty-session momentum of the days until the next Easter, plus one so the holiday itself stays positive.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 20
+      },
+      "definition_id": "calm.easter_momentum_20",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "easter",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "easter"
+      },
+      "input_factor_ids": [
+        "bound.easter"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    },
+    {
+      "factor_id": "bound.thanksgiving",
+      "description": "Twenty-session momentum of the days until the next Thanksgiving, plus one so the holiday itself stays positive.",
+      "kind": "numeric",
+      "input_kind": "positive_price_series",
+      "recipe": {
+        "op": "momentum",
+        "window": 20
+      },
+      "definition_id": "calm.thanksgiving_momentum_20",
+      "definition_scope": "instrument",
+      "definition_owner": "US/CALM",
+      "binding_id": "thanksgiving",
+      "source": {
+        "source_id": "egg_catalog",
+        "entity": "US",
+        "field": "thanksgiving"
+      },
+      "input_factor_ids": [
+        "bound.thanksgiving"
+      ],
+      "runnable": true,
+      "availability_reason": "complete_common_sample"
+    }
+  ]
+}

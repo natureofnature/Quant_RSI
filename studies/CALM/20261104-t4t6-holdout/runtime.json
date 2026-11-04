@@ -1,0 +1,2200 @@
+{
+  "previous_attempts": [],
+  "reused_operations": 0,
+  "status": "completed",
+  "llm_mode": "cursor",
+  "total_elapsed_seconds": 29.224642,
+  "current_stage": null,
+  "stages": [
+    {
+      "stage": "load_prices",
+      "status": "completed",
+      "duration_seconds": 0.074142,
+      "output": {
+        "provider": "public_daily_prices",
+        "symbol": "CALM",
+        "sessions": 379
+      }
+    },
+    {
+      "stage": "observe_prior_forecasts",
+      "status": "completed",
+      "duration_seconds": 0.007063,
+      "output": {
+        "mature_forecasts_for_feedback": 0,
+        "history_directory": "/tmp/qrsi_calm_egg/history10",
+        "notice": "Individual forecast receipts, not a preregistered cohort or independent confirmation. Later public collections are matched by provider, instrument and frozen calendar; they are not receipt-prefix extensions of a market registry. Strategy metrics replay the frozen signal on later received bars with explicit costs; they are hypothetical, not durable paper orders or broker fills.",
+        "prior_outcomes": {
+          "scope": "previously_issued_forecasts_observed_after_maturity; now_research_feedback",
+          "notice": "Individual forecast receipts, not a preregistered cohort or independent confirmation. Later public collections are matched by provider, instrument and frozen calendar; they are not receipt-prefix extensions of a market registry. Strategy metrics replay the frozen signal on later received bars with explicit costs; they are hypothetical, not durable paper orders or broker fills.",
+          "horizon_sessions": 6,
+          "question": "Which combinations improve the t+4, t+5 and t+6 average-close forecast when 2026-04-27 through 2026-07-30 is held out as the test?",
+          "factor_memory": [],
+          "entries": [],
+          "history": {
+            "entries": [],
+            "notice": "Status and chosen factors only; outcome metrics are in entries above."
+          }
+        }
+      }
+    },
+    {
+      "stage": "collect_news_context",
+      "status": "completed",
+      "duration_seconds": 0.004146,
+      "output": {
+        "related": {
+          "provider": "not_configured",
+          "stocks": [],
+          "reason": "No relationship profile for CALM; configure instruments/US/CALM/relationships.json",
+          "price_features": []
+        },
+        "news": {
+          "provider": "not_configured",
+          "items": [],
+          "coverage": [],
+          "notice": "No registered issuer RSS feed for CALM; configure instruments/US/CALM/news_feed.json"
+        },
+        "acquisition": "provider"
+      }
+    },
+    {
+      "stage": "load_financials",
+      "status": "completed",
+      "duration_seconds": 0.975501,
+      "output": {
+        "definitions": [
+          {
+            "factor_id": "financial.revenue_yoy",
+            "kind": "numeric",
+            "input_kind": "publication_dated_financials",
+            "description": "Quarterly revenue / comparable prior-year revenue - 1",
+            "recipe": {
+              "op": "financial",
+              "metric": "revenue_yoy"
+            },
+            "runnable": true,
+            "missing_required_rows": 0,
+            "source": {
+              "symbol": "CALM",
+              "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+            },
+            "reason": "available"
+          },
+          {
+            "factor_id": "financial.operating_margin",
+            "kind": "numeric",
+            "input_kind": "publication_dated_financials",
+            "description": "Quarterly operating income / revenue",
+            "recipe": {
+              "op": "financial",
+              "metric": "operating_margin"
+            },
+            "runnable": true,
+            "missing_required_rows": 0,
+            "source": {
+              "symbol": "CALM",
+              "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+            },
+            "reason": "available"
+          },
+          {
+            "factor_id": "financial.operating_margin_yoy",
+            "kind": "numeric",
+            "input_kind": "publication_dated_financials",
+            "description": "Quarterly operating margin minus comparable prior-year margin",
+            "recipe": {
+              "op": "financial",
+              "metric": "operating_margin_yoy"
+            },
+            "runnable": true,
+            "missing_required_rows": 0,
+            "source": {
+              "symbol": "CALM",
+              "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+            },
+            "reason": "available"
+          },
+          {
+            "factor_id": "financial.inventory_yoy",
+            "kind": "numeric",
+            "input_kind": "publication_dated_financials",
+            "description": "Reported inventory / comparable prior-year inventory - 1",
+            "recipe": {
+              "op": "financial",
+              "metric": "inventory_yoy"
+            },
+            "runnable": true,
+            "missing_required_rows": 0,
+            "source": {
+              "symbol": "CALM",
+              "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+            },
+            "reason": "available"
+          },
+          {
+            "factor_id": "financial.operating_cashflow_yoy",
+            "kind": "numeric",
+            "input_kind": "publication_dated_financials",
+            "description": "Reported cumulative operating cash flow change / absolute prior-year value; matching 3/6/9/12-month periods",
+            "recipe": {
+              "op": "financial",
+              "metric": "operating_cashflow_yoy"
+            },
+            "runnable": true,
+            "missing_required_rows": 0,
+            "source": {
+              "symbol": "CALM",
+              "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+            },
+            "reason": "available"
+          },
+          {
+            "factor_id": "financial.free_cashflow_yoy",
+            "kind": "numeric",
+            "input_kind": "publication_dated_financials",
+            "description": "Reported cumulative (operating cash flow - capital expenditure) change / absolute prior-year value; matching periods, not a single-quarter estimate",
+            "recipe": {
+              "op": "financial",
+              "metric": "free_cashflow_yoy"
+            },
+            "runnable": true,
+            "missing_required_rows": 0,
+            "source": {
+              "symbol": "CALM",
+              "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+            },
+            "reason": "available"
+          }
+        ],
+        "coverage_gaps": [],
+        "notice": "Retrospective reconstruction from currently retained SEC facts, not a complete historical vendor archive. A filing date without an acceptance time becomes usable at 05:00 UTC on the following day. Only directly reported 70\u2013110 day quarters in USD are used; no annual income values are silently converted. Cash-flow facts retain their reported 3/6/9/12-month durations and compare only matching year-over-year periods. Revisions are selected as of each cutoff. Inventory uses reported balance-sheet instants and comparable prior-year dates, not cash-flow inventory changes or the previous fiscal year-end by default.",
+        "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c",
+        "provider": "sec_companyfacts",
+        "source_attempts": [
+          {
+            "provider": "sec_companyfacts",
+            "status": "available"
+          }
+        ],
+        "source_failures": [],
+        "coverage": {
+          "reported_periods": [
+            "2010-05-29",
+            "2010-08-28",
+            "2010-11-27",
+            "2011-02-26",
+            "2011-05-28",
+            "2011-08-27",
+            "2011-11-26",
+            "2012-02-25",
+            "2012-06-02",
+            "2012-09-01",
+            "2012-12-01",
+            "2013-03-02",
+            "2013-06-01",
+            "2013-08-31",
+            "2013-11-30",
+            "2014-03-01",
+            "2014-05-31",
+            "2014-08-30",
+            "2014-11-29",
+            "2015-02-28",
+            "2015-05-30",
+            "2015-08-29",
+            "2015-11-28",
+            "2016-02-27",
+            "2016-05-28",
+            "2016-08-27",
+            "2016-11-26",
+            "2017-02-25",
+            "2017-06-03",
+            "2017-09-02",
+            "2017-12-02",
+            "2018-03-03",
+            "2018-06-02",
+            "2018-09-01",
+            "2018-12-01",
+            "2019-03-02",
+            "2019-06-01",
+            "2019-08-31",
+            "2019-11-30",
+            "2020-02-29",
+            "2020-05-30",
+            "2020-08-29",
+            "2020-11-28",
+            "2021-02-27",
+            "2021-05-29",
+            "2021-08-28",
+            "2021-11-27",
+            "2022-02-26",
+            "2022-05-28",
+            "2022-08-27",
+            "2022-11-26",
+            "2023-02-25",
+            "2023-06-03",
+            "2023-09-02",
+            "2023-12-02",
+            "2024-03-02",
+            "2024-06-01",
+            "2024-08-31",
+            "2024-11-30",
+            "2025-03-01",
+            "2025-05-31",
+            "2025-08-30",
+            "2025-11-29",
+            "2026-02-28",
+            "2026-05-30",
+            "2026-08-29"
+          ],
+          "first_available_at": "2011-10-01T05:00:00+00:00",
+          "last_available_at": "2026-10-01T05:00:00+00:00",
+          "required_rows": 271,
+          "runnable_factors": 6
+        },
+        "sample_coverage": [
+          {
+            "factor_id": "financial.revenue_yoy",
+            "training_rows": 211,
+            "training_available_rows": 211,
+            "training_distinct_values": 4,
+            "development_rows": 60,
+            "development_available_rows": 60,
+            "development_distinct_values": 2
+          },
+          {
+            "factor_id": "financial.operating_margin",
+            "training_rows": 211,
+            "training_available_rows": 211,
+            "training_distinct_values": 4,
+            "development_rows": 60,
+            "development_available_rows": 60,
+            "development_distinct_values": 2
+          },
+          {
+            "factor_id": "financial.operating_margin_yoy",
+            "training_rows": 211,
+            "training_available_rows": 211,
+            "training_distinct_values": 4,
+            "development_rows": 60,
+            "development_available_rows": 60,
+            "development_distinct_values": 2
+          },
+          {
+            "factor_id": "financial.inventory_yoy",
+            "training_rows": 211,
+            "training_available_rows": 211,
+            "training_distinct_values": 5,
+            "development_rows": 60,
+            "development_available_rows": 60,
+            "development_distinct_values": 2
+          },
+          {
+            "factor_id": "financial.operating_cashflow_yoy",
+            "training_rows": 211,
+            "training_available_rows": 211,
+            "training_distinct_values": 5,
+            "development_rows": 60,
+            "development_available_rows": 60,
+            "development_distinct_values": 2
+          },
+          {
+            "factor_id": "financial.free_cashflow_yoy",
+            "training_rows": 211,
+            "training_available_rows": 211,
+            "training_distinct_values": 5,
+            "development_rows": 60,
+            "development_available_rows": 60,
+            "development_distinct_values": 2
+          }
+        ]
+      }
+    },
+    {
+      "stage": "check_inputs",
+      "status": "completed",
+      "duration_seconds": 0.000678,
+      "output": {
+        "kind": "input_check",
+        "symbol": "CALM",
+        "prices": {
+          "provider": "public_daily_prices",
+          "first_session": "2025-01-27",
+          "last_session": "2026-07-30",
+          "historical_sessions": 379,
+          "training_rows": 211,
+          "development_rows": 60
+        },
+        "news": {
+          "provider": "not_configured",
+          "items": 0,
+          "coverage": []
+        },
+        "financials": {
+          "definitions": [
+            {
+              "factor_id": "financial.revenue_yoy",
+              "kind": "numeric",
+              "input_kind": "publication_dated_financials",
+              "description": "Quarterly revenue / comparable prior-year revenue - 1",
+              "recipe": {
+                "op": "financial",
+                "metric": "revenue_yoy"
+              },
+              "runnable": true,
+              "missing_required_rows": 0,
+              "source": {
+                "symbol": "CALM",
+                "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+              },
+              "reason": "available"
+            },
+            {
+              "factor_id": "financial.operating_margin",
+              "kind": "numeric",
+              "input_kind": "publication_dated_financials",
+              "description": "Quarterly operating income / revenue",
+              "recipe": {
+                "op": "financial",
+                "metric": "operating_margin"
+              },
+              "runnable": true,
+              "missing_required_rows": 0,
+              "source": {
+                "symbol": "CALM",
+                "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+              },
+              "reason": "available"
+            },
+            {
+              "factor_id": "financial.operating_margin_yoy",
+              "kind": "numeric",
+              "input_kind": "publication_dated_financials",
+              "description": "Quarterly operating margin minus comparable prior-year margin",
+              "recipe": {
+                "op": "financial",
+                "metric": "operating_margin_yoy"
+              },
+              "runnable": true,
+              "missing_required_rows": 0,
+              "source": {
+                "symbol": "CALM",
+                "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+              },
+              "reason": "available"
+            },
+            {
+              "factor_id": "financial.inventory_yoy",
+              "kind": "numeric",
+              "input_kind": "publication_dated_financials",
+              "description": "Reported inventory / comparable prior-year inventory - 1",
+              "recipe": {
+                "op": "financial",
+                "metric": "inventory_yoy"
+              },
+              "runnable": true,
+              "missing_required_rows": 0,
+              "source": {
+                "symbol": "CALM",
+                "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+              },
+              "reason": "available"
+            },
+            {
+              "factor_id": "financial.operating_cashflow_yoy",
+              "kind": "numeric",
+              "input_kind": "publication_dated_financials",
+              "description": "Reported cumulative operating cash flow change / absolute prior-year value; matching 3/6/9/12-month periods",
+              "recipe": {
+                "op": "financial",
+                "metric": "operating_cashflow_yoy"
+              },
+              "runnable": true,
+              "missing_required_rows": 0,
+              "source": {
+                "symbol": "CALM",
+                "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+              },
+              "reason": "available"
+            },
+            {
+              "factor_id": "financial.free_cashflow_yoy",
+              "kind": "numeric",
+              "input_kind": "publication_dated_financials",
+              "description": "Reported cumulative (operating cash flow - capital expenditure) change / absolute prior-year value; matching periods, not a single-quarter estimate",
+              "recipe": {
+                "op": "financial",
+                "metric": "free_cashflow_yoy"
+              },
+              "runnable": true,
+              "missing_required_rows": 0,
+              "source": {
+                "symbol": "CALM",
+                "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c"
+              },
+              "reason": "available"
+            }
+          ],
+          "coverage_gaps": [],
+          "notice": "Retrospective reconstruction from currently retained SEC facts, not a complete historical vendor archive. A filing date without an acceptance time becomes usable at 05:00 UTC on the following day. Only directly reported 70\u2013110 day quarters in USD are used; no annual income values are silently converted. Cash-flow facts retain their reported 3/6/9/12-month durations and compare only matching year-over-year periods. Revisions are selected as of each cutoff. Inventory uses reported balance-sheet instants and comparable prior-year dates, not cash-flow inventory changes or the previous fiscal year-end by default.",
+          "snapshot_sha256": "3df75ac0845eb2a94591876106a1f97c84e2846fb1723b8e131beda9d21af93c",
+          "provider": "sec_companyfacts",
+          "source_attempts": [
+            {
+              "provider": "sec_companyfacts",
+              "status": "available"
+            }
+          ],
+          "source_failures": [],
+          "coverage": {
+            "reported_periods": [
+              "2010-05-29",
+              "2010-08-28",
+              "2010-11-27",
+              "2011-02-26",
+              "2011-05-28",
+              "2011-08-27",
+              "2011-11-26",
+              "2012-02-25",
+              "2012-06-02",
+              "2012-09-01",
+              "2012-12-01",
+              "2013-03-02",
+              "2013-06-01",
+              "2013-08-31",
+              "2013-11-30",
+              "2014-03-01",
+              "2014-05-31",
+              "2014-08-30",
+              "2014-11-29",
+              "2015-02-28",
+              "2015-05-30",
+              "2015-08-29",
+              "2015-11-28",
+              "2016-02-27",
+              "2016-05-28",
+              "2016-08-27",
+              "2016-11-26",
+              "2017-02-25",
+              "2017-06-03",
+              "2017-09-02",
+              "2017-12-02",
+              "2018-03-03",
+              "2018-06-02",
+              "2018-09-01",
+              "2018-12-01",
+              "2019-03-02",
+              "2019-06-01",
+              "2019-08-31",
+              "2019-11-30",
+              "2020-02-29",
+              "2020-05-30",
+              "2020-08-29",
+              "2020-11-28",
+              "2021-02-27",
+              "2021-05-29",
+              "2021-08-28",
+              "2021-11-27",
+              "2022-02-26",
+              "2022-05-28",
+              "2022-08-27",
+              "2022-11-26",
+              "2023-02-25",
+              "2023-06-03",
+              "2023-09-02",
+              "2023-12-02",
+              "2024-03-02",
+              "2024-06-01",
+              "2024-08-31",
+              "2024-11-30",
+              "2025-03-01",
+              "2025-05-31",
+              "2025-08-30",
+              "2025-11-29",
+              "2026-02-28",
+              "2026-05-30",
+              "2026-08-29"
+            ],
+            "first_available_at": "2011-10-01T05:00:00+00:00",
+            "last_available_at": "2026-10-01T05:00:00+00:00",
+            "required_rows": 271,
+            "runnable_factors": 6
+          },
+          "sample_coverage": [
+            {
+              "factor_id": "financial.revenue_yoy",
+              "training_rows": 211,
+              "training_available_rows": 211,
+              "training_distinct_values": 4,
+              "development_rows": 60,
+              "development_available_rows": 60,
+              "development_distinct_values": 2
+            },
+            {
+              "factor_id": "financial.operating_margin",
+              "training_rows": 211,
+              "training_available_rows": 211,
+              "training_distinct_values": 4,
+              "development_rows": 60,
+              "development_available_rows": 60,
+              "development_distinct_values": 2
+            },
+            {
+              "factor_id": "financial.operating_margin_yoy",
+              "training_rows": 211,
+              "training_available_rows": 211,
+              "training_distinct_values": 4,
+              "development_rows": 60,
+              "development_available_rows": 60,
+              "development_distinct_values": 2
+            },
+            {
+              "factor_id": "financial.inventory_yoy",
+              "training_rows": 211,
+              "training_available_rows": 211,
+              "training_distinct_values": 5,
+              "development_rows": 60,
+              "development_available_rows": 60,
+              "development_distinct_values": 2
+            },
+            {
+              "factor_id": "financial.operating_cashflow_yoy",
+              "training_rows": 211,
+              "training_available_rows": 211,
+              "training_distinct_values": 5,
+              "development_rows": 60,
+              "development_available_rows": 60,
+              "development_distinct_values": 2
+            },
+            {
+              "factor_id": "financial.free_cashflow_yoy",
+              "training_rows": 211,
+              "training_available_rows": 211,
+              "training_distinct_values": 5,
+              "development_rows": 60,
+              "development_available_rows": 60,
+              "development_distinct_values": 2
+            }
+          ]
+        },
+        "notice": "Input coverage only: no LLM calls or model fits at this point. Peer prices, active news searches, article reading and LLM availability are not checked. Current news does not establish historical news coverage. Unavailable financial factors are excluded; available price factors can still be researched."
+      }
+    },
+    {
+      "stage": "load_related_prices",
+      "status": "completed",
+      "duration_seconds": 0.00198,
+      "output": {
+        "related": {
+          "provider": "not_configured",
+          "stocks": [],
+          "reason": "No relationship profile for CALM; configure instruments/US/CALM/relationships.json",
+          "price_features": []
+        }
+      }
+    },
+    {
+      "stage": "load_bound_supply",
+      "status": "completed",
+      "duration_seconds": 0.230861,
+      "output": {
+        "failures": [
+          {
+            "source": "usda_ams_egg_reports",
+            "reason": "Retained shell egg snapshot identity changed"
+          }
+        ],
+        "nass": {
+          "provider": "nass_chickens_eggs",
+          "notice": "NASS Quick Stats national monthly series: average table-egg layer inventory, egg-type pullet placements, and egg-type chicks hatched. A value is hidden until its load_time, which is the database load time interpreted as US Eastern time, not the reference month. Quick Stats returns the current row, so a later reload is not a point-in-time revision history. Missing rows stay empty and are then carried forward only after they have loaded.",
+          "sha256": "b4184f60289178ab0c23026ce34d767d4896887388f7e373e17bdc4ba14cc3cf",
+          "first_year": 2024,
+          "observations": 99
+        },
+        "egg_catalog": {
+          "directory": "/tmp/qrsi_calm_egg/catalog_collect",
+          "fields": [
+            "bls_eggs",
+            "bls_food",
+            "breaking",
+            "corn",
+            "diesel",
+            "drought",
+            "easter",
+            "effr",
+            "egg_price",
+            "egg_volume",
+            "feed_index",
+            "gas",
+            "meal",
+            "mxn",
+            "nass_hatched",
+            "nass_incubators",
+            "nass_inventory",
+            "nass_layer_loss",
+            "nass_layers_ca",
+            "nass_layers_ia",
+            "nass_layers_in",
+            "nass_layers_oh",
+            "nass_layers_pa",
+            "nass_molt",
+            "nass_molt_completed",
+            "nass_placements",
+            "nass_rate_of_lay",
+            "ny_carton",
+            "thanksgiving"
+          ]
+        }
+      }
+    },
+    {
+      "stage": "target",
+      "status": "completed",
+      "duration_seconds": 0.001501
+    },
+    {
+      "stage": "related_stocks",
+      "status": "completed",
+      "duration_seconds": 0.000899
+    },
+    {
+      "stage": "news",
+      "status": "completed",
+      "duration_seconds": 0.000841
+    },
+    {
+      "stage": "factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001274
+    },
+    {
+      "stage": "initial_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.407769
+    },
+    {
+      "stage": "initial_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001738
+    },
+    {
+      "stage": "initial_factors",
+      "status": "completed",
+      "duration_seconds": 0.001208
+    },
+    {
+      "stage": "first_prediction",
+      "status": "completed",
+      "duration_seconds": 0.520686
+    },
+    {
+      "stage": "round_1_decision",
+      "status": "completed",
+      "duration_seconds": 0.001181
+    },
+    {
+      "stage": "feedback",
+      "status": "completed",
+      "duration_seconds": 0.004408
+    },
+    {
+      "stage": "revised_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.406469
+    },
+    {
+      "stage": "revised_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001695
+    },
+    {
+      "stage": "revised_factors",
+      "status": "completed",
+      "duration_seconds": 0.001256
+    },
+    {
+      "stage": "second_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074261
+    },
+    {
+      "stage": "round_2_decision",
+      "status": "completed",
+      "duration_seconds": 0.001191
+    },
+    {
+      "stage": "round_3_feedback",
+      "status": "completed",
+      "duration_seconds": 0.003376
+    },
+    {
+      "stage": "round_3_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.406813
+    },
+    {
+      "stage": "round_3_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001773
+    },
+    {
+      "stage": "round_3_factors",
+      "status": "completed",
+      "duration_seconds": 0.001294
+    },
+    {
+      "stage": "round_3_prediction",
+      "status": "completed",
+      "duration_seconds": 0.091235
+    },
+    {
+      "stage": "round_3_decision",
+      "status": "completed",
+      "duration_seconds": 0.001196
+    },
+    {
+      "stage": "round_4_feedback",
+      "status": "completed",
+      "duration_seconds": 0.003435
+    },
+    {
+      "stage": "round_4_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.407095
+    },
+    {
+      "stage": "round_4_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001846
+    },
+    {
+      "stage": "round_4_factors",
+      "status": "completed",
+      "duration_seconds": 0.001291
+    },
+    {
+      "stage": "round_4_prediction",
+      "status": "completed",
+      "duration_seconds": 0.101916
+    },
+    {
+      "stage": "round_4_decision",
+      "status": "completed",
+      "duration_seconds": 0.001252
+    },
+    {
+      "stage": "round_5_feedback",
+      "status": "completed",
+      "duration_seconds": 0.003925
+    },
+    {
+      "stage": "round_5_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.407398
+    },
+    {
+      "stage": "round_5_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.00185
+    },
+    {
+      "stage": "round_5_factors",
+      "status": "completed",
+      "duration_seconds": 0.001321
+    },
+    {
+      "stage": "round_5_prediction",
+      "status": "completed",
+      "duration_seconds": 0.090129
+    },
+    {
+      "stage": "round_5_decision",
+      "status": "completed",
+      "duration_seconds": 0.001257
+    },
+    {
+      "stage": "round_6_feedback",
+      "status": "completed",
+      "duration_seconds": 0.003776
+    },
+    {
+      "stage": "round_6_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.407561
+    },
+    {
+      "stage": "round_6_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001924
+    },
+    {
+      "stage": "round_6_factors",
+      "status": "completed",
+      "duration_seconds": 0.001348
+    },
+    {
+      "stage": "round_6_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074309
+    },
+    {
+      "stage": "round_6_decision",
+      "status": "completed",
+      "duration_seconds": 0.005199
+    },
+    {
+      "stage": "round_7_feedback",
+      "status": "completed",
+      "duration_seconds": 0.003955
+    },
+    {
+      "stage": "round_7_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.408138
+    },
+    {
+      "stage": "round_7_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.001967
+    },
+    {
+      "stage": "round_7_factors",
+      "status": "completed",
+      "duration_seconds": 0.001374
+    },
+    {
+      "stage": "round_7_prediction",
+      "status": "completed",
+      "duration_seconds": 0.101535
+    },
+    {
+      "stage": "round_7_decision",
+      "status": "completed",
+      "duration_seconds": 0.001315
+    },
+    {
+      "stage": "round_8_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004024
+    },
+    {
+      "stage": "round_8_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.407904
+    },
+    {
+      "stage": "round_8_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002029
+    },
+    {
+      "stage": "round_8_factors",
+      "status": "completed",
+      "duration_seconds": 0.001435
+    },
+    {
+      "stage": "round_8_prediction",
+      "status": "completed",
+      "duration_seconds": 0.068682
+    },
+    {
+      "stage": "round_8_decision",
+      "status": "completed",
+      "duration_seconds": 0.001372
+    },
+    {
+      "stage": "round_9_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004642
+    },
+    {
+      "stage": "round_9_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.408148
+    },
+    {
+      "stage": "round_9_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002008
+    },
+    {
+      "stage": "round_9_factors",
+      "status": "completed",
+      "duration_seconds": 0.001385
+    },
+    {
+      "stage": "round_9_prediction",
+      "status": "completed",
+      "duration_seconds": 0.068478
+    },
+    {
+      "stage": "round_9_decision",
+      "status": "completed",
+      "duration_seconds": 0.00139
+    },
+    {
+      "stage": "round_10_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004368
+    },
+    {
+      "stage": "round_10_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.408439
+    },
+    {
+      "stage": "round_10_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002068
+    },
+    {
+      "stage": "round_10_factors",
+      "status": "completed",
+      "duration_seconds": 0.001424
+    },
+    {
+      "stage": "round_10_prediction",
+      "status": "completed",
+      "duration_seconds": 0.069672
+    },
+    {
+      "stage": "round_10_decision",
+      "status": "completed",
+      "duration_seconds": 0.001397
+    },
+    {
+      "stage": "round_11_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004467
+    },
+    {
+      "stage": "round_11_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.408557
+    },
+    {
+      "stage": "round_11_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002062
+    },
+    {
+      "stage": "round_11_factors",
+      "status": "completed",
+      "duration_seconds": 0.001456
+    },
+    {
+      "stage": "round_11_prediction",
+      "status": "completed",
+      "duration_seconds": 0.071761
+    },
+    {
+      "stage": "round_11_decision",
+      "status": "completed",
+      "duration_seconds": 0.001501
+    },
+    {
+      "stage": "round_12_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004942
+    },
+    {
+      "stage": "round_12_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.409128
+    },
+    {
+      "stage": "round_12_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002146
+    },
+    {
+      "stage": "round_12_factors",
+      "status": "completed",
+      "duration_seconds": 0.001501
+    },
+    {
+      "stage": "round_12_prediction",
+      "status": "completed",
+      "duration_seconds": 0.068448
+    },
+    {
+      "stage": "round_12_decision",
+      "status": "completed",
+      "duration_seconds": 0.001714
+    },
+    {
+      "stage": "round_13_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004478
+    },
+    {
+      "stage": "round_13_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.409651
+    },
+    {
+      "stage": "round_13_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.00224
+    },
+    {
+      "stage": "round_13_factors",
+      "status": "completed",
+      "duration_seconds": 0.001534
+    },
+    {
+      "stage": "round_13_prediction",
+      "status": "completed",
+      "duration_seconds": 0.070823
+    },
+    {
+      "stage": "round_13_decision",
+      "status": "completed",
+      "duration_seconds": 0.001476
+    },
+    {
+      "stage": "round_14_feedback",
+      "status": "completed",
+      "duration_seconds": 0.00449
+    },
+    {
+      "stage": "round_14_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.409609
+    },
+    {
+      "stage": "round_14_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002174
+    },
+    {
+      "stage": "round_14_factors",
+      "status": "completed",
+      "duration_seconds": 0.001808
+    },
+    {
+      "stage": "round_14_prediction",
+      "status": "completed",
+      "duration_seconds": 0.086225
+    },
+    {
+      "stage": "round_14_decision",
+      "status": "completed",
+      "duration_seconds": 0.002659
+    },
+    {
+      "stage": "round_15_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004974
+    },
+    {
+      "stage": "round_15_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.410555
+    },
+    {
+      "stage": "round_15_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002268
+    },
+    {
+      "stage": "round_15_factors",
+      "status": "completed",
+      "duration_seconds": 0.001754
+    },
+    {
+      "stage": "round_15_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074886
+    },
+    {
+      "stage": "round_15_decision",
+      "status": "completed",
+      "duration_seconds": 0.001643
+    },
+    {
+      "stage": "round_16_feedback",
+      "status": "completed",
+      "duration_seconds": 0.00479
+    },
+    {
+      "stage": "round_16_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.410494
+    },
+    {
+      "stage": "round_16_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002245
+    },
+    {
+      "stage": "round_16_factors",
+      "status": "completed",
+      "duration_seconds": 0.001748
+    },
+    {
+      "stage": "round_16_prediction",
+      "status": "completed",
+      "duration_seconds": 0.0737
+    },
+    {
+      "stage": "round_16_decision",
+      "status": "completed",
+      "duration_seconds": 0.001557
+    },
+    {
+      "stage": "round_17_feedback",
+      "status": "completed",
+      "duration_seconds": 0.004862
+    },
+    {
+      "stage": "round_17_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.410646
+    },
+    {
+      "stage": "round_17_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002415
+    },
+    {
+      "stage": "round_17_factors",
+      "status": "completed",
+      "duration_seconds": 0.001802
+    },
+    {
+      "stage": "round_17_prediction",
+      "status": "completed",
+      "duration_seconds": 0.100521
+    },
+    {
+      "stage": "round_17_decision",
+      "status": "completed",
+      "duration_seconds": 0.001763
+    },
+    {
+      "stage": "round_18_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005083
+    },
+    {
+      "stage": "round_18_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.410411
+    },
+    {
+      "stage": "round_18_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002331
+    },
+    {
+      "stage": "round_18_factors",
+      "status": "completed",
+      "duration_seconds": 0.00181
+    },
+    {
+      "stage": "round_18_prediction",
+      "status": "completed",
+      "duration_seconds": 0.107251
+    },
+    {
+      "stage": "round_18_decision",
+      "status": "completed",
+      "duration_seconds": 0.001678
+    },
+    {
+      "stage": "round_19_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005303
+    },
+    {
+      "stage": "round_19_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.410842
+    },
+    {
+      "stage": "round_19_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.00238
+    },
+    {
+      "stage": "round_19_factors",
+      "status": "completed",
+      "duration_seconds": 0.002123
+    },
+    {
+      "stage": "round_19_prediction",
+      "status": "completed",
+      "duration_seconds": 0.071206
+    },
+    {
+      "stage": "round_19_decision",
+      "status": "completed",
+      "duration_seconds": 0.001696
+    },
+    {
+      "stage": "round_20_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005724
+    },
+    {
+      "stage": "round_20_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414199
+    },
+    {
+      "stage": "round_20_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002487
+    },
+    {
+      "stage": "round_20_factors",
+      "status": "completed",
+      "duration_seconds": 0.001913
+    },
+    {
+      "stage": "round_20_prediction",
+      "status": "completed",
+      "duration_seconds": 0.09435
+    },
+    {
+      "stage": "round_20_decision",
+      "status": "completed",
+      "duration_seconds": 0.001695
+    },
+    {
+      "stage": "round_21_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005462
+    },
+    {
+      "stage": "round_21_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.411827
+    },
+    {
+      "stage": "round_21_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002498
+    },
+    {
+      "stage": "round_21_factors",
+      "status": "completed",
+      "duration_seconds": 0.001897
+    },
+    {
+      "stage": "round_21_prediction",
+      "status": "completed",
+      "duration_seconds": 0.069703
+    },
+    {
+      "stage": "round_21_decision",
+      "status": "completed",
+      "duration_seconds": 0.001753
+    },
+    {
+      "stage": "round_22_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005602
+    },
+    {
+      "stage": "round_22_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414715
+    },
+    {
+      "stage": "round_22_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003847
+    },
+    {
+      "stage": "round_22_factors",
+      "status": "completed",
+      "duration_seconds": 0.002981
+    },
+    {
+      "stage": "round_22_prediction",
+      "status": "completed",
+      "duration_seconds": 0.154884
+    },
+    {
+      "stage": "round_22_decision",
+      "status": "completed",
+      "duration_seconds": 0.001822
+    },
+    {
+      "stage": "round_23_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005788
+    },
+    {
+      "stage": "round_23_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.411744
+    },
+    {
+      "stage": "round_23_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002575
+    },
+    {
+      "stage": "round_23_factors",
+      "status": "completed",
+      "duration_seconds": 0.002048
+    },
+    {
+      "stage": "round_23_prediction",
+      "status": "completed",
+      "duration_seconds": 0.072254
+    },
+    {
+      "stage": "round_23_decision",
+      "status": "completed",
+      "duration_seconds": 0.001793
+    },
+    {
+      "stage": "round_24_feedback",
+      "status": "completed",
+      "duration_seconds": 0.005928
+    },
+    {
+      "stage": "round_24_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.411884
+    },
+    {
+      "stage": "round_24_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002573
+    },
+    {
+      "stage": "round_24_factors",
+      "status": "completed",
+      "duration_seconds": 0.002016
+    },
+    {
+      "stage": "round_24_prediction",
+      "status": "completed",
+      "duration_seconds": 0.072869
+    },
+    {
+      "stage": "round_24_decision",
+      "status": "completed",
+      "duration_seconds": 0.001971
+    },
+    {
+      "stage": "round_25_feedback",
+      "status": "completed",
+      "duration_seconds": 0.006372
+    },
+    {
+      "stage": "round_25_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.412211
+    },
+    {
+      "stage": "round_25_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002613
+    },
+    {
+      "stage": "round_25_factors",
+      "status": "completed",
+      "duration_seconds": 0.002079
+    },
+    {
+      "stage": "round_25_prediction",
+      "status": "completed",
+      "duration_seconds": 0.072618
+    },
+    {
+      "stage": "round_25_decision",
+      "status": "completed",
+      "duration_seconds": 0.001908
+    },
+    {
+      "stage": "round_26_feedback",
+      "status": "completed",
+      "duration_seconds": 0.006212
+    },
+    {
+      "stage": "round_26_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.412539
+    },
+    {
+      "stage": "round_26_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002624
+    },
+    {
+      "stage": "round_26_factors",
+      "status": "completed",
+      "duration_seconds": 0.002018
+    },
+    {
+      "stage": "round_26_prediction",
+      "status": "completed",
+      "duration_seconds": 0.069514
+    },
+    {
+      "stage": "round_26_decision",
+      "status": "completed",
+      "duration_seconds": 0.001897
+    },
+    {
+      "stage": "round_27_feedback",
+      "status": "completed",
+      "duration_seconds": 0.006272
+    },
+    {
+      "stage": "round_27_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.412961
+    },
+    {
+      "stage": "round_27_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002625
+    },
+    {
+      "stage": "round_27_factors",
+      "status": "completed",
+      "duration_seconds": 0.002201
+    },
+    {
+      "stage": "round_27_prediction",
+      "status": "completed",
+      "duration_seconds": 0.101766
+    },
+    {
+      "stage": "round_27_decision",
+      "status": "completed",
+      "duration_seconds": 0.001921
+    },
+    {
+      "stage": "round_28_feedback",
+      "status": "completed",
+      "duration_seconds": 0.006238
+    },
+    {
+      "stage": "round_28_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.413057
+    },
+    {
+      "stage": "round_28_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002658
+    },
+    {
+      "stage": "round_28_factors",
+      "status": "completed",
+      "duration_seconds": 0.002301
+    },
+    {
+      "stage": "round_28_prediction",
+      "status": "completed",
+      "duration_seconds": 0.095229
+    },
+    {
+      "stage": "round_28_decision",
+      "status": "completed",
+      "duration_seconds": 0.002432
+    },
+    {
+      "stage": "round_29_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007197
+    },
+    {
+      "stage": "round_29_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414593
+    },
+    {
+      "stage": "round_29_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002725
+    },
+    {
+      "stage": "round_29_factors",
+      "status": "completed",
+      "duration_seconds": 0.002172
+    },
+    {
+      "stage": "round_29_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074391
+    },
+    {
+      "stage": "round_29_decision",
+      "status": "completed",
+      "duration_seconds": 0.001966
+    },
+    {
+      "stage": "round_30_feedback",
+      "status": "completed",
+      "duration_seconds": 0.006656
+    },
+    {
+      "stage": "round_30_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.413204
+    },
+    {
+      "stage": "round_30_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002724
+    },
+    {
+      "stage": "round_30_factors",
+      "status": "completed",
+      "duration_seconds": 0.002284
+    },
+    {
+      "stage": "round_30_prediction",
+      "status": "completed",
+      "duration_seconds": 0.071542
+    },
+    {
+      "stage": "round_30_decision",
+      "status": "completed",
+      "duration_seconds": 0.002036
+    },
+    {
+      "stage": "round_31_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007047
+    },
+    {
+      "stage": "round_31_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.413721
+    },
+    {
+      "stage": "round_31_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002939
+    },
+    {
+      "stage": "round_31_factors",
+      "status": "completed",
+      "duration_seconds": 0.002863
+    },
+    {
+      "stage": "round_31_prediction",
+      "status": "completed",
+      "duration_seconds": 0.08827
+    },
+    {
+      "stage": "round_31_decision",
+      "status": "completed",
+      "duration_seconds": 0.002064
+    },
+    {
+      "stage": "round_32_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007574
+    },
+    {
+      "stage": "round_32_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414184
+    },
+    {
+      "stage": "round_32_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002834
+    },
+    {
+      "stage": "round_32_factors",
+      "status": "completed",
+      "duration_seconds": 0.002276
+    },
+    {
+      "stage": "round_32_prediction",
+      "status": "completed",
+      "duration_seconds": 0.072796
+    },
+    {
+      "stage": "round_32_decision",
+      "status": "completed",
+      "duration_seconds": 0.002123
+    },
+    {
+      "stage": "round_33_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007053
+    },
+    {
+      "stage": "round_33_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414087
+    },
+    {
+      "stage": "round_33_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002825
+    },
+    {
+      "stage": "round_33_factors",
+      "status": "completed",
+      "duration_seconds": 0.002384
+    },
+    {
+      "stage": "round_33_prediction",
+      "status": "completed",
+      "duration_seconds": 0.092576
+    },
+    {
+      "stage": "round_33_decision",
+      "status": "completed",
+      "duration_seconds": 0.002178
+    },
+    {
+      "stage": "round_34_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007122
+    },
+    {
+      "stage": "round_34_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414059
+    },
+    {
+      "stage": "round_34_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002878
+    },
+    {
+      "stage": "round_34_factors",
+      "status": "completed",
+      "duration_seconds": 0.002414
+    },
+    {
+      "stage": "round_34_prediction",
+      "status": "completed",
+      "duration_seconds": 0.092907
+    },
+    {
+      "stage": "round_34_decision",
+      "status": "completed",
+      "duration_seconds": 0.002282
+    },
+    {
+      "stage": "round_35_feedback",
+      "status": "completed",
+      "duration_seconds": 0.00739
+    },
+    {
+      "stage": "round_35_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414435
+    },
+    {
+      "stage": "round_35_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002931
+    },
+    {
+      "stage": "round_35_factors",
+      "status": "completed",
+      "duration_seconds": 0.002411
+    },
+    {
+      "stage": "round_35_prediction",
+      "status": "completed",
+      "duration_seconds": 0.07103
+    },
+    {
+      "stage": "round_35_decision",
+      "status": "completed",
+      "duration_seconds": 0.002198
+    },
+    {
+      "stage": "round_36_feedback",
+      "status": "completed",
+      "duration_seconds": 0.00746
+    },
+    {
+      "stage": "round_36_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.415154
+    },
+    {
+      "stage": "round_36_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.00304
+    },
+    {
+      "stage": "round_36_factors",
+      "status": "completed",
+      "duration_seconds": 0.00331
+    },
+    {
+      "stage": "round_36_prediction",
+      "status": "completed",
+      "duration_seconds": 0.070896
+    },
+    {
+      "stage": "round_36_decision",
+      "status": "completed",
+      "duration_seconds": 0.002238
+    },
+    {
+      "stage": "round_37_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007561
+    },
+    {
+      "stage": "round_37_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414877
+    },
+    {
+      "stage": "round_37_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.002958
+    },
+    {
+      "stage": "round_37_factors",
+      "status": "completed",
+      "duration_seconds": 0.002447
+    },
+    {
+      "stage": "round_37_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074607
+    },
+    {
+      "stage": "round_37_decision",
+      "status": "completed",
+      "duration_seconds": 0.002265
+    },
+    {
+      "stage": "round_38_feedback",
+      "status": "completed",
+      "duration_seconds": 0.008031
+    },
+    {
+      "stage": "round_38_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.414985
+    },
+    {
+      "stage": "round_38_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003058
+    },
+    {
+      "stage": "round_38_factors",
+      "status": "completed",
+      "duration_seconds": 0.002545
+    },
+    {
+      "stage": "round_38_prediction",
+      "status": "completed",
+      "duration_seconds": 0.073604
+    },
+    {
+      "stage": "round_38_decision",
+      "status": "completed",
+      "duration_seconds": 0.002567
+    },
+    {
+      "stage": "round_39_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007765
+    },
+    {
+      "stage": "round_39_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.415329
+    },
+    {
+      "stage": "round_39_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003044
+    },
+    {
+      "stage": "round_39_factors",
+      "status": "completed",
+      "duration_seconds": 0.002493
+    },
+    {
+      "stage": "round_39_prediction",
+      "status": "completed",
+      "duration_seconds": 0.071141
+    },
+    {
+      "stage": "round_39_decision",
+      "status": "completed",
+      "duration_seconds": 0.002279
+    },
+    {
+      "stage": "round_40_feedback",
+      "status": "completed",
+      "duration_seconds": 0.007985
+    },
+    {
+      "stage": "round_40_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.41551
+    },
+    {
+      "stage": "round_40_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003009
+    },
+    {
+      "stage": "round_40_factors",
+      "status": "completed",
+      "duration_seconds": 0.002568
+    },
+    {
+      "stage": "round_40_prediction",
+      "status": "completed",
+      "duration_seconds": 0.097786
+    },
+    {
+      "stage": "round_40_decision",
+      "status": "completed",
+      "duration_seconds": 0.002332
+    },
+    {
+      "stage": "round_41_feedback",
+      "status": "completed",
+      "duration_seconds": 0.008076
+    },
+    {
+      "stage": "round_41_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.415981
+    },
+    {
+      "stage": "round_41_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003047
+    },
+    {
+      "stage": "round_41_factors",
+      "status": "completed",
+      "duration_seconds": 0.002602
+    },
+    {
+      "stage": "round_41_prediction",
+      "status": "completed",
+      "duration_seconds": 0.102539
+    },
+    {
+      "stage": "round_41_decision",
+      "status": "completed",
+      "duration_seconds": 0.002342
+    },
+    {
+      "stage": "round_42_feedback",
+      "status": "completed",
+      "duration_seconds": 0.008671
+    },
+    {
+      "stage": "round_42_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.419071
+    },
+    {
+      "stage": "round_42_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003057
+    },
+    {
+      "stage": "round_42_factors",
+      "status": "completed",
+      "duration_seconds": 0.002639
+    },
+    {
+      "stage": "round_42_prediction",
+      "status": "completed",
+      "duration_seconds": 0.102988
+    },
+    {
+      "stage": "round_42_decision",
+      "status": "completed",
+      "duration_seconds": 0.041553
+    },
+    {
+      "stage": "round_43_feedback",
+      "status": "completed",
+      "duration_seconds": 0.008599
+    },
+    {
+      "stage": "round_43_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.418268
+    },
+    {
+      "stage": "round_43_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003384
+    },
+    {
+      "stage": "round_43_factors",
+      "status": "completed",
+      "duration_seconds": 0.002713
+    },
+    {
+      "stage": "round_43_prediction",
+      "status": "completed",
+      "duration_seconds": 0.171582
+    },
+    {
+      "stage": "round_43_decision",
+      "status": "completed",
+      "duration_seconds": 0.002718
+    },
+    {
+      "stage": "round_44_feedback",
+      "status": "completed",
+      "duration_seconds": 0.008933
+    },
+    {
+      "stage": "round_44_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.418874
+    },
+    {
+      "stage": "round_44_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003225
+    },
+    {
+      "stage": "round_44_factors",
+      "status": "completed",
+      "duration_seconds": 0.002842
+    },
+    {
+      "stage": "round_44_prediction",
+      "status": "completed",
+      "duration_seconds": 0.089034
+    },
+    {
+      "stage": "round_44_decision",
+      "status": "completed",
+      "duration_seconds": 0.002508
+    },
+    {
+      "stage": "round_45_feedback",
+      "status": "completed",
+      "duration_seconds": 0.009338
+    },
+    {
+      "stage": "round_45_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.418901
+    },
+    {
+      "stage": "round_45_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003205
+    },
+    {
+      "stage": "round_45_factors",
+      "status": "completed",
+      "duration_seconds": 0.002787
+    },
+    {
+      "stage": "round_45_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074606
+    },
+    {
+      "stage": "round_45_decision",
+      "status": "completed",
+      "duration_seconds": 0.00317
+    },
+    {
+      "stage": "round_46_feedback",
+      "status": "completed",
+      "duration_seconds": 0.00918
+    },
+    {
+      "stage": "round_46_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.418644
+    },
+    {
+      "stage": "round_46_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.00325
+    },
+    {
+      "stage": "round_46_factors",
+      "status": "completed",
+      "duration_seconds": 0.002771
+    },
+    {
+      "stage": "round_46_prediction",
+      "status": "completed",
+      "duration_seconds": 0.092137
+    },
+    {
+      "stage": "round_46_decision",
+      "status": "completed",
+      "duration_seconds": 0.002441
+    },
+    {
+      "stage": "round_47_feedback",
+      "status": "completed",
+      "duration_seconds": 0.009233
+    },
+    {
+      "stage": "round_47_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.418977
+    },
+    {
+      "stage": "round_47_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003297
+    },
+    {
+      "stage": "round_47_factors",
+      "status": "completed",
+      "duration_seconds": 0.002776
+    },
+    {
+      "stage": "round_47_prediction",
+      "status": "completed",
+      "duration_seconds": 0.09305
+    },
+    {
+      "stage": "round_47_decision",
+      "status": "completed",
+      "duration_seconds": 0.002488
+    },
+    {
+      "stage": "round_48_feedback",
+      "status": "completed",
+      "duration_seconds": 0.00939
+    },
+    {
+      "stage": "round_48_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.419015
+    },
+    {
+      "stage": "round_48_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003322
+    },
+    {
+      "stage": "round_48_factors",
+      "status": "completed",
+      "duration_seconds": 0.002889
+    },
+    {
+      "stage": "round_48_prediction",
+      "status": "completed",
+      "duration_seconds": 0.072
+    },
+    {
+      "stage": "round_48_decision",
+      "status": "completed",
+      "duration_seconds": 0.002536
+    },
+    {
+      "stage": "round_49_feedback",
+      "status": "completed",
+      "duration_seconds": 0.009865
+    },
+    {
+      "stage": "round_49_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.41971
+    },
+    {
+      "stage": "round_49_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003504
+    },
+    {
+      "stage": "round_49_factors",
+      "status": "completed",
+      "duration_seconds": 0.002967
+    },
+    {
+      "stage": "round_49_prediction",
+      "status": "completed",
+      "duration_seconds": 0.074405
+    },
+    {
+      "stage": "round_49_decision",
+      "status": "completed",
+      "duration_seconds": 0.002658
+    },
+    {
+      "stage": "round_50_feedback",
+      "status": "completed",
+      "duration_seconds": 0.009696
+    },
+    {
+      "stage": "round_50_hypothesis",
+      "status": "completed",
+      "duration_seconds": 0.42597
+    },
+    {
+      "stage": "round_50_factor_library",
+      "status": "completed",
+      "duration_seconds": 0.003467
+    },
+    {
+      "stage": "round_50_factors",
+      "status": "completed",
+      "duration_seconds": 0.002875
+    },
+    {
+      "stage": "round_50_prediction",
+      "status": "completed",
+      "duration_seconds": 0.080135
+    },
+    {
+      "stage": "round_50_decision",
+      "status": "completed",
+      "duration_seconds": 0.002568
+    },
+    {
+      "stage": "terminal_evaluation",
+      "status": "completed",
+      "duration_seconds": 0.1038
+    },
+    {
+      "stage": "summary",
+      "status": "completed",
+      "duration_seconds": 0.00377
+    },
+    {
+      "stage": "financial_comparison",
+      "status": "completed",
+      "duration_seconds": 0.096269
+    }
+  ],
+  "counts": {
+    "llm_requests_started": 50,
+    "llm_requests_completed": 50,
+    "search_requests_started": 0,
+    "search_requests_completed": 0,
+    "model_stages_started": 50,
+    "model_stages_completed": 50,
+    "comparison_model_stages_started": 1,
+    "comparison_model_stages_completed": 1
+  },
+  "token_usage": {
+    "input_tokens": null,
+    "cached_input_tokens": null,
+    "output_tokens": null,
+    "reported_responses": 0,
+    "status": "unavailable",
+    "notice": "Provider-reported tokens only; cached input is included in input tokens. Missing usage is unknown, not zero. No currency cost is inferred."
+  },
+  "usage": []
+}

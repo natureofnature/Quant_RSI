@@ -31,6 +31,27 @@ NASDAQ_PAST_CALENDAR_URL = (
     "https://www.nasdaqtrader.com/content/technicalsupport/2025tradingcalendar.pdf"
 )
 NASDAQ_PAST_CALENDAR_SHA256 = "fb761082d449ef76461d2ca8448ccebb79862a0acd124fad2e914469c9086037"
+# Published NYSE holiday pages for years the live hours page does not carry.
+# Mourning notices are separate: those closures are not on the annual tables.
+NYSE_HISTORICAL_CALENDAR_URLS = (
+    "https://ir.theice.com/press/news-details/2016/"
+    "NYSE-Group-Announces-2017-Holiday-and-Early-Closings-Calendar/default.aspx",
+    "https://ir.theice.com/press/news-details/2016/"
+    "NYSE-Group-announces-2018-and-2019-holiday-and-early-closings-calendar/default.aspx",
+    "https://ir.theice.com/press/news-details/2017/"
+    "NYSE-Group-Announces-2018-2019-and-2020-Holiday-and-Early-Closings-Calendar/default.aspx",
+    "https://ir.theice.com/press/news-details/2018/"
+    "NYSE-Group-Announces-2019-2020-and-2021-Holiday-and-Early-Closings-Calendar/default.aspx",
+    "https://ir.theice.com/press/news-details/2021/"
+    "NYSE-Group-Announces-2022-2023-and-2024-Holiday-and-Early-Closings-Calendar/default.aspx",
+)
+NYSE_MOURNING_CALENDAR_URLS = (
+    "https://ir.theice.com/press/news-details/2018/"
+    "New-York-Stock-Exchange-to-Honor-President-George-H-W-Bush/default.aspx",
+    "https://ir.theice.com/press/news-details/2024/"
+    "The-New-York-Stock-Exchange-Will-Close-Markets-on-January-9-to-Honor-the-Passing-of-"
+    "Former-President-Jimmy-Carter-on-National-Day-of-Mourning/default.aspx",
+)
 CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/"
 NASDAQ_EXCHANGES = {"NMS", "NGM", "NCM"}
 SUPPORTED_EXCHANGES = {
@@ -40,6 +61,8 @@ SUPPORTED_EXCHANGES = {
     **dict.fromkeys(NASDAQ_EXCHANGES, "Nasdaq"),
 }
 HISTORY_SESSIONS = 120
+TWO_YEAR_SESSIONS = 445
+MAX_HISTORY_SESSIONS = 2600
 CLOSE_BUFFER_SECONDS = 900
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 EASTERN = ZoneInfo("America/New_York")
@@ -219,6 +242,135 @@ def _calendar(body, *, archive=False):
         for month, day, year in found:
             early.add(date(int(year), MONTHS[month], int(day)))
     return holidays, early
+
+
+def _published_holiday(text, year_hint):
+    """Use the observed session when the published cell names one."""
+    observed = re.search(r"[Oo]bserved\s+\w+,\s*" + DATE_PATTERN + r"(?:,\s*(20\d{2}))?", text)
+    match = observed or re.search(DATE_PATTERN + r"(?:,\s*(20\d{2}))?", text)
+    if match is None:
+        raise ValueError("Unrecognized official holiday date")
+    year = int(match.group(3)) if match.group(3) else year_hint
+    day = date(year, MONTHS[match.group(1)], int(match.group(2)))
+    if day.strftime("%A") not in text:
+        raise ValueError("Official holiday weekday/date mismatch")
+    return day
+
+
+def _unobserved_cell(cell, page_text):
+    if not cell:
+        return True
+    if cell.startswith(("—", "–", "-")):
+        if "No holiday observed" not in page_text and "no New Year" not in page_text:
+            raise ValueError("Unrecognized official holiday date")
+        return True
+    return False
+
+
+def _year_column_holidays(table, header, page_text):
+    columns = [
+        (i, int(cell)) for i, cell in enumerate(header) if re.fullmatch(r"20\d{2}", cell or "")
+    ]
+    holidays = {year: set() for _, year in columns}
+    for row in table:
+        if row is header or any("close early" in (cell or "") for cell in row):
+            continue
+        for column, year in columns:
+            cell = row[column] if column < len(row) else ""
+            if _unobserved_cell(cell, page_text):
+                continue
+            holidays[year].add(_published_holiday(cell, year))
+    return holidays
+
+
+def _section_holidays(table, page_text):
+    holidays, year = {}, None
+    for row in table:
+        cells = [cell for cell in row if cell]
+        if not cells or any("close early" in cell for cell in cells):
+            continue
+        if re.fullmatch(r"20\d{2} Holidays", cells[0]):
+            year = int(cells[0][:4])
+            holidays.setdefault(year, set())
+            continue
+        if year is None or len(cells) < 2 or _unobserved_cell(cells[1], page_text):
+            continue
+        day = _published_holiday(cells[1], year)
+        holidays.setdefault(day.year, set()).add(day)
+    return holidays
+
+
+def _historical_nyse_calendar(body):
+    """Read an older NYSE announcement. Pages use either year columns or dated sections."""
+    page = _CalendarHTML()
+    page.feed(body.decode("utf-8"))
+    page_text = " ".join(" ".join(page.text).split())
+    if "NYSE" not in page_text:
+        raise ValueError("Official NYSE historical calendar heading is absent or changed")
+    holidays = {}
+    for table in page.tables:
+        header = next(
+            (
+                row
+                for row in table
+                if sum(bool(re.fullmatch(r"20\d{2}", cell or "")) for cell in row) >= 2
+                and any((cell or "").lower() == "holiday" for cell in row)
+            ),
+            None,
+        )
+        parsed = None
+        if header is not None:
+            parsed = _year_column_holidays(table, header, page_text)
+        elif any(re.fullmatch(r"20\d{2} Holidays", cell or "") for row in table for cell in row):
+            parsed = _section_holidays(table, page_text)
+        if not parsed:
+            continue
+        for year, days in parsed.items():
+            if year in holidays and holidays[year] != days:
+                raise ValueError(f"Official NYSE calendars disagree for {year}")
+            if days:
+                holidays[year] = days
+    if not holidays:
+        raise ValueError("Official NYSE historical holiday table is missing or ambiguous")
+    chunks = list(page.paragraphs)
+    chunks.extend(
+        cell
+        for table in page.tables
+        for row in table
+        for cell in row
+        if "close early at 1:00 p.m." in cell
+    )
+    early = set()
+    for chunk in chunks:
+        if "close early at 1:00 p.m." not in chunk:
+            continue
+        found = re.findall(DATE_PATTERN + r",\s*(20\d{2})", chunk)
+        if not found:
+            raise ValueError("Unrecognized official early-close dates")
+        for month, day, year in found:
+            early.add(date(int(year), MONTHS[month], int(day)))
+    if not early:
+        raise ValueError("Official early-close evidence is absent")
+    return holidays, early
+
+
+def _mourning_closure(body):
+    """One full-day closure stated by an NYSE notice, not by the annual holiday table."""
+    page = _CalendarHTML()
+    page.feed(body.decode("utf-8"))
+    text = " ".join(" ".join(page.text).split())
+    found = re.findall(
+        r"(?:will be closed on|close all NYSE Group equity and options markets on) "
+        r"(?:Monday|Tuesday|Wednesday|Thursday|Friday), " + DATE_PATTERN + r", (20\d{2})",
+        text,
+    )
+    days = {date(int(year), MONTHS[month], int(day)) for month, day, year in found}
+    if len(days) != 1:
+        raise ValueError("Official NYSE mourning closure is absent or ambiguous")
+    day = next(iter(days))
+    if day.strftime("%A") not in text:
+        raise ValueError("Official mourning weekday/date mismatch")
+    return day
 
 
 def _past_calendar(body, *, nasdaq):
@@ -490,8 +642,13 @@ def collect_daily(
     ticker, output_dir, *, historical_sessions=HISTORY_SESSIONS, future_sessions=5
 ) -> dict:
     """Collect into a fresh directory; errors preserve raw evidence and a failure receipt."""
-    if type(historical_sessions) is not int or not HISTORY_SESSIONS <= historical_sessions <= 445:
-        raise ValueError("Daily history must contain 120 through 445 sessions")
+    if (
+        type(historical_sessions) is not int
+        or not HISTORY_SESSIONS <= historical_sessions <= MAX_HISTORY_SESSIONS
+    ):
+        raise ValueError(
+            f"Daily history must contain {HISTORY_SESSIONS} through {MAX_HISTORY_SESSIONS} sessions"
+        )
     if type(future_sessions) is not int or not 5 <= future_sessions <= 60:
         raise ValueError("Future calendar must contain 5 through 60 sessions")
     output = Path(output_dir).absolute()
@@ -518,7 +675,12 @@ def collect_daily(
         if not isinstance(ticker, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9.-]{0,14}", ticker):
             raise ValueError("Ticker must be a supported plain US equity/ETF symbol")
         ticker = ticker.upper()
-        period = "2y" if historical_sessions > HISTORY_SESSIONS else "1y"
+        if historical_sessions <= HISTORY_SESSIONS:
+            period = "1y"
+        elif historical_sessions <= TWO_YEAR_SESSIONS:
+            period = "2y"
+        else:
+            period = "10y"
         url = (
             CHART_URL + quote(ticker, safe="") + f"?range={period}&interval=1d&events=div%2Csplits"
         )
@@ -558,6 +720,65 @@ def collect_daily(
                     "method": "reviewed_pdf_transcription" if nasdaq else "published_html_table",
                 }
             )
+        if historical_sessions > TWO_YEAR_SESSIONS:
+            if nasdaq:
+                raise ValueError(
+                    "Nasdaq history above 445 sessions needs its own reviewed calendar"
+                )
+            published, published_early = {}, set()
+            for number, url in enumerate(NYSE_HISTORICAL_CALENDAR_URLS, start=1):
+                path = output / f"nyse_historical_{number}.html"
+                body = _download(url, path, downloads)
+                if downloads[-1]["response_url"] != url:
+                    raise ValueError(
+                        "Historical calendar redirected away from its registered source"
+                    )
+                year_holidays, year_early = _historical_nyse_calendar(body)
+                for year, days in year_holidays.items():
+                    if year in published and published[year] != days:
+                        raise ValueError(f"Official NYSE calendars disagree for {year}")
+                    published[year] = days
+                published_early |= year_early
+                historical_sources.append(
+                    {
+                        "years": sorted(year_holidays),
+                        "source_url": url,
+                        "source_ref": _sha(body),
+                        "path": str(path),
+                        "method": "published_html_table",
+                    }
+                )
+            covered_years = {datetime.fromtimestamp(stamp, EASTERN).year for stamp in timestamps}
+            missing = covered_years - set(holidays)
+            if not missing <= set(published):
+                raise ValueError(
+                    "Official NYSE historical calendar does not cover "
+                    + ", ".join(str(year) for year in sorted(missing - set(published)))
+                )
+            for year in missing:
+                holidays[year] = set(published[year])
+            early |= {day for day in published_early if day.year in holidays}
+            for url in NYSE_MOURNING_CALENDAR_URLS:
+                path = output / f"nyse_mourning_{_sha(url.encode())[:12]}.html"
+                body = _download(url, path, downloads)
+                if downloads[-1]["response_url"] != url:
+                    raise ValueError("Mourning notice redirected away from its registered source")
+                closed = _mourning_closure(body)
+                if closed.year not in holidays:
+                    raise ValueError(
+                        f"Mourning closure {closed.isoformat()} has no annual calendar"
+                    )
+                holidays[closed.year].add(closed)
+                historical_sources.append(
+                    {
+                        "years": [closed.year],
+                        "closure": closed.isoformat(),
+                        "source_url": url,
+                        "source_ref": _sha(body),
+                        "path": str(path),
+                        "method": "published_closure_notice",
+                    }
+                )
         bars, future = _complete_bars(
             timestamps,
             quotes,

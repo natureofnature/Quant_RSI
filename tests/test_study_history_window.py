@@ -10,7 +10,7 @@ from quant_rsi.research.study_queue import study_options
 from quant_rsi.research.study_walk_forward import price_history_sessions
 
 
-@pytest.mark.parametrize("requested", [True, 119, 446, 252.0, "252"])
+@pytest.mark.parametrize("requested", [True, 119, 2601, 252.0, "252"])
 def test_history_options_reject_invalid_types_and_bounds(requested):
     with pytest.raises(ValueError, match="Historical sessions"):
         study_options({"historical_sessions": requested})
@@ -20,7 +20,7 @@ def test_history_requirement_accounts_for_horizon_and_diagnostic():
     assert price_history_sessions(5, 20, 0) == 120
     assert price_history_sessions(60, 20, 3) == 445
     assert price_history_sessions(5, 20, 3, 252) == 252
-    with pytest.raises(ValueError, match="445 through 445"):
+    with pytest.raises(ValueError, match="445 through 2600"):
         study_options({"horizon_sessions": 60, "walk_forward_folds": 3, "historical_sessions": 252})
     with pytest.raises(ValueError, match="requires daily prices"):
         study_options({"data": "synthetic", "historical_sessions": 252})

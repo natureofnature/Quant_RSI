@@ -1,0 +1,5 @@
+{
+  "folds": [],
+  "fit_budget": 0,
+  "notice": "Post-selection retrospective diagnostic: factors and model settings are frozen after research, then refitted on expanding mature-label training windows. Current news, LLM knowledge and recipe selection were not historically isolated. These are not independent out-of-sample research results. No feedback to selection or latest forecast. Each fold starts a separate account; returns and Sharpe are not a continuous portfolio track record."
+}

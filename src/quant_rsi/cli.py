@@ -23,13 +23,28 @@ from quant_rsi.execution.observer import (
     stop_observer,
 )
 from quant_rsi.forecast.forecast_contracts import parse_development_plan
+from quant_rsi.market.daily_data import MAX_HISTORY_SESSIONS
 from quant_rsi.market.market_contracts import DataContract, parse_observation_plan
 from quant_rsi.market.market_data import ingest, inspect_data
+from quant_rsi.research.demo_model import MAX_WINDOW_SESSIONS
 from quant_rsi.research.package_experiment import create_package, inspect_package, resume_package
 from quant_rsi.research.research import create_research, inspect_research, resume_research
 from quant_rsi.research.researcher import ResearchPlan
 from quant_rsi.research.trajectory import init_trajectory, inspect_trajectory, resume_trajectory
 from quant_rsi.research.trajectory_state import TrajectoryPlan
+
+
+def _bounded_int(low, high):
+    def parse(value):
+        try:
+            number = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"invalid integer value: '{value}'") from None
+        if number < low or number > high:
+            raise argparse.ArgumentTypeError(f"must be an integer from {low} through {high}")
+        return number
+
+    return parse
 
 
 def _check_llm_choice(args):
@@ -179,11 +194,19 @@ def main(argv: list[str] | None = None) -> int:
                 type=Path,
                 help="retain/reuse issuer RSS snapshots with original receipt times",
             )
-            demo.add_argument("--evaluation-sessions", type=int, default=20, choices=range(2, 21))
+            demo.add_argument(
+                "--evaluation-sessions",
+                type=_bounded_int(2, MAX_WINDOW_SESSIONS),
+                default=20,
+                help=f"development observations (default: 20; up to {MAX_WINDOW_SESSIONS})",
+            )
             demo.add_argument(
                 "--historical-sessions",
                 type=int,
-                help="minimum daily-price history (up to 445 sessions); all retained rows are used",
+                help=(
+                    f"minimum daily-price history (up to {MAX_HISTORY_SESSIONS} sessions); "
+                    "all retained rows are used"
+                ),
             )
             demo.add_argument(
                 "--walk-forward-folds",
@@ -200,23 +223,42 @@ def main(argv: list[str] | None = None) -> int:
                 help="prediction target in trading sessions (default: 5)",
             )
             demo.add_argument(
-                "--terminal-sessions",
+                "--label-endpoint",
                 type=int,
+                choices=(6, 30),
+                help="score an average close ending this many sessions ahead",
+            )
+            demo.add_argument(
+                "--label-average",
+                type=int,
+                default=1,
+                choices=(1, 3, 5),
+                help="sessions in the target average (3 with endpoint 6, 5 with endpoint 30)",
+            )
+            demo.add_argument(
+                "--sample-through",
+                help="last retained session included in this study (YYYY-MM-DD)",
+            )
+            demo.add_argument(
+                "--terminal-sessions",
+                type=_bounded_int(0, MAX_WINDOW_SESSIONS),
                 default=10,
-                choices=range(21),
-                help="reserved final evaluation observations (default: 10; 0: development only)",
+                help=(
+                    "reserved final evaluation observations "
+                    f"(default: 10; 0: development only; up to {MAX_WINDOW_SESSIONS})"
+                ),
             )
             demo.add_argument(
                 "--rounds",
                 type=int,
                 default=2,
-                choices=range(2, 11),
+                choices=range(2, 51),
                 help="maximum research fits, including the initial fit (default: 2)",
             )
             demo.add_argument(
                 "--max-fits",
                 type=int,
-                choices=range(2, 11),
+                choices=range(2, 51),
                 help="fit allowance; defaults to --rounds",
             )
             demo.add_argument(

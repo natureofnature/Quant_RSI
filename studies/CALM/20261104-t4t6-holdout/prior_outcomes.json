@@ -1,0 +1,12 @@
+{
+  "scope": "previously_issued_forecasts_observed_after_maturity; now_research_feedback",
+  "notice": "Individual forecast receipts, not a preregistered cohort or independent confirmation. Later public collections are matched by provider, instrument and frozen calendar; they are not receipt-prefix extensions of a market registry. Strategy metrics replay the frozen signal on later received bars with explicit costs; they are hypothetical, not durable paper orders or broker fills.",
+  "horizon_sessions": 6,
+  "question": "Which combinations improve the t+4, t+5 and t+6 average-close forecast when 2026-04-27 through 2026-07-30 is held out as the test?",
+  "factor_memory": [],
+  "entries": [],
+  "history": {
+    "entries": [],
+    "notice": "Status and chosen factors only; outcome metrics are in entries above."
+  }
+}
