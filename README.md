@@ -478,7 +478,10 @@ factor revisions, continuous accounts and next-month forecasts, see
 [monthly rolling research](docs/monthly_rolling_research.md).
 Add `--news-research` to acquire dated headlines and train executable,
 evidence-linked news inputs alongside the fixed price baseline; reconstructed
-history is labeled explicitly.
+history is labeled explicitly. Use `--max-candidates 16 --max-news-inputs 32`
+for a jointly trained factor pool, and `--news-history PATH` to compare against
+the same verified historical-news acquisition without refetching. The report
+shows accepted factors, rejection reasons and actual model feature use.
 
 For a frozen SOXX January–October 2026 task targeting November 30, see the
 [SOXX cutoff example](docs/soxx_november_2026.md), including historical-news

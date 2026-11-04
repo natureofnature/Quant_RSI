@@ -7,7 +7,7 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-from quant_rsi.research.rolling_news_sources import collect_history, select_evidence
+from quant_rsi.research.rolling_news_sources import collect_history, load_history, select_evidence
 
 
 def rss(rows):
@@ -132,3 +132,83 @@ def test_cutoff_is_applied_before_context_limit_and_retained_requires_real_recei
     assert len(select_evidence(changed, cutoff, mode="retained")["items"]) == 1
     assert "Reconstructed" in value["notice"]
     assert len(list(Path(tmp_path).rglob("*.xml"))) == 1
+
+
+@pytest.fixture
+def saved_history(tmp_path):
+    root = tmp_path / "corpus"
+    value = collect_history(
+        "SOXX",
+        "2026-06-01",
+        "2026-07-31",
+        root,
+        fetcher=lambda s, _: (
+            rss([("old", "Chip demand falls", "Mon, 01 Jun 2026 10:00:00 GMT")]),
+            receipt(s.url),
+        ),
+    )
+    return root, value
+
+
+def test_load_history_reconstructs_same_corpus_without_network_or_writes(
+    saved_history, monkeypatch
+):
+    root, value = saved_history
+    before = {
+        path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()
+    }
+
+    def prohibited(*args, **kwargs):
+        raise AssertionError("Read-only corpus loading must not fetch or write")
+
+    monkeypatch.setattr("quant_rsi.market.news_feed.fetch", prohibited)
+    monkeypatch.setattr("quant_rsi.research.rolling_news_sources.atomic_write", prohibited)
+    loaded = load_history(root, "SOXX", "2026-06-01", "2026-07-31")
+    assert loaded == value
+    assert loaded["items"][0]["received_at"] == "2026-11-04T18:00:00+00:00"
+    assert {
+        path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()
+    } == before
+
+
+@pytest.mark.parametrize(
+    "damage", ["raw", "items", "receipt", "missing_interval", "missing_raw", "escape"]
+)
+def test_load_history_rejects_tamper_and_missing_evidence(saved_history, tmp_path, damage):
+    root, value = saved_history
+    snapshot = deepcopy(value)
+    raw = root / snapshot["searches"][0]["raw_path"]
+    if damage == "raw":
+        raw.write_bytes(b"tampered")
+    elif damage == "items":
+        snapshot["items"][0]["title"] = "Changed title"
+    elif damage == "receipt":
+        snapshot["searches"][0]["received_at"] = "2026-06-02T00:00:00+00:00"
+    elif damage == "missing_interval":
+        snapshot["searches"].pop()
+    elif damage == "missing_raw":
+        raw.unlink()
+    else:
+        escaped = tmp_path / "outside.xml"
+        escaped.write_bytes(raw.read_bytes())
+        snapshot["searches"][0]["raw_path"] = "../outside.xml"
+    (root / "news_history.json").write_text(json.dumps(snapshot))
+    with pytest.raises((ValueError, FileNotFoundError)):
+        load_history(root, "SOXX", "2026-06-01", "2026-07-31")
+
+
+@pytest.mark.parametrize(
+    "symbol,start,end,query",
+    [
+        ("KO", "2026-06-01", "2026-07-31", None),
+        ("SOXX", "2026-06-01", "2026-06-30", None),
+        ("SOXX", "2026-06-02", "2026-07-31", None),
+        ("SOXX", "2026-06-01", "2026-07-31", "different universe"),
+    ],
+)
+def test_load_history_rejects_different_requested_universe(
+    saved_history, symbol, start, end, query
+):
+    root, _ = saved_history
+    with pytest.raises(ValueError, match="requested metadata"):
+        load_history(root, symbol, start, end, query=query)

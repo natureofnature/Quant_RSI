@@ -192,6 +192,86 @@ def collect_history(symbol, start, end, directory, *, query=None, fetcher=None):
     return snapshot
 
 
+def load_history(directory, symbol, start, end, *, query=None):
+    """Read and verify an unchanged acquisition directory without fetching or writing."""
+    root = Path(directory).resolve()
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    if first > last or (last - first).days > 1100:
+        raise ValueError("Historical news range must be ordered and at most 1100 days")
+    expected = {
+        "provider": "historical_google_news_search",
+        "symbol": symbol,
+        "start": str(first),
+        "end": str(last),
+        "query": _query(symbol, query),
+        "coverage_status": "partial_search_results",
+    }
+    manifest = root / "news_history.json"
+    if manifest.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("Historical news manifest exceeds byte limit")
+    snapshot = json.loads(manifest.read_bytes())
+    if any(snapshot.get(key) != value for key, value in expected.items()):
+        raise ValueError("Historical news snapshot differs from requested metadata")
+    searches = snapshot.get("searches", [])
+    intervals = [(str(a), str(b)) for a, b in _months(first, last)]
+    if [(s.get("start"), s.get("end")) for s in searches] != intervals:
+        raise ValueError("Historical news snapshot has incomplete or unordered monthly intervals")
+    articles = {}
+    for search, (a, b) in zip(searches, intervals, strict=True):
+        lower, upper = date.fromisoformat(a), date.fromisoformat(b)
+        bounded = (
+            f"{expected['query']} after:{lower - timedelta(days=1)} "
+            f"before:{upper + timedelta(days=1)}"
+        )
+        url = "https://news.google.com/rss/search?" + urlencode(
+            {"q": bounded, "hl": "en-US", "gl": "US", "ceid": "US:en"}
+        )
+        request = {"symbol": symbol, "start": a, "end": b, "query": bounded}
+        if (
+            any(search.get(key) != value for key, value in request.items())
+            or search.get("url") != url
+        ):
+            raise ValueError("Historical news monthly search request differs")
+        relative = Path(search["raw_path"])
+        raw_path = (root / relative).resolve()
+        if relative.is_absolute() or not raw_path.is_relative_to(root):
+            raise ValueError("Historical news raw path escapes acquisition directory")
+        if raw_path.stat().st_size >= 1024 * 1024:
+            raise ValueError("Historical news raw response exceeds byte limit")
+        body = raw_path.read_bytes()
+        if digest(body) != search["raw_sha256"]:
+            raise ValueError("Historical news raw response hash mismatch")
+        record = json.loads((root / f"{a}_{b}" / "success.json").read_bytes())
+        receipt = record["receipt"]
+        if (
+            record["request"] != request
+            or record["url"] != url
+            or record["raw_sha256"] != search["raw_sha256"]
+            or relative != Path(f"{a}_{b}") / record["raw_file"]
+            or receipt.get("http_status") != 200
+            or receipt.get("response_url") != url
+            or receipt.get("error")
+            or receipt["received_at"] != search["received_at"]
+        ):
+            raise ValueError("Historical news successful receipt differs from snapshot")
+        timestamp(receipt["received_at"])
+        items, excluded = _parse(body, symbol, lower, upper, receipt["received_at"])
+        if (
+            search["item_count"] != len(items)
+            or search["excluded"] != excluded
+            or search["status"] != ("partial_results" if items else "empty_search_results")
+        ):
+            raise ValueError("Historical news parsed coverage differs from snapshot")
+        for item in items:
+            articles.setdefault(item["id"], item)
+    reconstructed = sorted(articles.values(), key=lambda item: (item["published_at"], item["id"]))
+    if snapshot["items"] != reconstructed:
+        raise ValueError("Historical news parsed items differ from snapshot")
+    if snapshot.get("received_at") != max(search["received_at"] for search in searches):
+        raise ValueError("Historical news aggregate receipt differs from searches")
+    return snapshot
+
+
 def select_evidence(snapshot, cutoff, *, mode="reconstructed", limit=None):
     """Filter the full numerical corpus before optional LLM-context truncation."""
     if mode not in {"retained", "reconstructed"}:
