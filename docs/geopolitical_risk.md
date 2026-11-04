@@ -7,6 +7,11 @@ frequency, not the physical severity of a war or the causal effect on SOXX.
 It is not automatically included in the fixed baseline. The researcher may select
 it, combine it with other available inputs, or decline it.
 
+With `--news-research`, a candidate must still use an actual numerical `news.*`
+input, for example a retrieved-headline count multiplied by `risk.gpr_level`.
+The GPR leaf alone does not satisfy that guard; standalone GPR selection is available
+only when news-required mode is off. Adding this source does not relax the guard.
+
 ```bash
 python -m pip install -e '.[gpr]'
 quant-rsi research-rolling SOXX \
