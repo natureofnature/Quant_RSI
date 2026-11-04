@@ -1,5 +1,6 @@
 """Fixed-width monthly rolling forecasts through existing numerical/provider adapters."""
 
+import json
 import math
 import shutil
 import time
@@ -22,6 +23,7 @@ from quant_rsi.research.demo_strategy import evaluate_monthly_strategy
 from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.rolling_candidates import screen_candidates
+from quant_rsi.research.rolling_diagnostics import diagnose_candidates
 from quant_rsi.research.rolling_news_sources import collect_history, load_history, select_evidence
 from quant_rsi.research.rolling_research import (
     admit_decision,
@@ -72,6 +74,11 @@ def add_arguments(commands):
         type=int,
         help="news input budget, 1..64; defaults to twice max-candidates",
     )
+    parser.add_argument(
+        "--candidate-revision",
+        action="store_true",
+        help="allow one same-cutoff revision after structural diagnostics; no additional fits",
+    )
     parser.add_argument("--news-archive", type=Path)
     parser.add_argument(
         "--risk-history", type=Path, help="verified offline VIX/Treasury snapshot directory"
@@ -108,6 +115,30 @@ def add_arguments(commands):
 
 def _write(path, value):
     atomic_write(path, canonical(value))
+
+
+def _recorded_proposal(llm, context, root, operation, enabled):
+    """Count physical provider attempts inside the cache operation, never on cache hits."""
+    if not enabled:
+        return propose(llm, context)
+    record = {
+        "operation": operation,
+        "input_sha256": digest(canonical(context)),
+        "started_at_unix": time.time(),
+    }
+
+    def event(status, **details):
+        with (root / "research_calls.jsonl").open("ab") as stream:
+            stream.write(canonical(record | {"status": status} | details) + b"\n")
+
+    event("attempted")
+    try:
+        output = propose(llm, context)
+    except Exception as exc:
+        event("failed", error_type=type(exc).__name__, error=str(exc))
+        raise
+    event("completed", output_sha256=digest(canonical(output)))
+    return output
 
 
 def _view(data, dates):
@@ -245,6 +276,7 @@ def run_months(
     max_news_inputs=None,
     risk_history=None,
     gpr_history=None,
+    candidate_revision=False,
 ):
     """Cut off numerical views before proposing/fitting; settlement cannot enter those views."""
     if type(max_candidates) is not int or not 1 <= max_candidates <= 32:
@@ -252,6 +284,8 @@ def run_months(
     max_news_inputs = 2 * max_candidates if max_news_inputs is None else max_news_inputs
     if type(max_news_inputs) is not int or not 1 <= max_news_inputs <= 64:
         raise ValueError("News input limit must be between 1 and 64")
+    if candidate_revision and llm is None:
+        raise ValueError("Candidate revision requires an LLM")
     folds, incumbent, incumbent_news = [], [], []
     for planned in plan:
         fold = deepcopy(planned)
@@ -357,53 +391,123 @@ def run_months(
         fold["candidate_status"] = "disabled"
         if llm is not None:
             raw = cache.call(
-                f"{fold['month']}_decision", context, lambda context=context: propose(llm, context)
+                f"{fold['month']}_decision",
+                context,
+                lambda context=context, operation=f"{fold['month']}_decision": _recorded_proposal(
+                    llm, context, root, operation, candidate_revision
+                ),
             )
             try:
-                decision, proposed = admit_decision(
-                    raw, incumbent, news, max_candidates, max_news_inputs, screen_individually=True
-                )
+                preview, preview_news = incumbent, incumbent_news
+                for number in range(2 if candidate_revision else 1):
+                    attempt = {"stage": "proposal" if number == 0 else "revision"}
+                    try:
+                        decision, proposed = admit_decision(
+                            raw,
+                            preview,
+                            news,
+                            max_candidates,
+                            max_news_inputs,
+                            screen_individually=True,
+                        )
+                        proposed_news = (
+                            decision["news_inputs"]
+                            if decision["action"] == "replace"
+                            else []
+                            if decision["action"] == "withdraw"
+                            else preview_news
+                        )
+                        parents = {
+                            DiscoveryFactor.model_validate_json(canonical(value)).recipe_ref
+                            for value in preview
+                        }
+                        screened = screen_candidates(
+                            proposed,
+                            proposed_news,
+                            columns,
+                            definitions,
+                            baseline,
+                            news,
+                            row_times,
+                            train,
+                            news_required=news_required,
+                            mode=news_mode if news_history is not None else "retained",
+                            coverage=news_history["searches"] if news_history is not None else None,
+                            allowed_parent_refs=parents,
+                            accepted_incumbent_records=preview,
+                            require_evidence=decision["basis"] == "news",
+                        )
+                        pool = {
+                            "proposed": len(proposed),
+                            "accepted": len(screened["candidates"]),
+                            "limit": max_candidates,
+                        }
+                        attempt.update(
+                            decision=decision,
+                            status="screened",
+                            candidate_pool=pool,
+                            candidates=screened["candidates"],
+                            news_inputs=screened["news_inputs"],
+                            candidate_rejections=screened["rejections"],
+                        )
+                        if candidate_revision:
+                            attempt["diagnostics"] = diagnose_candidates(
+                                screened["matrix"], train, screened["ids"], len(baseline)
+                            )
+                        if not candidate_revision or number == 1:
+                            fold["candidate_rejections"] = screened["rejections"]
+                            fold["candidate_pool"] = pool
+                            fold["news_features"] = screened["diagnostics"]
+                        if proposed and not screened["candidates"]:
+                            raise ValueError(
+                                "No executable candidates: "
+                                + "; ".join(item["reason"] for item in screened["rejections"])
+                            )
+                        proposed, proposed_news = screened["candidates"], screened["news_inputs"]
+                        preview, preview_news = proposed, proposed_news
+                    except ValueError as exc:
+                        attempt.update(status="rejected", error=str(exc))
+                        if not candidate_revision or number == 1:
+                            raise
+                    finally:
+                        if candidate_revision:
+                            fold.setdefault("candidate_attempts", []).append(deepcopy(attempt))
+                            _write(folder / "candidate_attempts.json", fold["candidate_attempts"])
+                    if candidate_revision and number == 0:
+                        revision_context = decision_context(
+                            data.instruments[0],
+                            fold,
+                            definitions,
+                            preview,
+                            news,
+                            context["mature_feedback"],
+                            preview_news,
+                            max_candidates,
+                            max_news_inputs,
+                        )
+                        revision_context["candidate_review"] = deepcopy(attempt)
+                        _write(folder / "research_revision_context.json", revision_context)
+                        operation = f"{fold['month']}_revision_decision"
+                        try:
+                            raw = cache.call(
+                                operation,
+                                revision_context,
+                                lambda revision_context=revision_context, operation=operation: (
+                                    _recorded_proposal(
+                                        llm,
+                                        revision_context,
+                                        root,
+                                        operation,
+                                        True,
+                                    )
+                                ),
+                            )
+                        except ValueError as exc:
+                            # Provider/cache failures are not rejected candidate proposals.
+                            raise RuntimeError("Candidate revision operation failed") from exc
                 fold["decision"] = decision
-                proposed_news = (
-                    decision["news_inputs"]
-                    if decision["action"] == "replace"
-                    else []
-                    if decision["action"] == "withdraw"
-                    else incumbent_news
-                )
-                previous = [
-                    DiscoveryFactor.model_validate_json(canonical(value)) for value in incumbent
-                ]
-                allowed_parents = {value.recipe_ref for value in previous}
-                screened = screen_candidates(
-                    proposed,
-                    proposed_news,
-                    columns,
-                    definitions,
-                    baseline,
-                    news,
-                    row_times,
-                    train,
-                    news_required=news_required,
-                    mode=news_mode if news_history is not None else "retained",
-                    coverage=news_history["searches"] if news_history is not None else None,
-                    allowed_parent_refs=allowed_parents,
-                    accepted_incumbent_records=incumbent,
-                    require_evidence=decision["basis"] == "news",
-                )
                 fold["candidate_rejections"] = screened["rejections"]
-                fold["news_features"] = screened["diagnostics"]
-                fold["candidate_pool"] = {
-                    "proposed": len(proposed),
-                    "accepted": len(screened["candidates"]),
-                    "limit": max_candidates,
-                }
-                if proposed and not screened["candidates"]:
-                    raise ValueError(
-                        "No executable candidates: "
-                        + "; ".join(item["reason"] for item in screened["rejections"])
-                    )
-                proposed, proposed_news = screened["candidates"], screened["news_inputs"]
+                fold["candidate_pool"] = pool
                 candidate, ids = screened["matrix"], screened["ids"]
                 news_columns = screened["news_columns"]
                 used_news = set(news_columns)
@@ -433,7 +537,11 @@ def run_months(
                 fold["decision"] = {
                     "action": "rejected",
                     "reason": "LLM proposal rejected; fixed forecast used: " + str(exc),
-                    "response_checkpoint": f"checkpoints/{fold['month']}_decision.json",
+                    "response_checkpoint": (
+                        f"checkpoints/{fold['month']}_revision_decision.json"
+                        if candidate_revision
+                        else f"checkpoints/{fold['month']}_decision.json"
+                    ),
                 }
                 fold["forecasts"]["adaptive"] = deepcopy(fold["forecasts"]["fixed"])
             if "adaptive" not in fold["fits"]:
@@ -499,6 +607,9 @@ def run_rolling(args):
             )
             peer_info[peer] = evidence
     max_candidates = getattr(args, "max_candidates", 2)
+    candidate_revision = getattr(args, "candidate_revision", False)
+    if candidate_revision and args.llm == "none":
+        raise ValueError("--candidate-revision requires --llm codex or api")
     if not 1 <= max_candidates <= 32:
         raise ValueError("--max-candidates must be between 1 and 32")
     max_news_inputs = getattr(args, "max_news_inputs", None)
@@ -674,6 +785,7 @@ def run_rolling(args):
                 max_news_inputs=max_news_inputs,
                 risk_history=risk_history,
                 gpr_history=gpr_history,
+                candidate_revision=candidate_revision,
             )
             policy = {
                 k: getattr(args, k)
@@ -693,6 +805,19 @@ def run_rolling(args):
                 "retained_fit_operations": len(list(cache.root.glob("*_fit.json"))),
                 "retained_decision_operations": len(list(cache.root.glob("*_decision.json"))),
             }
+            if candidate_revision:
+                calls = root / "research_calls.jsonl"
+                events = (
+                    [json.loads(line) for line in calls.read_bytes().splitlines()]
+                    if calls.exists()
+                    else []
+                )
+                runtime["counts"]["research_provider_attempts_total"] = sum(
+                    event["status"] == "attempted" for event in events
+                )
+                runtime["counts"]["research_provider_failures_total"] = sum(
+                    event["status"] == "failed" for event in events
+                )
             _write(root / "runtime.json", runtime)
             _write(root / "result.json", result)
             atomic_write(root / "report.html", render_rolling(result).encode())

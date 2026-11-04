@@ -218,6 +218,38 @@ not itself establish a forecast advantage.
 
 ## Interpreting mature feedback
 
+### One same-cutoff candidate revision
+
+Add `--candidate-revision` with `--llm codex` or `--llm api` to run:
+
+> Proposal → executable-input screening → training-only structural diagnostics →
+> one LLM revision → final screening → joint model fit → frozen forecast.
+
+The preview does not receive a model fit or a target-month outcome. Diagnostics
+describe distinct/nonzero training values, variance, matrix rank and correlations
+with baseline/other candidate columns. They do not score predictive usefulness,
+estimate causal contributions or automatically remove correlated factors. Daily
+training labels overlap. The six-month monthly-horizon setting leaves too few
+non-overlapping validation intervals to reliably rank a large pool, so this
+option does not add per-factor fitting or claim independent validation.
+
+The second decision may retain the accepted preview, replace it (with parent
+recipe references), or withdraw. An invalid first proposal can be repaired once;
+an invalid final proposal explicitly uses the fixed forecast, rather than silently
+accepting the earlier pool. There is no loop until a favorable result. The normal
+budget is two provider operations and at most two model fits per month: the fixed
+model and the final adaptive model. A withdrawal requires only the fixed fit.
+
+`candidate_attempts.json` and `research_revision_context.json` are saved before
+the second provider call. Final predictions retain both attempts, and the HTML
+report shows their screening/coverage tables beside the existing baselines and
+charts. With this option, `research_calls.jsonl` records physical provider attempts,
+including failures. Provider failures stop the run. Explicit `--resume` reuses
+completed operations and retries the failed operation; that retry is another
+recorded attempt, not a fresh free budget. Runtime totals include prior attempts.
+Changing this option requires a fresh output directory, like other research
+configuration changes. The default remains one decision per month.
+
 Mature monthly feedback includes absolute simple-return errors in percentage
 points and paired adaptive-minus-control loss differences. A negative difference
 against the fixed model supports a candidate-pool increment on that target; it

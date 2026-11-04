@@ -126,8 +126,23 @@ def decision_context(
 
 def propose(llm, context):
     limit = context.get("max_candidates", 2)
+    review_instruction = (
+        "This is the one allowed revision at the SAME information cutoff. "
+        "candidate_review contains the preceding untrained proposal's screening results and "
+        "training-only structural diagnostics, not predictive scores or factor contributions. "
+        "The supplied incumbent is its accepted preview pool (or the previous incumbent if "
+        "that proposal was rejected). Retain keeps that preview; replace can revise it and "
+        "reference its recipe IDs; withdraw uses the fixed baseline. Inspect coverage, "
+        "variation, correlation and rejection reasons. Explain what you keep or change. "
+        "Consider alternative evidence-backed hypotheses before withdrawal, but do not "
+        "manufacture factors or force a full pool. This is the final decision; no repeat "
+        "until a favorable result. No target-month outcomes are available. "
+        if "candidate_review" in context
+        else ""
+    )
     prompt = (
-        "Make one monthly rolling research decision, before the target month's outcome. "
+        review_instruction
+        + "Make one monthly rolling research decision, before the target month's outcome. "
         "The fixed baseline always runs separately. The adaptive arm may retain previous "
         f"candidate expressions, withdraw them, or replace them with at most {limit} expressions "
         "appended to baseline features and trained jointly as one model. On the initial "
