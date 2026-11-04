@@ -233,8 +233,19 @@ training labels overlap. The six-month monthly-horizon setting leaves too few
 non-overlapping validation intervals to reliably rank a large pool, so this
 option does not add per-factor fitting or claim independent validation.
 
-The second decision may retain the accepted preview, replace it (with parent
-recipe references), or withdraw. An invalid first proposal can be repaired once;
+The second decision may retain the whole accepted preview, select an exact subset,
+replace it (with valid parent recipe references), or withdraw. For subset selection,
+emit `action: "select"`, nonempty unique `selected_recipe_refs` from the current
+incumbent, and empty `candidates`/`news_inputs`. Selection reuses the original records,
+their original ancestry and only their required news input definitions, in incumbent
+order. It still runs the normal coverage and evidence checks. Unknown/duplicate
+references, empty selections and mixed selection/replacement payloads are rejected.
+
+Use `replace` for new or modified expressions. Keeping an expression unchanged
+does not create a descendant: never add its own recipe reference to its parent
+list. Renaming it or changing a separately defined news input does not change the
+expression identity. The same selection action is also available between monthly
+forecasts, without an extra provider call or fit. An invalid first proposal can be repaired once;
 an invalid final proposal explicitly uses the fixed forecast, rather than silently
 accepting the earlier pool. There is no loop until a favorable result. The normal
 budget is two provider operations and at most two model fits per month: the fixed
@@ -249,6 +260,12 @@ completed operations and retries the failed operation; that retry is another
 recorded attempt, not a fresh free budget. Runtime totals include prior attempts.
 Changing this option requires a fresh output directory, like other research
 configuration changes. The default remains one decision per month.
+
+A retained real-provider development smoke demonstrated why selection is explicit:
+the LLM reduced a 16-factor preview to 12 existing expressions but added each
+expression's own reference as a parent. All 12 were correctly rejected. That run
+remains a fixed-forecast fallback; adding selection does not rewrite its response,
+rerun its models or turn it into successful candidate-training evidence.
 
 Mature monthly feedback includes absolute simple-return errors in percentage
 points and paired adaptive-minus-control loss differences. A negative difference
