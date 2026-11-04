@@ -243,6 +243,87 @@ def render_rolling(result):
             for f in folds
         ],
     )
+    if any(f.get("news_evidence", {}).get("research_required") for f in folds):
+        fitted = sum(bool(f.get("news_training")) for f in folds)
+        parts.append(
+            "<section class='notice'><h2>News research execution</h2>"
+            f"<p>{fitted} of {len(folds)} monthly models used executable news inputs. "
+            "Headline counts and lexical balances measure the retrieved corpus; they are "
+            "not observed revenue, verified sentiment, or a complete record of world events. "
+            "Zero means no matching retrieved headline. Search coverage is partial. "
+            "Historical reconstruction uses publication timestamps of headlines retrieved "
+            "now; it does not prove those versions were available historically. "
+            "Recipe selection itself uses the fold's research corpus, so this remains "
+            "reconstructed research rather than contemporaneous blind validation.</p></section>"
+        )
+        input_rows = []
+        for fold in folds:
+            recipes = {r["input_id"]: r for r in fold.get("candidate_news_inputs", [])}
+            for identity, measurement in fold.get("news_training", {}).items():
+                recipe = recipes[identity]
+                values = measurement["training_values"]
+                input_rows.append(
+                    [
+                        fold["month"],
+                        identity,
+                        recipe["hypothesis"],
+                        recipe["operation"],
+                        recipe["terms"],
+                        recipe["negative_terms"],
+                        recipe["window_days"],
+                        measurement["distinct_training_values"],
+                        f"{min(values)} → {max(values)}",
+                        measurement["prediction_value"],
+                        recipe["evidence_ids"],
+                    ]
+                )
+        table(
+            "News inputs actually used in training",
+            [
+                "Month",
+                "Input",
+                "Hypothesis",
+                "Measure",
+                "Terms",
+                "Negative terms",
+                "Window days",
+                "Distinct training values",
+                "Training range",
+                "Forecast value",
+                "Evidence IDs",
+            ],
+            input_rows,
+        )
+        table(
+            "Historical news coverage",
+            ["Month", "Mode", "Coverage", "Eligible headlines", "Notice"],
+            [
+                [
+                    f["month"],
+                    f.get("news_evidence", {}).get("information_mode"),
+                    f.get("news_coverage"),
+                    len(f.get("news_evidence", {}).get("items", [])),
+                    f.get("news_evidence", {}).get("notice"),
+                ]
+                for f in folds
+            ],
+        )
+        table(
+            "News evidence sample (full corpus in result.json)",
+            ["Month", "ID", "Headline", "Published", "Actually retrieved", "Source URL"],
+            [
+                [
+                    f["month"],
+                    a["id"],
+                    a.get("title"),
+                    a.get("published_at"),
+                    a.get("received_at"),
+                    a.get("url"),
+                ]
+                for f in folds
+                for a in f.get("news_evidence", {}).get("items", [])[-10:]
+            ],
+        )
     if result.get("failure") or result.get("failures") or result.get("status"):
         parts.append(
             f"<section><h2>Run status</h2><p>{_text(result.get('status'))}</p>"
