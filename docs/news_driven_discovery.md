@@ -152,9 +152,10 @@ new data, fitted feature columns and feedback; an authentic two-candidate outer-
 trajectory; planned news-ablation and counterfactual-feedback observations; required final
 validation; and actual browser acceptance for browser usability claims.
 
-Until those records are available, treat real-service RFC acceptance as pending. A useful
-negative result can satisfy execution acceptance; neither successful execution nor a lower
-development error establishes independent predictive gain or profitability.
+A useful negative result can satisfy execution acceptance; neither successful execution
+nor a lower development error establishes independent predictive gain or profitability.
+The records below distinguish completed execution witnesses from inconclusive observations.
+Do not close the RFC by treating an inconclusive news-influence observation as a pass.
 
 ### Recorded implementation validation (2026-11-04)
 
@@ -173,6 +174,7 @@ Real-service exploration records remain separate from that fixture:
 | KO attempt 01 | Codex proposed a guidance-derived input; unsupported arithmetic extraction and exhausted acquisition allowance led to a baseline-only report. This is not a discovery witness. |
 | KO attempt 02 | Codex proposed a pricing/volume mechanism. A legitimate issuer date format was rejected and headline-only extraction wasted allowance. The run stopped at baseline; regressions now cover both defects. Original records remain unchanged. |
 | KO attempt 03 | The first Codex decision timed out before fitting. Resume refused after source changes, preserving the original runtime identity. |
+| KO attempt 04, runtime commit `2d19657` | An initial RSS failure resumed on the unchanged runtime. Codex acquired two literal quarterly operating measurements and synthesized a five-session change in the pricing/volume gap. The resulting column entered a real fit. After reading its actual feedback, Codex revised it to the persistent gap level and fitted again. Both candidates used the same acquired inputs and fixed samples. |
 | Preregistered news ablation, one Codex pair | **Inconclusive.** Removing the earnings/guidance headline changed the cited evidence, but both arms still proposed a pricing/volume gap. Retained earnings context and pretrained knowledge are alternative explanations. |
 | Preregistered synthetic-feedback intervention, one Codex pair | The favorable branch retained the proposed pricing/volume investigation; the unfavorable branch explicitly cited the worse synthetic MAE and proposed a temporal currency-impact measurement. This meets the declared qualitative action-sensitivity criterion, without establishing statistical causality or predictive benefit. |
 
@@ -182,9 +184,18 @@ not establish general reliability. The harness is `examples/discovery_acceptance
 each plan fixes the provider, maximum pairs, intervention and observable criteria before
 any calls. Its default result is inconclusive until an explicit evidence review is recorded.
 
+Attempt 04 completed four decisions, two acquisition requests and three fits. The baseline
+and first candidate each had development price MAE **2.5450**; the revision had **2.5586**.
+The researcher stopped with one fit still available and retained the baseline. Each candidate
+had two distinct training values, sourced from only two quarterly disclosures; daily repeats
+are not additional observations. This is an authentic discovery/acquisition/feedback witness,
+with no predictive-gain claim. The prior stopped and failed attempts were not overwritten.
+
 Actual Chromium acceptance launched discovery from the workbench with simulated providers
 and real LightGBM, then opened the live view, history and full report. The live view showed
 three fits, four of six decision actions, zero real LLM requests and the matched results.
-Source lineage and feature tables were inspected at desktop and mobile widths. This is
-browser/wiring evidence, not a real-news research witness. Focused UI checks passed;
-required final-revision full Python/Qlib validation remains pending.
+Source lineage and feature tables were inspected at desktop and mobile widths. The real
+attempt-04 report was also inspected separately. These browser checks establish usability,
+not predictive quality. Focused UI checks and 14 actual Qlib integration tests passed.
+The implementation PR must report final-revision full validation and any remaining failures
+separately from these service/browser observations.
