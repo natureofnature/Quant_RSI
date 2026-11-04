@@ -30,6 +30,14 @@ NYSE_PAST_CALENDAR_URL = (
 NASDAQ_PAST_CALENDAR_URL = (
     "https://www.nasdaqtrader.com/content/technicalsupport/2025tradingcalendar.pdf"
 )
+NYSE_2024_CALENDAR_URL = (
+    "https://ir.theice.com/press/news-details/2023/"
+    "NYSE-Group-Announces-2024-2025-and-2026-Holiday-and-Early-Closings-Calendar/default.aspx"
+)
+NASDAQ_2024_CALENDAR_URL = (
+    "https://www.nasdaqtrader.com/content/technicalsupport/2024tradingcalendar.pdf"
+)
+NASDAQ_2024_CALENDAR_SHA256 = "5a417265c706abe1e2eaa24e0c1fde1787e79fdd472eca105466a019f8ff1101"
 NASDAQ_2025_CLOSURE_URL = "https://www.nasdaqtrader.com/TraderNews.aspx?id=ETA2024-87"
 NYSE_2025_CLOSURE_URL = (
     "https://ir.theice.com/press/news-details/2024/"
@@ -158,20 +166,22 @@ class _CalendarHTML(HTMLParser):
             self.paragraph = None
 
 
-def _calendar(body, *, archive=False):
+def _calendar(body, *, archive=False, archive_year=2025):
     page = _CalendarHTML()
     page.feed(body.decode("utf-8"))
     text = " ".join(" ".join(page.text).split())
     if archive:
         if (
-            "NYSE Group Announces 2025, 2026 and 2027 Holiday and Early Closings Calendar"
-            not in text
+            f"NYSE Group Announces {archive_year}, {archive_year + 1} and {archive_year + 2} "
+            "Holiday and Early Closings Calendar" not in text
         ):
             raise ValueError("Official NYSE historical calendar heading is absent or changed")
     elif "All NYSE markets observe" not in text or not re.search(
         r"Core Trading Session:\s*9:30 a\.m\.\s+to\s+4:00 p\.m\.\s+ET", text
     ):
         raise ValueError("Official NYSE core-hours evidence is absent or has changed")
+    # Published archive tables may have entirely blank layout rows around the data.
+    page.tables = [[row for row in table if any(row)] for table in page.tables]
     tables = [
         table for table in page.tables if table and table[0] and table[0][0].lower() == "holiday"
     ]
@@ -246,21 +256,35 @@ def _exceptional_2025_closure(body, *, nasdaq):
     return {date(2025, 1, 9)}
 
 
-def _past_calendar(body, *, nasdaq):
-    """Admit the missing 2025 schedule from a retained, exchange-specific source."""
+def _past_calendar(body, *, nasdaq, year=2025):
+    """Admit a registered historical schedule from retained exchange-specific evidence."""
+    if year not in {2024, 2025}:
+        raise ValueError("No reviewed historical calendar for requested year")
     if not nasdaq:
-        holidays, early = _calendar(body, archive=True)
-        if 2025 not in holidays:
-            raise ValueError("Official NYSE archive does not cover 2025")
-        return holidays[2025], {day for day in early if day.year == 2025}
-    # The Nasdaq PDF encodes closures with filled/hollow circles. These dates were
-    # visually transcribed from that exact document, not inferred from NYSE rules.
-    # A changed file must be reviewed instead of silently reusing this transcription.
-    if _sha(body) != NASDAQ_PAST_CALENDAR_SHA256:
-        raise ValueError("Nasdaq 2025 calendar differs from the reviewed source PDF")
-    holidays = {
-        date.fromisoformat("2025-" + day)
-        for day in (
+        holidays, early = _calendar(body, archive=True, archive_year=year)
+        if year not in holidays:
+            raise ValueError(f"Official NYSE archive does not cover {year}")
+        return holidays[year], {day for day in early if day.year == year}
+    # Filled orange circles mark exchange holidays; hollow orange circles mark
+    # 13:00 closes. Both yearly PDFs were visually reviewed, not inferred from NYSE.
+    # A changed file must be reviewed before reusing the exact transcription.
+    expected_hash = NASDAQ_2024_CALENDAR_SHA256 if year == 2024 else NASDAQ_PAST_CALENDAR_SHA256
+    if _sha(body) != expected_hash:
+        raise ValueError(f"Nasdaq {year} calendar differs from the reviewed source PDF")
+    dates = {
+        2024: (
+            "01-01",
+            "01-15",
+            "02-19",
+            "03-29",
+            "05-27",
+            "06-19",
+            "07-04",
+            "09-02",
+            "11-28",
+            "12-25",
+        ),
+        2025: (
             "01-01",
             "01-20",
             "02-17",
@@ -271,9 +295,10 @@ def _past_calendar(body, *, nasdaq):
             "09-01",
             "11-27",
             "12-25",
-        )
+        ),
     }
-    early = {date(2025, 7, 3), date(2025, 11, 28), date(2025, 12, 24)}
+    holidays = {date.fromisoformat(f"{year}-{day}") for day in dates[year]}
+    early = {date(year, 7, 3), date(year, 11, 29 if year == 2024 else 28), date(year, 12, 24)}
     return holidays, early
 
 
@@ -554,9 +579,15 @@ def collect_daily(
             raise ValueError("Ticker must be a supported plain US equity/ETF symbol")
         ticker = ticker.upper()
         period = "2y" if historical_sessions > HISTORY_SESSIONS else "1y"
-        url = (
-            CHART_URL + quote(ticker, safe="") + f"?range={period}&interval=1d&events=div%2Csplits"
-        )
+        if as_of is None:
+            window = f"range={period}"
+        else:
+            # Yahoo period2 is exclusive. Every completed bar opened strictly
+            # before cutoff; round down rather than request post-cutoff seconds.
+            end = int(as_of.timestamp())
+            start = end - (732 if period == "2y" else 366) * 86400
+            window = f"period1={start}&period2={end}"
+        url = CHART_URL + quote(ticker, safe="") + f"?{window}&interval=1d&events=div%2Csplits"
         raw_path = output / "yahoo_chart_raw.json"
         raw = _download(url, raw_path, downloads)
         data, timestamps, quotes = _chart(raw, ticker)
@@ -568,29 +599,39 @@ def collect_daily(
         calendar_body = _download(calendar_url, calendar_path, downloads)
         holidays, early = (_nasdaq_calendar if nasdaq else _calendar)(calendar_body)
         historical_sources = []
-        covered = sum(
-            datetime.fromtimestamp(t, EASTERN).year >= min(holidays)
-            and (as_of is None or datetime.fromtimestamp(t, EASTERN) <= as_of)
-            for t in timestamps
-        )
-        if (
-            covered <= historical_sessions
-            and 2025 not in holidays
-            and any(datetime.fromtimestamp(t, EASTERN).year == 2025 for t in timestamps)
-        ):
-            historical_url = NASDAQ_PAST_CALENDAR_URL if nasdaq else NYSE_PAST_CALENDAR_URL
+        cutoff = min(bars_received_at, as_of) if as_of is not None else bars_received_at
+        raw_days = [
+            datetime.fromtimestamp(t, EASTERN).date() for t in timestamps if t <= cutoff.timestamp()
+        ]
+        # The newest daily row may not have passed its close buffer. Retain one
+        # older row's calendar before the exact completed-session validation.
+        first_year = min(
+            raw_days[-(historical_sessions + 1) :], default=cutoff.astimezone(EASTERN).date()
+        ).year
+        # Include the next calendar when requested future sessions can cross New Year.
+        last_year = (
+            cutoff.astimezone(EASTERN).date() + timedelta(days=2 * future_sessions + 14)
+        ).year
+        for year in (2024, 2025):
+            if year in holidays or not first_year <= year <= last_year:
+                continue
+            historical_url = (
+                (NASDAQ_2024_CALENDAR_URL if nasdaq else NYSE_2024_CALENDAR_URL)
+                if year == 2024
+                else (NASDAQ_PAST_CALENDAR_URL if nasdaq else NYSE_PAST_CALENDAR_URL)
+            )
             historical_path = output / (
-                "nasdaq_calendar_2025.pdf" if nasdaq else "nyse_calendar_2025.html"
+                f"nasdaq_calendar_{year}.pdf" if nasdaq else f"nyse_calendar_{year}.html"
             )
             historical_body = _download(historical_url, historical_path, downloads)
             if downloads[-1]["response_url"] != historical_url:
                 raise ValueError("Historical calendar redirected away from its registered source")
-            past_holidays, past_early = _past_calendar(historical_body, nasdaq=nasdaq)
-            holidays[2025] = past_holidays
+            past_holidays, past_early = _past_calendar(historical_body, nasdaq=nasdaq, year=year)
+            holidays[year] = past_holidays
             early |= past_early
             historical_sources.append(
                 {
-                    "year": 2025,
+                    "year": year,
                     "source_url": historical_url,
                     "source_ref": _sha(historical_body),
                     "path": str(historical_path),

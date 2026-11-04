@@ -25,7 +25,9 @@ if the presentation sidecar was not generated.
 
 - `collect_daily(..., as_of=aware_datetime)` limits normalized quotes and action
   effective dates to the cutoff while retaining current raw responses and actual
-  receipt timestamps. It still rejects missing completed exchange sessions.
+  receipt timestamps. The Yahoo request itself uses bounded `period1`/`period2`
+  anchored to that cutoff, rather than a range relative to retrieval time.
+  It still rejects missing completed exchange sessions.
   It does not recover a point-in-time provider snapshot or undo adjustments.
 - January supplies the feature warm-up; no preceding-year rows enter this task.
   Requested train origins are January 2–August 31 and development origins are
@@ -68,3 +70,27 @@ October-basis forecast directly with a raw post-split quote or treat the split
 as an investment loss. The sidecar links to `report.html` for model/simple
 baseline comparisons, strategy/buy-and-hold metrics, Sharpe and development
 charts. No November accuracy or realized Sharpe is available yet.
+
+## Older retained collections
+
+The daily adapter also admits official 2024 and 2025 schedules when a requested
+historical window or future session horizon requires them. The registered 2024
+sources are the [NYSE announcement published in 2023](https://ir.theice.com/press/news-details/2023/NYSE-Group-Announces-2024-2025-and-2026-Holiday-and-Early-Closings-Calendar/default.aspx)
+and the [Nasdaq 2024 trading calendar](https://www.nasdaqtrader.com/content/technicalsupport/2024tradingcalendar.pdf).
+The Nasdaq PDF was visually inspected: filled orange circles denote closures,
+hollow orange circles denote 13:00 ET closes. Its SHA256 is
+`5a417265c706abe1e2eaa24e0c1fde1787e79fdd472eca105466a019f8ff1101`;
+a changed document is rejected until reviewed. Both exchanges list ten 2024
+closures and July 3, November 29 and December 24 early closes, yielding **252**
+sessions from January 2 through December 31. A horizon crossing into 2025 also
+uses that year's calendar and the separately retained January 9 closure notice.
+
+Each collection retains raw calendar documents, actual retrieval timestamps,
+source URLs, source years and content hashes. Historical requests end at an
+exclusive whole-second `period2` no later than the cutoff and look back 366 days
+for 120 sessions or 732 days for longer histories. Completed-bar admission still
+requires the scheduled close plus the 15-minute buffer. Collections without an
+`as_of` retain their existing `range=1y`/`range=2y` requests. Existing workspaces
+are never rewritten. This extends collection coverage; it does not establish
+historical provider vintages, resolve corporate actions, or authorize treating
+historical predictions as live observations.
