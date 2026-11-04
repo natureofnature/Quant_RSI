@@ -10,6 +10,18 @@ from test_daily_data import CALENDAR, EASTERN, NASDAQ_CALENDAR, Response, chart
 from quant_rsi.market import daily_data
 
 HOLIDAYS = {
+    2023: (
+        "01-02",
+        "01-16",
+        "02-20",
+        "04-07",
+        "05-29",
+        "06-19",
+        "07-04",
+        "09-04",
+        "11-23",
+        "12-25",
+    ),
     2024: (
         "01-01",
         "01-15",
@@ -47,18 +59,27 @@ def archive(year):
         + "".join(f"<tr><td>Holiday</td><td>{day:%A, %B %d}</td></tr>" for day in days)
         + "<tr><td></td><td></td></tr></table>"
         + f"<p>Each market will close early at 1:00 p.m. on July 3, {year}, "
-        f"November {29 if year == 2024 else 28}, {year} and December 24, {year}.</p>"
+        f"November { {2023: 24, 2024: 29, 2025: 28}[year] }, {year}"
+        + (f" and December 24, {year}" if year != 2023 else "")
+        + ".</p>"
     ).encode()
 
 
-def install_history(monkeypatch, *, nasdaq=False, missing=None, session_days=None):
-    holidays = {date.fromisoformat(f"2024-{day}") for day in HOLIDAYS[2024]}
-    days = [date(2024, 1, 1) + timedelta(days=i) for i in range(366)]
+def install_history(
+    monkeypatch, *, nasdaq=False, missing=None, session_days=None, year=2024, prior_session=None
+):
+    holidays = {date.fromisoformat(f"{year}-{day}") for day in HOLIDAYS[year]}
+    days = [
+        date(year, 1, 1) + timedelta(days=i)
+        for i in range((date(year + 1, 1, 1) - date(year, 1, 1)).days)
+    ]
     days = [day for day in days if day.weekday() < 5 and day not in holidays]
-    assert len(days) == 252
+    assert len(days) == {2023: 250, 2024: 252}[year]
     days = [day for day in days if day.isoformat() != missing]
     if session_days is not None:
         days = session_days
+    if prior_session is not None:
+        days.insert(0, date.fromisoformat(prior_session))
     data = chart()
     result = data["chart"]["result"][0]
     result["meta"].update(symbol="SOXX", exchangeName="NMS" if nasdaq else "PCX")
@@ -71,6 +92,7 @@ def install_history(monkeypatch, *, nasdaq=False, missing=None, session_days=Non
         "close": [101.0 + i for i in range(len(days))],
     }
     pdfs = {year: f"offline reviewed PDF {year}".encode() for year in HOLIDAYS}
+    monkeypatch.setattr(daily_data, "NASDAQ_2023_CALENDAR_SHA256", daily_data._sha(pdfs[2023]))
     monkeypatch.setattr(daily_data, "NASDAQ_2024_CALENDAR_SHA256", daily_data._sha(pdfs[2024]))
     monkeypatch.setattr(daily_data, "NASDAQ_PAST_CALENDAR_SHA256", daily_data._sha(pdfs[2025]))
     scope = (
@@ -85,8 +107,10 @@ def install_history(monkeypatch, *, nasdaq=False, missing=None, session_days=Non
     bodies = {
         daily_data.CALENDAR_URL: CALENDAR,
         daily_data.NASDAQ_CALENDAR_URL: NASDAQ_CALENDAR,
+        daily_data.NYSE_2023_CALENDAR_URL: archive(2023),
         daily_data.NYSE_2024_CALENDAR_URL: archive(2024),
         daily_data.NYSE_PAST_CALENDAR_URL: archive(2025),
+        daily_data.NASDAQ_2023_CALENDAR_URL: pdfs[2023],
         daily_data.NASDAQ_2024_CALENDAR_URL: pdfs[2024],
         daily_data.NASDAQ_PAST_CALENDAR_URL: pdfs[2025],
         daily_data.NASDAQ_2025_CLOSURE_URL: notice,
@@ -188,3 +212,58 @@ def test_partial_bar_does_not_hide_needed_prior_year_calendar(
     assert result["origin_session_id"] == days[-2].isoformat()
     evidence = json.loads((tmp_path / "calendar_evidence.json").read_bytes())
     assert evidence["historical_sources"][0]["year"] == 2024
+
+
+@pytest.mark.parametrize("nasdaq", [False, True])
+def test_2023_official_calendar_retains_250_sessions_and_two_early_closes(
+    tmp_path, monkeypatch, nasdaq
+):
+    # A two-year provider response may include an older row. N+1 archive lookup
+    # must still admit 250 completed 2023 bars without inventing a 2022 calendar.
+    install_history(monkeypatch, nasdaq=nasdaq, year=2023, prior_session="2022-12-30")
+    result = daily_data.collect_daily(
+        "SOXX",
+        tmp_path,
+        historical_sessions=250,
+        as_of=datetime.fromisoformat("2023-12-31T23:59:59-05:00"),
+    )
+    sessions = result["contract"]["calendar"]["sessions"]
+    assert len(sessions) == 255
+    assert sessions[0]["session_id"] == "2023-01-03"
+    assert sessions[249]["session_id"] == "2023-12-29"
+    assert sessions[250]["session_id"] == "2024-01-02"
+    evidence = json.loads((tmp_path / "calendar_evidence.json").read_bytes())
+    early = [d for d in evidence["early_closes_1300"] if d.startswith("2023-")]
+    assert early == ["2023-07-03", "2023-11-24"]
+    for day in early:
+        session = next(s for s in sessions if s["session_id"] == day)
+        assert datetime.fromisoformat(session["close_at"]).astimezone(EASTERN).hour == 13
+    historical = evidence["historical_sources"]
+    assert [row["year"] for row in historical] == [2023, 2024]
+    assert "2022" not in evidence["holidays"]
+    expected = daily_data.NASDAQ_2023_CALENDAR_URL if nasdaq else daily_data.NYSE_2023_CALENDAR_URL
+    assert historical[0]["source_url"] == expected
+    receipt = json.loads((tmp_path / "collection_receipt.json").read_bytes())
+    download = next(row for row in receipt["downloads"] if row["url"] == expected)
+    assert historical[0]["source_ref"] == download["sha256"]
+    assert download["received_at"].startswith("2026-11-04")
+    assert download["sha256"] in result["evidence_paths"]
+
+
+@pytest.mark.parametrize("nasdaq", [False, True])
+def test_missing_2023_open_session_is_not_invented(tmp_path, monkeypatch, nasdaq):
+    install_history(monkeypatch, nasdaq=nasdaq, year=2023, missing="2023-08-14")
+    with pytest.raises(ValueError, match="Missing completed exchange sessions"):
+        daily_data.collect_daily(
+            "SOXX",
+            tmp_path,
+            historical_sessions=248,
+            as_of=datetime.fromisoformat("2023-12-31T23:59:59-05:00"),
+        )
+
+
+def test_2023_pdf_hash_and_archive_heading_fail_closed():
+    with pytest.raises(ValueError, match="Nasdaq 2023 calendar differs"):
+        daily_data._past_calendar(b"changed PDF", nasdaq=True, year=2023)
+    with pytest.raises(ValueError, match="heading is absent"):
+        daily_data._past_calendar(archive(2024), nasdaq=False, year=2023)

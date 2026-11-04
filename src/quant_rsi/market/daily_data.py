@@ -30,6 +30,14 @@ NYSE_PAST_CALENDAR_URL = (
 NASDAQ_PAST_CALENDAR_URL = (
     "https://www.nasdaqtrader.com/content/technicalsupport/2025tradingcalendar.pdf"
 )
+NYSE_2023_CALENDAR_URL = (
+    "https://ir.theice.com/press/news-details/2022/"
+    "NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx"
+)
+NASDAQ_2023_CALENDAR_URL = (
+    "https://www.nasdaqtrader.com/content/technicalsupport/2023tradingcalendar.pdf"
+)
+NASDAQ_2023_CALENDAR_SHA256 = "3781aa7ec98e429b39c9b1cbdb3677043b8ba622084b8c9d5e10fd7836d9a13b"
 NYSE_2024_CALENDAR_URL = (
     "https://ir.theice.com/press/news-details/2023/"
     "NYSE-Group-Announces-2024-2025-and-2026-Holiday-and-Early-Closings-Calendar/default.aspx"
@@ -258,7 +266,7 @@ def _exceptional_2025_closure(body, *, nasdaq):
 
 def _past_calendar(body, *, nasdaq, year=2025):
     """Admit a registered historical schedule from retained exchange-specific evidence."""
-    if year not in {2024, 2025}:
+    if year not in {2023, 2024, 2025}:
         raise ValueError("No reviewed historical calendar for requested year")
     if not nasdaq:
         holidays, early = _calendar(body, archive=True, archive_year=year)
@@ -266,12 +274,28 @@ def _past_calendar(body, *, nasdaq, year=2025):
             raise ValueError(f"Official NYSE archive does not cover {year}")
         return holidays[year], {day for day in early if day.year == year}
     # Filled orange circles mark exchange holidays; hollow orange circles mark
-    # 13:00 closes. Both yearly PDFs were visually reviewed, not inferred from NYSE.
+    # 13:00 closes. These yearly PDFs were visually reviewed, not inferred from NYSE.
     # A changed file must be reviewed before reusing the exact transcription.
-    expected_hash = NASDAQ_2024_CALENDAR_SHA256 if year == 2024 else NASDAQ_PAST_CALENDAR_SHA256
+    expected_hash = {
+        2023: NASDAQ_2023_CALENDAR_SHA256,
+        2024: NASDAQ_2024_CALENDAR_SHA256,
+        2025: NASDAQ_PAST_CALENDAR_SHA256,
+    }[year]
     if _sha(body) != expected_hash:
         raise ValueError(f"Nasdaq {year} calendar differs from the reviewed source PDF")
     dates = {
+        2023: (
+            "01-02",
+            "01-16",
+            "02-20",
+            "04-07",
+            "05-29",
+            "06-19",
+            "07-04",
+            "09-04",
+            "11-23",
+            "12-25",
+        ),
         2024: (
             "01-01",
             "01-15",
@@ -298,7 +322,9 @@ def _past_calendar(body, *, nasdaq, year=2025):
         ),
     }
     holidays = {date.fromisoformat(f"{year}-{day}") for day in dates[year]}
-    early = {date(year, 7, 3), date(year, 11, 29 if year == 2024 else 28), date(year, 12, 24)}
+    early = {date(year, 7, 3), date(year, 11, {2023: 24, 2024: 29, 2025: 28}[year])}
+    if year != 2023:
+        early.add(date(year, 12, 24))
     return holidays, early
 
 
@@ -612,14 +638,14 @@ def collect_daily(
         last_year = (
             cutoff.astimezone(EASTERN).date() + timedelta(days=2 * future_sessions + 14)
         ).year
-        for year in (2024, 2025):
+        historical_urls = {
+            2023: NASDAQ_2023_CALENDAR_URL if nasdaq else NYSE_2023_CALENDAR_URL,
+            2024: NASDAQ_2024_CALENDAR_URL if nasdaq else NYSE_2024_CALENDAR_URL,
+            2025: NASDAQ_PAST_CALENDAR_URL if nasdaq else NYSE_PAST_CALENDAR_URL,
+        }
+        for year, historical_url in historical_urls.items():
             if year in holidays or not first_year <= year <= last_year:
                 continue
-            historical_url = (
-                (NASDAQ_2024_CALENDAR_URL if nasdaq else NYSE_2024_CALENDAR_URL)
-                if year == 2024
-                else (NASDAQ_PAST_CALENDAR_URL if nasdaq else NYSE_PAST_CALENDAR_URL)
-            )
             historical_path = output / (
                 f"nasdaq_calendar_{year}.pdf" if nasdaq else f"nyse_calendar_{year}.html"
             )

@@ -73,7 +73,7 @@ charts. No November accuracy or realized Sharpe is available yet.
 
 ## Older retained collections
 
-The daily adapter also admits official 2024 and 2025 schedules when a requested
+The daily adapter also admits official 2023, 2024 and 2025 schedules when a requested
 historical window or future session horizon requires them. The registered 2024
 sources are the [NYSE announcement published in 2023](https://ir.theice.com/press/news-details/2023/NYSE-Group-Announces-2024-2025-and-2026-Holiday-and-Early-Closings-Calendar/default.aspx)
 and the [Nasdaq 2024 trading calendar](https://www.nasdaqtrader.com/content/technicalsupport/2024tradingcalendar.pdf).
@@ -84,6 +84,15 @@ a changed document is rejected until reviewed. Both exchanges list ten 2024
 closures and July 3, November 29 and December 24 early closes, yielding **252**
 sessions from January 2 through December 31. A horizon crossing into 2025 also
 uses that year's calendar and the separately retained January 9 closure notice.
+
+The registered 2023 sources are the [NYSE announcement published in 2022](https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx)
+and the [Nasdaq 2023 trading calendar](https://www.nasdaqtrader.com/content/technicalsupport/2023tradingcalendar.pdf).
+Visual inspection of that Nasdaq PDF uses the same orange filled/hollow holiday
+legend; its SHA256 is
+`3781aa7ec98e429b39c9b1cbdb3677043b8ba622084b8c9d5e10fd7836d9a13b`.
+Both exchanges list ten closures, leaving **250** sessions from January 3 through
+December 29, with early closes on July 3 and November 24 only. The subsequent
+January 2024 horizon uses the separately registered 2024 calendar.
 
 Each collection retains raw calendar documents, actual retrieval timestamps,
 source URLs, source years and content hashes. Historical requests end at an
