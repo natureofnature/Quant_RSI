@@ -30,6 +30,12 @@ NYSE_PAST_CALENDAR_URL = (
 NASDAQ_PAST_CALENDAR_URL = (
     "https://www.nasdaqtrader.com/content/technicalsupport/2025tradingcalendar.pdf"
 )
+NASDAQ_2025_CLOSURE_URL = "https://www.nasdaqtrader.com/TraderNews.aspx?id=ETA2024-87"
+NYSE_2025_CLOSURE_URL = (
+    "https://ir.theice.com/press/news-details/2024/"
+    "The-New-York-Stock-Exchange-Will-Close-Markets-on-January-9-to-Honor-the-Passing-"
+    "of-Former-President-Jimmy-Carter-on-National-Day-of-Mourning/default.aspx"
+)
 NASDAQ_PAST_CALENDAR_SHA256 = "fb761082d449ef76461d2ca8448ccebb79862a0acd124fad2e914469c9086037"
 CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/"
 NASDAQ_EXCHANGES = {"NMS", "NGM", "NCM"}
@@ -219,6 +225,25 @@ def _calendar(body, *, archive=False):
         for month, day, year in found:
             early.add(date(int(year), MONTHS[month], int(day)))
     return holidays, early
+
+
+def _exceptional_2025_closure(body, *, nasdaq):
+    """Validate the separately announced closure, absent from the annual schedules."""
+    page = _CalendarHTML()
+    page.feed(body.decode("utf-8"))
+    text = " ".join(" ".join(page.text).split()).lower()
+    scope = (
+        "nasdaq u.s. equities and options markets will be closed"
+        if nasdaq
+        else "close all nyse group equity and options markets"
+    )
+    if (
+        scope + " on thursday, january 9, 2025" not in text
+        or "president jimmy carter" not in text
+        or "national day of mourning" not in text
+    ):
+        raise ValueError("Exceptional 2025 closure notice differs from reviewed announcement")
+    return {date(2025, 1, 9)}
 
 
 def _past_calendar(body, *, nasdaq):
@@ -570,6 +595,26 @@ def collect_daily(
                     "source_ref": _sha(historical_body),
                     "path": str(historical_path),
                     "method": "reviewed_pdf_transcription" if nasdaq else "published_html_table",
+                }
+            )
+        if 2025 in holidays:
+            closure_url = NASDAQ_2025_CLOSURE_URL if nasdaq else NYSE_2025_CLOSURE_URL
+            closure_path = output / f"{calendar_name}_exceptional_closure_2025.html"
+            closure_body = _download(closure_url, closure_path, downloads)
+            if downloads[-1]["response_url"] != closure_url:
+                raise ValueError(
+                    "Exceptional closure notice redirected away from registered source"
+                )
+            closures = _exceptional_2025_closure(closure_body, nasdaq=nasdaq)
+            holidays[2025] |= closures
+            historical_sources.append(
+                {
+                    "year": 2025,
+                    "source_url": closure_url,
+                    "source_ref": _sha(closure_body),
+                    "path": str(closure_path),
+                    "method": "published_exceptional_closure_notice",
+                    "closed_sessions": sorted(day.isoformat() for day in closures),
                 }
             )
         bars, future = _complete_bars(

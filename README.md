@@ -253,7 +253,9 @@ for coverage and evidence limits.
 
 AAPL provides a Nasdaq example with Apple's official Atom news feed and a dated
 QCOM supplier relationship: `quant-rsi research-study AAPL --news-research --output /tmp/aapl-study`.
-Nasdaq daily prices use Nasdaq's own published holiday/early-close calendar. KO's CCEP
+Nasdaq daily prices use Nasdaq's own published holiday/early-close calendar. For 2025 histories,
+the adapter also retains each exchange's official January 9 exceptional-closure
+notice; missing bars on actual trading sessions still fail validation. KO's CCEP
 peer can now use the same price path; MNST is recognized but its current retained window
 contains a split and remains unavailable under the existing corporate-action checks.
 See [Nasdaq coverage](docs/connected_research_study.md#nasdaq-example-aapl).

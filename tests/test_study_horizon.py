@@ -92,6 +92,21 @@ HOLIDAYS_2025 = {
 }
 
 
+# Minimal excerpts from the separately published official 2025 closure notices.
+CLOSURE_2025 = {
+    True: (
+        b"<h1>National Day of Mourning for President Jimmy Carter</h1>"
+        b"<p>Nasdaq U.S. equities and options markets will be closed on Thursday, "
+        b"January 9, 2025.</p>"
+    ),
+    False: (
+        b"<h1>National Day of Mourning for President Jimmy Carter</h1>"
+        b"<p>The exchange will close all NYSE Group equity and options markets "
+        b"on Thursday, January 9, 2025.</p>"
+    ),
+}
+
+
 def long_collection(
     tmp_path, monkeypatch, last, horizon, *, archived=False, nasdaq=False, historical_sessions=None
 ):
@@ -111,7 +126,7 @@ def long_collection(
     ).encode()
     days, day = [], date(2025, 1, 2)
     while day <= date.fromisoformat(last):
-        if day.weekday() < 5 and day.isoformat() not in HOLIDAYS | HOLIDAYS_2025:
+        if day.weekday() < 5 and day.isoformat() not in HOLIDAYS | HOLIDAYS_2025 | {"2025-01-09"}:
             days.append(day)
         day += timedelta(days=1)
     raw = chart()
@@ -133,6 +148,11 @@ def long_collection(
         monkeypatch.setattr(daily_data, "NASDAQ_PAST_CALENDAR_SHA256", daily_data._sha(pdf))
 
     def sources(request, timeout):
+        if request.full_url in {
+            daily_data.NASDAQ_2025_CLOSURE_URL,
+            daily_data.NYSE_2025_CLOSURE_URL,
+        }:
+            return Response(CLOSURE_2025[nasdaq], request.full_url)
         if request.full_url == daily_data.NASDAQ_PAST_CALENDAR_URL:
             return Response(pdf, request.full_url)
         if request.full_url == daily_data.NASDAQ_CALENDAR_URL:
