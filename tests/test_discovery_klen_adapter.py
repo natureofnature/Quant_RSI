@@ -2,10 +2,13 @@
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
+from quant_rsi.core.data import MarketData
+from quant_rsi.research.discovery_engine import DiscoveryExperimentRunner
 from quant_rsi.research.discovery_factors import adapter_catalog, execute_survey, survey_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +43,25 @@ def test_klen_missing_high_low_remains_unavailable():
     assert not adapter["runnable"] and adapter["availability_reason"] == "needs_input"
     with pytest.raises(ValueError, match="needs input"):
         execute_survey("qlib.klen", inputs)
+
+
+def test_study_discovery_initializes_without_optional_high_low():
+    opens = np.arange(100.0, 125.0).reshape(-1, 1)
+    model = SimpleNamespace(
+        data=MarketData(
+            tuple(f"2026-01-{i:02d}" for i in range(1, 26)), ("KO",), opens, opens * 1.01
+        ),
+        library={"definitions": []},
+        financial_features=None,
+        external_features=None,
+        peer_features=None,
+        profile_features=None,
+    )
+    runner = DiscoveryExperimentRunner(model, SimpleNamespace(), [], lambda *args: None)
+    klen = next(d for d in runner.definitions if d["factor_id"] == "survey.qlib.klen")
+    assert not klen["runnable"]
+    assert "survey.qlib.klen" not in runner.columns
+    assert {"survey.qlib.kmid", "survey.qlib.roc", "survey.qlib.ma"} <= runner.columns.keys()
 
 
 def test_klen_invalid_rows_are_missing_without_filling_or_dropping_rows():

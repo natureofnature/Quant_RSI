@@ -15,6 +15,10 @@ automatically bind any of these candidates. The connected
 existing Qlib ROC/MA adapters and an additional local Qlib KMID adapter available
 with explicit price inputs, and permits new versioned DSL expressions. Other records
 remain searchable with missing-input/operator or reference-only diagnostics.
+Monthly rolling research additionally supplies high/low/volume with the optional
+`--ohlcv-features` flag, enabling the fourth local adapter, Qlib KLEN
+`(high - low) / open`. KLEN remains unavailable when high/low inputs are absent;
+adding volume does not implement the surveyed correlation operators.
 
 ## Contents
 
