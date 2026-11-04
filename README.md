@@ -473,6 +473,10 @@ Run a connected study using your existing Codex CLI login and public data:
 quant-rsi research-study KO --output /tmp/ko-study
 ```
 
+For a frozen SOXX January–October 2026 task targeting November 30, see the
+[SOXX cutoff example](docs/soxx_november_2026.md), including historical-news
+limitations and the November share-split conversion.
+
 For an offline study with the same model/report path:
 
 ```bash

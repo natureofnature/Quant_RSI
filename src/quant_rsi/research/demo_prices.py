@@ -95,6 +95,7 @@ def _read_collection(symbol, root, *, horizon_sessions=5, historical_sessions=HI
         "horizon_sessions": horizon_sessions,
         "collection_directory": str(root),
         "received_at": receipt["completed_at"],
+        "price_cutoff": receipt.get("price_cutoff"),
         "source_id": contract.source_id,
         "input_hashes": receipt["normalized_inputs"],
         "price_basis": "raw",
