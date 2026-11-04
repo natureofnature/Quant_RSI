@@ -602,22 +602,31 @@ From the activated environment:
 ```bash
 ruff check src tests examples/profile_validation.py
 ruff format --check src tests examples/profile_validation.py
-pytest -q
+# Default daily check: critical tier, two whole-module shards.
+python examples/profile_validation.py --output /tmp/quant-rsi-critical
+# Complete coverage when needed (also runs nightly and on manual dispatch).
+python examples/profile_validation.py --suite full --output /tmp/quant-rsi-full
 ```
 
-[CI](.github/workflows/ci.yml) uses pinned dependencies and offline fixtures,
-including real LightGBM worker tests. It checks engineering behavior, not market
-predictive quality. Start with tests relevant to a change, then run the required
-broader checks; no coverage-percentage threshold is configured. For reproducible
-timings and bounded logs, use `python examples/profile_validation.py --output
-/tmp/quant-rsi-validation` with a fresh directory. Optional `--shards 2` keeps each
-module's shared fixtures in one process and balances modules using recorded timing
-hints; CI uses this two-process mode without removing tests.
-An additional parallel CI job runs the two [Qlib integration test modules](docs/qlib_workflow_comparison.md)
-in the pinned optional environment; the core suite keeps its normal dependencies.
-[Validation cost and test tiers](docs/validation_cost.md)
-describes focused feedback and final-revision full-suite evidence. CI preserves
-these profiles as artifacts for 14 days.
+Use a fresh output directory. [PR CI](.github/workflows/ci.yml) runs the critical
+tier with a five-minute job limit, including installation, lint and tests; an
+overrun fails the check. GitHub queue delay is outside this limit. Critical
+coverage includes real LightGBM discovery/revision, time boundaries, budgets,
+settlement, recovery, provider cleanup and the UI. It validates engineering
+behavior, not predictive quality.
+
+Nineteen expensive integration modules run in the [extended workflow](.github/workflows/extended.yml)
+every day at 04:00 UTC and via **Actions → Extended regression → Run workflow**.
+That workflow runs the full suite plus real pinned Qlib integration. These checks
+no longer block every PR; regressions unique to them may be detected later.
+`pytest -q` still runs every test, and explicit profiler file/node selectors always
+run the requested tests, including extended modules. New modules enter the critical
+tier by default; new tests inside an extended module remain extended.
+
+The profiler preserves the exact selection, reasons for deferral, source identity,
+commands, JUnit results, timings and exit codes. CI retains artifacts for 14 days.
+See [validation cost and coverage](docs/validation_cost.md) for the gate's boundaries
+and measured results. No coverage-percentage threshold is configured.
 
 ### Contributor Delivery
 

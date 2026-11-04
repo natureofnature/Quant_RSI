@@ -109,6 +109,19 @@ def test_actual_study_owner_loss_blocks_resume_until_cleanup(fake_codex, ending)
                     in json.loads(next((root / "provider_attempts").glob("*.json")).read_text())
                 )
             )
+
+            def ownership_released():
+                # The guardian writes its final receipt before exiting and releasing its fd.
+                try:
+                    fd = provider_lock(root)
+                except ValueError as error:
+                    if "previous local provider operation is still owned" not in str(error):
+                        raise
+                    return False
+                os.close(fd)
+                return True
+
+            wait_for(ownership_released)
             with run_lock(root):
                 pass
             attempt = json.loads(next((root / "provider_attempts").glob("*.json")).read_text())

@@ -1,81 +1,95 @@
 # Validation cost and feedback
 
-The goal of [RFC #39](https://github.com/natureofnature/Quant_RSI/issues/39) is a
-usable research loop with measurable engineering cost. A passing fixture proves
-engineering behavior, not predictive quality. Keep the full merge checks while
-using smaller checks to answer a specific development question.
+Daily validation now uses a critical tier. PR CI has a **five-minute job limit**
+for checkout, dependency installation, lint, tests and artifact upload; GitHub
+queue delay is separate. Timeout is failure, not evidence of passing tests.
+The full regression and real Qlib integration run daily at 04:00 UTC and on
+manual dispatch through [Extended regression](../.github/workflows/extended.yml).
+A passing fixture proves engineering behavior, not predictive quality.
 
-## Run a measured check
+## Commands and evidence
 
 Use the pinned Python 3.12 environment installed against this checkout. Workers
-clear `PYTHONPATH`; the profiling command also clears it and rejects an interpreter
-that imports another checkout. Run from the repository root:
+clear `PYTHONPATH`; the profiler rejects an interpreter importing another checkout.
+Output directories must be fresh and outside the checkout.
 
 ```bash
-# Fast checks for this tooling change; choose modules relevant to your change.
-python examples/profile_validation.py --output /tmp/quant-rsi-focused \
-  tests/test_validation_profile.py
+# Daily/PR gate: defaults to critical, with two whole-module shards.
+python examples/profile_validation.py --output /tmp/quant-rsi-critical
 
-# Complete regression, optionally using two local processes.
-python examples/profile_validation.py --output /tmp/quant-rsi-full --shards 2
+# Full coverage, including the deferred integration scenarios.
+python examples/profile_validation.py --suite full --output /tmp/quant-rsi-full
+
+# An explicit module/node always runs, even when normally deferred.
+python examples/profile_validation.py --output /tmp/quant-rsi-focused \
+  tests/test_trajectory.py
+
+# Pytest itself remains unfiltered and runs every test.
+pytest -q
 ```
 
-Output directories must be new and outside the checkout. The command does not
-replace a prior report. It records the commit, dirty diff and source/test hashes,
-Python/dependency versions, CPU affinity and container limits, thread settings,
-cache note, exact commands, per-process durations/exit codes, pytest logs and
-JUnit per-test timings. Pytest's slowest durations separate setup from test calls.
-The summary fails when any shard fails or the recorded checkout changes during
-the run. Freeze code for a run: all package Python files contribute to experiment
-runtime identity. Environment/other-process contention and OS caches are not
-controlled; use `--cache-note` to record relevant conditions. The runner does not
-measure hands-on developer effort or CI queue time.
+The profiler records the selected suite, exact selectors, deferred module names
+and reasons, source identity/hashes, environment, commands, JUnit results, wall
+and CPU time, failures and skips. It preserves failure and empty-selection exit
+codes and fails if the checkout changes while running. CI retains logs and
+profiles for 14 days. Explicit selectors are recorded as `focused` evidence,
+not as a complete critical/full run. Two shards keep each module's fixtures in
+one process; scheduling hints only affect placement, never which tests run.
+`--shards 1` remains available but is not the five-minute PR configuration.
 
-With no selectors, all repository `test_*.py` and `*_test.py` modules under `tests/`
-are included. Explicit file or node selectors produce focused evidence only.
-Selectors belonging to the same file stay in one process, even if interleaved on
-the command line. If only one module is selected, only one process is needed.
-Parallel runs schedule whole modules by estimated duration, placing the longest
-first into the least-loaded shard. Thirteen modules have rounded timing hints
-from [successful CI 41346746509](https://github.com/natureofnature/Quant_RSI/actions/runs/41346746509);
-other modules use three seconds, the rounded mean of modules below 30 seconds in
-that run. Hints affect placement only: no tests are omitted and module fixtures
-remain together. Single-process runs preserve selector-group order. There is no
-cross-run fixture cache. Estimates can become stale, and focused node selections
-may take less time than their whole-module hint; compare actual shard durations,
-CPU/setup work and wall time before updating the hints.
+## What remains in the daily gate
 
-CI runs the complete suite through the same command with `--shards 2`, keeping
-each module in one process. This aims to reduce wall time, not total CPU work.
-It retains JSON metadata, JUnit results and logs for 14 days, including on test
-failure, and does not upload temporary experiment workspaces. CI queue, installation, lint,
-test and artifact-upload durations remain separate job steps. The branch/head
-and merge-test revision can differ; report the revision in the profile.
+All modules except the 19 explicitly listed in
+[`EXTENDED_MODULES`](../examples/profile_validation.py) are selected. The gate
+continues to include actual model workers and the primary research/discovery UI.
 
-## Choose the smallest useful feedback tier
+| Invariant | Representative retained modules |
+| --- | --- |
+| Actual discovery, acquisition, model fit, feedback and revision | `test_study_discovery`, `test_discovery_loop`, `test_candidate_factor_runtime` |
+| Future information, source timing and frozen samples | `test_forecast_features`, `test_study_incremental`, `test_study_horizon`, `test_discovery_review_regressions` |
+| Budgets, recovery, evidence identities and tampering | `test_controller`, `test_research`, `test_study_resume`, `test_discovery_lineage`, `test_audit_regressions` |
+| Account conservation, costs and prospective settlement | `test_execution_account`, `test_protected_accounting`, `test_strategy_replay`, `test_forecast_settlement` |
+| Provider process cleanup, CLI and UI isolation | `test_provider_process`, `test_research_study`, `test_study_ui`, `test_validation_profile` |
 
-| Tier | Purpose | Examples | Evidence limit |
-| --- | --- | --- | --- |
-| Fast numerical/contract | Check formulas, schema bounds and local transitions without worker orchestration | Accounting, feature, factor-layer tests relevant to the edit | Does not prove real worker, recovery or workflow integration |
-| Focused integration | Run the affected real-worker or account/workflow path with deterministic offline inputs | Factor-runtime, settlement or workflow tests relevant to the edit | Does not replace unrelated regression coverage |
-| Complete frozen revision | Verify compatibility, leakage barriers, budget/conservation, evidence integrity and recovery together | Full `pytest -q`, or the no-selector profiling command | Engineering evidence only; retain skips and failures in the report |
+New modules enter the critical tier automatically. New cases inside a deferred
+module remain deferred: put critical regressions in selected modules, or run the
+affected extended module explicitly and record its evidence. Selection uses a
+reviewed list with reasons, not a runtime threshold or failure history.
 
-Do not mark broad groups as optional merely because they are slow. Mock fitting
-only when fitting is not the behavior under test. Keep actual worker coverage
-and the adversarial fixtures for leakage, duplicate charges/fills, account
-conservation and artifact integrity. A focused failure should be fixed and rerun
-before paying for a complete regression. Run the full suite once on the frozen
-final revision, locally or in CI; repeat it for relevant changes or unresolved
-failures. A pending CI run is not passing evidence. CI still runs every required
-check; local feedback does not disable its gate.
+## Deferred coverage and its tradeoff
 
-Before optimizing, choose a named workload, resource/cache conditions and a
-numerical target. The helper acceptance targets are: shared
-module setup exactly once per invocation, all selected tests retained, failure
-and no-tests exit codes preserved, and the helper's subprocess regression under
-five seconds on the development host. A normal focused-feedback aspiration is
-under five minutes; expensive real-workflow exceptions need actual measurements,
-not a misleading global timeout. Do not translate local timing to a portable SLA.
+| Extended group | Modules (`test_` prefix omitted) |
+| --- | --- |
+| Legacy full forecast workflows | `enhanced_forecast_workflow`, `forecast_usability`, `research_workflow`, `forecast_recursive_preparation` |
+| Protected C4/C5 packages and trajectories | `local_comparison`, `trajectory`, `trajectory_recovery_guard`, `packages`, `comparison`, `local_packages` |
+| Campaign, comparison and observer scenarios | `factor_discovery`, `forecast_campaign`, `observer`, `news_comparison`, `forecast_comparison` |
+| Separate intraday execution product | `intraday_second_review`, `intraday_paper`, `intraday_review_regressions`, `intraday_policy` |
+
+These tests are preserved, not equivalent to the smaller gate. In particular,
+controller checks do not replace protected C4/C5 end-to-end recovery scenarios.
+Regressions unique to extended or real Qlib coverage can now be discovered after
+merge by the scheduled workflow. For changes in those paths, run the affected
+extended selectors before merging. Manual full validation is available from the
+Actions page at the selected branch/ref; its recorded source identity identifies
+what was actually tested. Full regression is no longer mandatory on every PR.
+
+## Timing acceptance
+
+The previous full CI on source `e3e3c56`
+([41855398994](https://github.com/natureofnature/Quant_RSI/actions/runs/41855398994))
+passed 2,038 tests with 12 optional skips in **1,337.52 seconds**. The remaining
+critical modules account for about 305 seconds of summed JUnit testcase time in
+that run. Dividing by two is only a scheduling estimate; fixture setup, subprocess
+startup, imbalance and runner contention still matter.
+
+Accept the new gate only after a real critical run passes below 300 seconds.
+Report the test-command wall time and total CI job time (including setup) separately,
+alongside counts, skips, selection and source revision. A five-minute timeout alone
+does not establish success. Hosted-runner queue time and arbitrary developer hardware
+are not a portable latency guarantee. Keep the final-head CI artifacts as evidence;
+full-mode collection can be compared without rerunning expensive scenarios merely
+to verify the selector. The measurements below are historical optimizations under
+the former full-suite PR gate.
 
 ## Initial observations
 
@@ -242,8 +256,7 @@ A saved-original comparison verified byte-identical canonical outputs for 120 co
 feature views and 20 common masks across both knowledge bases, future-price changes,
 missing quotes, delayed availability and shifted calendars. Seven regression cases
 also cover equal-time membership evidence, contradictory statuses, delayed membership,
-quote conflicts, revision receipt boundaries and absent calendar closes. Required
-full CI remains the merge gate; neither timing nor output equivalence replaces it.
+quote conflicts, revision receipt boundaries and absent calendar closes. Full CI was the merge gate for that revision; see the current tier policy above.
 
 ## Forecast training-view batching measurement (2026-11-03)
 
@@ -283,7 +296,7 @@ The focused regressions compare batched training with fresh individual views, re
 one snapshot encoding, and cover historical/observed visibility, receipt watermarks,
 corporate-action interpretation and currency refusal. Run them with
 `pytest -q tests/test_forecast_kernel.py tests/test_forecast_research.py`.
-The existing full Python and Qlib CI checks remain required before merge.
+Full Python and Qlib CI were required at that revision; see the current tier policy above.
 
 
 ## Forecast label projection batching (2026-11-03)

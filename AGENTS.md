@@ -13,19 +13,24 @@ Use Linux and Python 3.12, as validated by CI. Follow installation instructions 
 ```bash
 ruff check src tests examples/profile_validation.py
 ruff format --check src tests examples/profile_validation.py
-pytest -q
+python examples/profile_validation.py --output /tmp/quant-rsi-critical
 ```
 
-Start with tests relevant to the change, then run the required broader checks. CI runs these checks in [.github/workflows/ci.yml](.github/workflows/ci.yml).
+Start with tests relevant to the change, then run the complete critical tier on
+one frozen final revision, locally or in CI. The profiler defaults to the critical
+tier and two whole-module shards. Use a fresh output directory. PR CI has a
+five-minute job limit; timeout or test failure is not passing evidence.
 
-For measured runs, `python examples/profile_validation.py --output /tmp/quant-rsi-validation`
-executes the complete suite and saves commands, environment, per-test timings and
-exit codes. Use a fresh output directory. `--shards 2` preserves module fixtures
-when running in parallel, including CI; focused selectors are development feedback,
-not a substitute for the complete required suite. See [validation cost](docs/validation_cost.md).
-Run the complete suite once on the frozen final revision; record whether its
-evidence is local or CI and whether it is still pending. Re-run after relevant
-changes or failures, rather than repeating identical successful runs by default.
+Nineteen explicitly listed integration modules are deferred to scheduled/manual
+full validation. Use `--suite full` for the complete suite; plain `pytest -q` also
+remains complete. Explicit profiler file/node selectors always run as requested.
+New modules default to critical; critical regressions must not be added only to
+an extended module. See [validation cost](docs/validation_cost.md) for coverage,
+selection reasons and commands. Full regression and real Qlib integration run in
+[extended CI](.github/workflows/extended.yml); they are not mandatory on every PR.
+Run affected extended scenarios when a change needs that evidence. Record which
+tier ran, what was deferred and whether its evidence is local, CI or pending.
+Repeat checks after relevant changes/failures, not identical successful runs.
 
 Keep README installation, execution, and test commands synchronized when tooling changes.
 

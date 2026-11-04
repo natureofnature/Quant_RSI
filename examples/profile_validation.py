@@ -17,6 +17,29 @@ ROOT = Path(__file__).resolve().parents[1]
 THREAD_ENV = dict(
     PYTHONHASHSEED="0", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1"
 )
+# These integration scenarios remain in the scheduled/manual full suite. All other
+# modules, including new modules, stay in the critical tier. See docs/validation_cost.md.
+EXTENDED_MODULES = {
+    "tests/test_enhanced_forecast_workflow.py": "Legacy enhanced forecast workflow permutations",
+    "tests/test_forecast_usability.py": "Legacy forecast usability and full campaign scenarios",
+    "tests/test_research_workflow.py": "Legacy forecast-to-strategy workflow scenarios",
+    "tests/test_forecast_recursive_preparation.py": "Recursive forecast preparation scenarios",
+    "tests/test_local_comparison.py": "Protected local C4/C5 end-to-end comparisons",
+    "tests/test_trajectory.py": "Full protected trajectory and saturation scenarios",
+    "tests/test_trajectory_recovery_guard.py": "Protected trajectory recovery permutations",
+    "tests/test_packages.py": "Protected package validation and recovery permutations",
+    "tests/test_comparison.py": "Protected C4/C5 evaluation scenarios",
+    "tests/test_local_packages.py": "Local package staging and recovery scenarios",
+    "tests/test_factor_discovery.py": "Legacy bounded factor-discovery scenarios",
+    "tests/test_forecast_campaign.py": "Multi-candidate forecast campaign permutations",
+    "tests/test_observer.py": "Sealed-forecast observer integration scenarios",
+    "tests/test_news_comparison.py": "Paired legacy news comparison scenarios",
+    "tests/test_forecast_comparison.py": "Paired legacy forecast comparison scenarios",
+    "tests/test_intraday_second_review.py": "Separate intraday execution product scenarios",
+    "tests/test_intraday_paper.py": "Separate intraday paper-account scenarios",
+    "tests/test_intraday_review_regressions.py": "Separate intraday review scenarios",
+    "tests/test_intraday_policy.py": "Separate intraday policy calibration scenarios",
+}
 # Whole-module scheduling hints from green CI 41346746509 (2026-11-01).
 # Modules below 30 seconds averaged 3 seconds. These estimates never select tests.
 MODULE_SECONDS = {
@@ -33,7 +56,34 @@ MODULE_SECONDS = {
     "test_research_workflow": 50,
     "test_trajectory": 235,
     "test_trajectory_recovery_guard": 114,
+    # Critical-tier balancing hints from CI 41855398994 (2026-11-04).
+    "test_forecast_settlement": 28,
+    "test_research": 23,
+    "test_candidate_factor_runtime": 19,
+    "test_provider_process": 16,
+    "test_audit_regressions": 11,
+    "test_study_horizon": 11,
+    "test_forecast_features": 10,
 }
+
+
+def select_tests(selectors, suite):
+    if selectors:
+        # Explicit files/nodes always run, even when their module is extended-only.
+        return list(selectors), {}
+    modules = sorted(
+        {
+            str(path.relative_to(ROOT))
+            for pattern in ("test_*.py", "*_test.py")
+            for path in ROOT.glob(f"tests/**/{pattern}")
+        }
+    )
+    deferred = {
+        path: EXTENDED_MODULES[path]
+        for path in modules
+        if suite == "critical" and path in EXTENDED_MODULES
+    }
+    return [path for path in modules if path not in deferred], deferred
 
 
 def grouped_shards(selectors, count):
@@ -95,24 +145,24 @@ def run_shard(output, index, selectors, env):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--shards", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--shards", type=int, choices=(1, 2), default=2)
+    parser.add_argument(
+        "--suite",
+        choices=("critical", "full"),
+        default="critical",
+        help="Default: critical PR tier; full includes extended integration scenarios",
+    )
     parser.add_argument(
         "--cache-note", default="OS/package caches uncontrolled; fresh pytest basetemp"
     )
     parser.add_argument(
-        "selectors", nargs="*", help="Test files/node IDs; defaults to all test modules"
+        "selectors", nargs="*", help="Explicit files/node IDs override suite selection"
     )
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     os.chdir(ROOT)
-    selectors = args.selectors or sorted(
-        {
-            str(path.relative_to(ROOT))
-            for pattern in ("test_*.py", "*_test.py")
-            for path in ROOT.glob(f"tests/**/{pattern}")
-        }
-    )
+    selectors, deferred = select_tests(args.selectors, args.suite)
     shards = grouped_shards(selectors, args.shards)
     if not shards:
         parser.error("no test modules found")
@@ -128,6 +178,8 @@ def main():
         parser.error(f"Python imports another checkout: {loaded_package}; install this checkout")
     before = source_state()
     metadata = dict(
+        suite="focused" if args.selectors else args.suite,
+        deferred_modules=deferred,
         started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         source=before,
         loaded_package=loaded_package,
@@ -165,6 +217,9 @@ def main():
     if exit_code < 0:
         exit_code = 128 - exit_code
     summary = dict(
+        suite=metadata["suite"],
+        selected_modules=len({selector.split("::", 1)[0] for selector in selectors}),
+        deferred_modules=len(deferred),
         elapsed_seconds=time.monotonic() - started,
         child_cpu_seconds=dict(
             user=usage_after.ru_utime - usage_before.ru_utime,
