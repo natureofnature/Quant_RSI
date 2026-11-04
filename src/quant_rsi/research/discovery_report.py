@@ -5,6 +5,7 @@ from html import escape
 
 from quant_rsi.core.artifacts import canonical
 from quant_rsi.research.discovery_factors import DiscoveryFactor
+from quant_rsi.research.discovery_report_comparisons import append_comparisons
 
 
 def render_discovery(result):
@@ -38,6 +39,7 @@ def render_discovery(result):
         [[result["configuration"]["question"], result["study"]["conclusion"]]],
     )
     table("Operations", ["Operation", "Count"], list(discovery["counts"].items()))
+    append_comparisons(discovery, table, parts)
     records = discovery["memory"]
     decisions = [m for m in records if m.get("kind") == "interpretation"]
     table(
@@ -212,28 +214,6 @@ def render_discovery(result):
         ],
         lineage,
     )
-    for key, group in discovery["groups"].items():
-        rows = []
-        for record in [group["baseline"], *group["candidates"]]:
-            measured = record["result"]
-            prediction = measured.get("prediction", {})
-            metrics = prediction.get("development", {}).get("metrics", {})
-            strategy = prediction.get("strategy", {}).get("strategy", {}).get("metrics", {})
-            rows.append(
-                [
-                    measured.get("round"),
-                    record["spec"]["kind"],
-                    metrics.get("mae_price"),
-                    strategy.get("net_return"),
-                    strategy.get("sharpe_ratio"),
-                    record["ref"] == group["incumbent"]["ref"],
-                ]
-            )
-        table(
-            "Comparable experiment " + key[:12],
-            ["Fit", "Kind", "Price MAE", "Net return", "Sharpe", "Retained"],
-            rows,
-        )
     features = []
     for m in records:
         actual = m.get("result", {}).get("actual_features")
@@ -296,6 +276,12 @@ h2{font-size:20px}.scroll{overflow:auto}table{width:100%;border-collapse:collaps
 th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #30425b}
 th{color:#8ae8d2}td{overflow-wrap:anywhere}p{line-height:1.6;color:#c0cee2}
 pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;padding:16px}
+.comparison-group{border-color:#497d88}.comparison-group>section{padding:12px;margin:14px 0}
+.comparison-chart{margin:22px 0;padding:14px;background:#0c192b;border-radius:10px}
+.comparison-chart figcaption{font-weight:600;color:#8ae8d2;margin-bottom:8px}
+.comparison-chart svg{width:100%;height:auto}.comparison-chart text{fill:#b7c9dd;font-size:13px}
+.comparison-legend{display:flex;flex-wrap:wrap;gap:10px 24px;padding-left:20px;font-size:13px}
+@media(max-width:680px){main{padding:14px}section{padding:12px}.comparison-chart{padding:4px}}
 </style><main>"""
         + "".join(parts)
         + "</main></html>"
