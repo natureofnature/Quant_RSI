@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import secrets
 import select
 import subprocess
@@ -23,6 +24,108 @@ def _read_json(path, default):
         return default
 
 
+def _discovery_output(stage, output, previous, symbol):
+    """Project retained discovery stages through existing table/card renderers."""
+    if stage.endswith("_factor_library"):
+        return visual_output("factor_library", output, previous, symbol)
+    if re.fullmatch(r"discovery_fit_\d+", stage):
+        prediction = output.get("prediction", {})
+        metrics = prediction.get("development", {}).get("metrics", {})
+        return {
+            "kind": "facts",
+            "facts": {
+                "fit": stage.removeprefix("discovery_fit_"),
+                "price_mae": metrics.get("mae_price"),
+                "development_observations": metrics.get("sample_count"),
+                "input_factors": (output.get("actual_features") or {}).get("input_factor_ids", []),
+                "input_bundle_refs": (output.get("actual_features") or {}).get(
+                    "input_bundle_refs", []
+                ),
+            },
+            "note": "Compare only with the linked baseline on the same retained sample. "
+            "See the full report for comparison groups and strategy diagnostics.",
+        }
+    if stage.startswith("discovery_decision_"):
+        return {
+            "kind": "facts",
+            "facts": {
+                "action": output.get("action"),
+                "reason": output.get("reason"),
+                "candidates": [c.get("name") for c in output.get("candidates", [])],
+                "requested_inputs": [d.get("input_id") for d in output.get("data_requests", [])],
+                "query": output.get("query"),
+            },
+            "note": "Decision output; a proposal is not yet an executed or validated factor.",
+        }
+    return {
+        "kind": "facts",
+        "facts": {
+            key: output.get(key)
+            for key in (
+                "status",
+                "request",
+                "distinct_observations",
+                "distinct_values",
+                "covered_rows",
+                "gaps",
+                "counts",
+                "identity",
+            )
+            if key in output
+        },
+        "note": "Source evidence, availability and input lineage are retained in the full report.",
+    }
+
+
+def _discovery_state(root, config, runtime, result):
+    if config.get("research_mode") != "discovery":
+        return None
+    stages = runtime.get("stages", [])
+    detail = result.get("discovery", {})
+    source_counts = _read_json(root / "discovery" / "source_usage.json", {}).get("usage", {}).get(
+        "counts", {}
+    ) or detail.get("source_counts", {})
+    decisions = [s for s in stages if s["stage"].startswith("discovery_decision_")]
+    fits = [s for s in stages if re.fullmatch(r"discovery_fit_\d+", s["stage"])]
+    simulated = config.get("llm") == "simulated"
+    counts = runtime.setdefault("counts", {})
+    counts["model_stages_completed"] = sum(s["status"] == "completed" for s in fits)
+    counts["search_requests_started"] = source_counts.get("search", 0)
+    counts["llm_requests_started"] = (
+        0
+        if simulated
+        else len(decisions) + source_counts.get("extract", 0) + source_counts.get("analysis", 0)
+    )
+    usage = runtime.get("token_usage", {})
+    if usage.get("reported_responses") and counts["llm_requests_started"]:
+        usage["status"] = (
+            "complete"
+            if usage["reported_responses"] == counts["llm_requests_started"]
+            and usage.get("cached_input_tokens") is not None
+            else "partial"
+        )
+    selected = detail.get("selected")
+    baseline_metric = selected_metric = None
+    selected_round = selected.get("result", {}).get("round") if selected else None
+    for group in detail.get("groups", {}).values():
+        incumbent = group.get("incumbent", {}).get("result", {})
+        if selected_round is not None and incumbent.get("round") == selected_round:
+            baseline_metric = group.get("baseline", {}).get("result", {}).get("metric")
+            selected_metric = incumbent.get("metric")
+    return {
+        "decisions": len(decisions),
+        "completed_decisions": sum(s["status"] == "completed" for s in decisions),
+        "source_counts": source_counts,
+        "group_count": len(detail.get("groups", {})),
+        "selection_note": detail.get("selection_note"),
+        "selected_round": selected_round,
+        "baseline_metric": baseline_metric,
+        "selected_metric": selected_metric,
+        "metric": config.get("selection_metric", "mae"),
+        "counts": detail.get("counts", {}),
+    }
+
+
 def read_state(root):
     config = _read_json(root / "config.json", {})
     runtime = _read_json(root / "runtime.json", {"status": "starting", "stages": []})
@@ -35,7 +138,11 @@ def read_state(root):
             "stage": stage,
             "text": text[:18000],
             "truncated": len(text) > 18000,
-            "view": visual_output(stage, output, previous, config.get("symbol", "…")),
+            "view": (
+                _discovery_output(stage, output, previous, config.get("symbol", "…"))
+                if stage.startswith("discovery_")
+                else visual_output(stage, output, previous, config.get("symbol", "…"))
+            ),
         }
 
     try:
@@ -53,6 +160,24 @@ def read_state(root):
         if "output" in stage:
             events.insert(0, present(stage["stage"], stage["output"]))
     result = _read_json(root / "result.json", {}) if runtime["status"] == "completed" else {}
+    discovery = _discovery_state(root, config, runtime, result)
+    if discovery and result:
+        memory = result.get("discovery", {}).get("memory", [])
+        for name, facts, note in (
+            (
+                "discovery_memory",
+                {"retained_records": len(memory)},
+                "Candidate proposals, source receipts and experiment feedback are retained.",
+            ),
+            (
+                "discovery_summary",
+                discovery,
+                "Only matched experiments are compared. Predictive gain is not established.",
+            ),
+        ):
+            event = present(name, facts)
+            event["view"] = {"kind": "facts", "facts": facts, "note": note}
+            events.append(event)
     report = ""
     if result:
         try:
@@ -88,6 +213,7 @@ def read_state(root):
                 "publication_fit_budget",
                 "walk_forward_fit_budget",
                 "question",
+                "research_mode",
             )
         },
         "iterations": {
@@ -95,6 +221,7 @@ def read_state(root):
             for key in ("completed_fits", "selected_round", "stop_reason")
         },
         "runtime": runtime,
+        "discovery": discovery,
         "updated_at": updated,
         "events": events,
         "failure": _read_json(root / "failure.json", None),

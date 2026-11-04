@@ -62,12 +62,14 @@ class StudyProgress:
                     name in {"initial_hypothesis", "revised_hypothesis", "extract_guidance"}
                     or (name.startswith("round_") and name.endswith("_hypothesis"))
                     or name.startswith(("news_search_", "news_review_"))
+                    or name.startswith("discovery_decision_")
                 )
             ),
             "search_requests": lambda name: name.startswith("news_search_"),
             "model_stages": lambda name: (
                 name in {"first_prediction", "second_prediction"}
                 or (name.startswith("round_") and name.endswith("_prediction"))
+                or (name.startswith("discovery_fit_") and name.rsplit("_", 1)[-1].isdigit())
             ),
         }
         comparisons = {

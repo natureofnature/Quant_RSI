@@ -27,6 +27,11 @@ def _reuse_deadline(lifetime):
 
 
 def render_study(result):
+    if "discovery" in result:
+        from quant_rsi.research.discovery_report import render_discovery
+
+        return render_discovery(result)
+
     steps = {event["stage"]: event["output"] for event in result["trace"]}
     first = steps["first_prediction"]
     second = steps.get("second_prediction", first)
