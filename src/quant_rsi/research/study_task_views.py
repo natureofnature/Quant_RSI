@@ -117,7 +117,7 @@ def _segment(result, inputs, prediction, name):
             not observations
             or not rules
             or not quotes
-            or inputs["target"] != result["target"]
+            or inputs["target"] != result.get("target", result.get("symbol"))
             or quotes[0][0] != period["start"]
             or quotes[-1][0] != period["end"]
             or any(not _finite(price) or price <= 0 for _, *prices in quotes for price in prices)
@@ -186,21 +186,43 @@ def retained_task_view(task):
     iterations = result.get("iterations", {})
     selected = iterations.get("selected_round")
     attempts = iterations.get("attempts", [])
+    discovery = result.get("discovery")
     if type(selected) is not int or not 1 <= selected <= len(attempts):
-        raise ValueError("Completed study has no retained selected result")
-    prediction = attempts[selected - 1]["prediction"]
+        if discovery is None or selected is not None:
+            raise ValueError("Completed study has no retained selected result")
+        prediction = {}
+    else:
+        prediction = attempts[selected - 1]["prediction"]
+    selection_note = (discovery or {}).get("selection_note")
+    experiment_groups = []
+    for key, group in (discovery or {}).get("groups", {}).items():
+        incumbent = group.get("incumbent", {}).get("result", {})
+        experiment_groups.append(
+            {
+                "comparison_key": key,
+                "incumbent_round": incumbent.get("round"),
+                "candidate_count": len(group.get("candidates", [])),
+                "development": _segment(
+                    result, inputs, incumbent.get("prediction", {}), "development"
+                ),
+            }
+        )
     return {
         "id": task.name,
-        "symbol": result.get("target"),
+        "symbol": result.get("target", result.get("symbol")),
         "created_at": manifest.get("created_at"),
         "data": configuration.get("prices"),
-        "horizon_sessions": prediction.get("horizon_sessions"),
+        "horizon_sessions": prediction.get(
+            "horizon_sessions", configuration.get("horizon_sessions")
+        ),
         "information_mode": configuration.get("information_mode", "retrospective"),
         "question": configuration.get("question", ""),
         "model": configuration.get("model"),
         "researcher": configuration.get("llm"),
         "research_mode": configuration.get("research_mode", "legacy"),
         "selected_round": selected,
+        "selection_note": selection_note,
+        "experiment_groups": experiment_groups,
         "completed_rounds": len(attempts),
         "fit_budget": configuration.get("fit_budget"),
         "factor_ids": prediction.get("factor_ids", []),
@@ -212,7 +234,16 @@ def retained_task_view(task):
             "financial_provider": result.get("study", {}).get("financial_data", {}).get("provider"),
         },
         "segments": {
-            name: _segment(result, inputs, prediction, name) for name in ("development", "terminal")
+            name: (
+                _segment(result, inputs, prediction, name)
+                if prediction
+                else {
+                    "status": "unavailable",
+                    "reason": "No single discovery experiment selected. "
+                    + (selection_note or "Inspect separately grouped experiment conclusions."),
+                }
+            )
+            for name in ("development", "terminal")
         },
     }
 

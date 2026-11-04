@@ -59,6 +59,7 @@ class LightGBMDemo:
         if terminal_sessions and evaluation_sessions == 1:
             raise ValueError("Terminal evaluation requires a multi-origin study")
         self._fits = []
+        self.discovery_features = None
         self._terminal_started = False
         self._news_configuration_open = True
         self._news_history = None
@@ -315,6 +316,10 @@ class LightGBMDemo:
             "binding leaves. Pending sources cannot be replaced with target share prices."
         )
 
+    def configure_discovery(self, bundle):
+        """Bind prevalidated discovery columns without changing any experiment rows."""
+        self.discovery_features = deepcopy(bundle)
+
     def context(self, symbol):
         self._news_configuration_open = False
         if self._news_history is not None and symbol != self._news_symbol:
@@ -414,6 +419,19 @@ class LightGBMDemo:
         effective = {item["factor_id"]: item for item in factors}
         bound_inputs = []
         for item in factors:
+            if item.get("recipe", {}).get("op") == "discovery_expression":
+                bundle = self.discovery_features or {}
+                retained = next((d for d in bundle.get("definitions", []) if d == item), None)
+                if retained is None or not item.get("runnable"):
+                    raise ValueError("Discovery factor lacks its exact validated column")
+                values = np.asarray(bundle["columns"][item["factor_id"]], dtype=float)
+                if values.shape != (len(self.data.dates),):
+                    raise ValueError("Discovery feature must align to the retained calendar")
+                columns.append(values)
+                bound_inputs.append(
+                    {"factor_id": item["factor_id"], "inputs": deepcopy(bundle.get("inputs", []))}
+                )
+                continue
             if item.get("recipe", {}).get("op") in {"financial_expression", "business_expression"}:
                 values, dependencies = business_column(
                     item, self.financial_features, self.external_features
@@ -675,11 +693,28 @@ class LightGBMDemo:
                         "financial_expression",
                         "external",
                         "business_expression",
+                        "discovery_expression",
+                        "acquired",
                     }
                 ],
                 "reason": "target_labels_and_reference_prices",
             }
         ]
+        if self.discovery_features:
+            ids = sorted(
+                selected.intersection(
+                    d["factor_id"] for d in self.discovery_features["definitions"]
+                )
+            )
+            if ids:
+                usage.append(
+                    {
+                        "source": "discovered_inputs",
+                        "status": "used",
+                        "factor_ids": ids,
+                        "reason": "Source-bound numerical discovery columns on fixed rows",
+                    }
+                )
         for source, bundle in (
             ("publication_dated_financials", self.financial_features),
             ("publication_dated_external_drivers", self.external_features),

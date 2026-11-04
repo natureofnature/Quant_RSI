@@ -110,7 +110,7 @@ def collection_snapshot(symbol, directory, *, horizon_sessions=5, historical_ses
 
 
 def register_study(directory, run_root, result, snapshot=None):
-    """Freeze the actually selected forecast and parameters after research finishes."""
+    """Retain completed research, with a forecast receipt only when one was selected."""
     run_root = str(Path(run_root).resolve())
     study_id = digest(run_root.encode())
     with _ledger(directory) as (journal, store):
@@ -123,12 +123,15 @@ def register_study(directory, run_root, result, snapshot=None):
             return _entries(journal, store)[study_id]
         now = market_contracts.trusted_now()
         selected = result["iterations"]["selected_round"]
-        attempt = result["iterations"]["attempts"][selected - 1]
+        attempt = result["iterations"]["attempts"][selected - 1] if selected is not None else None
         from quant_rsi.research.study_latest import publication_prediction
 
-        forecast = publication_prediction(result).get("latest_forecast")
+        forecast = publication_prediction(result).get("latest_forecast") if attempt else None
         sessions, publication = [], None
-        status, reason = "unavailable", "selected_latest_forecast_unavailable"
+        status = "unavailable"
+        reason = (
+            "selected_latest_forecast_unavailable" if attempt else "no_globally_selected_forecast"
+        )
         if forecast and snapshot:
             if timestamp(snapshot["info"]["received_at"]) > timestamp(now):
                 raise ValueError("Publication precedes its price receipt")
@@ -167,7 +170,7 @@ def register_study(directory, run_root, result, snapshot=None):
             ),
             "issued_at": now,
             "selected_round": selected,
-            "factor_ids": attempt["prediction"]["factor_ids"],
+            "factor_ids": attempt["prediction"]["factor_ids"] if attempt else [],
             "factor_definitions": selected_definitions(result),
             "attempts": attempt_records(result),
             "attempted_definitions": attempted_definitions(result),
@@ -178,7 +181,8 @@ def register_study(directory, run_root, result, snapshot=None):
             "status": status,
             "reason": reason,
             "result_ref": result_ref,
-            "source_ref": store.put_json(snapshot) if snapshot else None,
+            # Research-only records never participate in the forecast observer.
+            "source_ref": store.put_json(snapshot) if snapshot and attempt else None,
             "strategy_parameters": {
                 key: result["configuration"][key]
                 for key in ("initial_cash", "commission_bps", "slippage_bps", "threshold")

@@ -107,9 +107,24 @@ def _configuration(args):
     from quant_rsi.research.study_walk_forward import price_history_sessions
 
     args.question = research_question(getattr(args, "question", ""))
-    incremental = getattr(args, "research_mode", "legacy") == "incremental"
-    args.rounds = args.rounds if args.rounds is not None else (3 if incremental else 2)
+    discovery_mode = getattr(args, "research_mode", "legacy") == "discovery"
+    incremental = getattr(args, "research_mode", "legacy") in {"incremental", "discovery"}
+    args.rounds = (
+        args.rounds
+        if args.rounds is not None
+        else (6 if discovery_mode else 3 if incremental else 2)
+    )
     args.latest_fit = args.latest_fit or ("selected" if incremental else "refit")
+    if discovery_mode and (
+        args.latest_fit == "refit"
+        or getattr(args, "compare_models", False)
+        or getattr(args, "compare_qlib", False)
+        or args.patience is not None
+    ):
+        raise ValueError(
+            "Discovery uses explicit actions and selected-model publication; "
+            "disable refit, model comparisons and legacy patience"
+        )
     restricted = getattr(args, "information_mode", "retrospective") == "retained"
     if not incremental and (
         restricted
@@ -120,7 +135,9 @@ def _configuration(args):
     ):
         raise ValueError("Date ranges and retained information mode require incremental research")
     if incremental:
-        if args.rounds > 3 or (args.max_fits is not None and args.max_fits > 3):
+        if not discovery_mode and (
+            args.rounds > 3 or (args.max_fits is not None and args.max_fits > 3)
+        ):
             raise ValueError(
                 "Incremental mode permits at most three research fits including baseline"
             )
@@ -158,7 +175,7 @@ def _configuration(args):
         from quant_rsi.research.study_qlib import require_qlib
 
         require_qlib()
-    fit_budget = args.rounds if args.max_fits is None else args.max_fits
+    fit_budget = (3 if discovery_mode else args.rounds) if args.max_fits is None else args.max_fits
     validate_limits(args.rounds, fit_budget, args.patience)
     if args.prices == "synthetic" and args.prices_dir is not None:
         raise ValueError("--prices-dir requires --prices daily")
@@ -227,7 +244,7 @@ def _run_study(args, symbol, root, configuration, *, resume=False):
         args.llm,
         quiet=args.quiet,
         previous_attempts=cache.previous,
-        fixed_baseline=configuration.get("research_mode") == "incremental",
+        fixed_baseline=configuration.get("research_mode") in {"incremental", "discovery"},
     )
     cache.progress = progress
     if getattr(args, "ui", False) and not getattr(args, "check_inputs", False):
@@ -366,7 +383,8 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     )
     incremental_plan = None
     window_plan = None
-    incremental = getattr(args, "research_mode", "legacy") == "incremental"
+    discovery_mode = getattr(args, "research_mode", "legacy") == "discovery"
+    incremental = getattr(args, "research_mode", "legacy") in {"incremental", "discovery"}
     restricted = getattr(args, "information_mode", "retrospective") == "retained"
     if incremental:
         from quant_rsi.research.study_windows import configure_windows
@@ -617,7 +635,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
 
     prelude = []
     guidance_summary = None
-    if args.news_research:
+    if args.news_research and not discovery_mode:
 
         def record_research(event):
             prelude.append(event)
@@ -754,6 +772,28 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         _write(root / "factor_memory.json", factor_memory)
         progress.start("restore_factor_recipes")
         progress.finish("restore_factor_recipes", factor_memory)
+
+    if discovery_mode:
+        from quant_rsi.research.study_discovery import run_connected_discovery
+
+        result = run_connected_discovery(
+            args,
+            model=model,
+            root=root,
+            configuration=configuration,
+            cache=cache,
+            progress=progress,
+            record=record,
+            news=current_news,
+            related=related,
+            windows=window_plan,
+            cutoffs=cutoffs,
+            prelude=prelude,
+            prior_outcomes=prior_outcomes,
+        )
+        result["runtime"] = progress.snapshot("completed")
+        cache.call("final_result", symbol, lambda: {"result": result, "prices": history_prices})
+        return _finish_study(args, symbol, root, result, history_prices, progress)
 
     if incremental:
         from quant_rsi.research.study_incremental import freeze_plan, simulated_increment

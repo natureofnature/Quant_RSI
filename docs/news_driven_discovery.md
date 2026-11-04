@@ -1,0 +1,210 @@
+# News-driven candidate discovery
+
+RFC [#119](https://github.com/natureofnature/Quant_RSI/issues/119) extends the existing
+`research-study` entry point with `--research-mode discovery`. The research question
+can lead to candidates absent from the initial catalog, including variables requiring
+targeted source acquisition. A candidate is a hypothesis to test, not a claim of alpha.
+
+## Run a connected study
+
+Use the repository's existing Python environment and run from the checkout root:
+
+```bash
+quant-rsi research-study KO --research-mode discovery --llm codex \
+  --news-research --historical-sessions 252 \
+  --question "Which operating developments could explain changes in demand?" \
+  --output /tmp/ko-news-discovery
+```
+
+The question need not name a factor or formula. `--news-research` permits the existing
+search/read tools; external LLM and data calls may consume service usage. API mode
+uses the existing `--llm api --llm-model MODEL` configuration. Optional `--financials`
+and `--external-drivers` make their existing inputs available as well; they are not
+the only possible candidate vocabulary.
+
+For an offline wiring example with simulated evidence, decisions and acquisition,
+while retaining actual numerical feature calculation and model fitting:
+
+```bash
+quant-rsi research-study KO --research-mode discovery \
+  --llm simulated --news simulated --related simulated --prices synthetic \
+  --no-related-prices --no-history --no-ui \
+  --question "Investigate operating demand beyond price controls" \
+  --output /tmp/ko-discovery-fixture
+```
+
+The simulated researcher has programmed actions. Its output demonstrates module
+connections and numerical execution, not autonomous discovery or predictive quality.
+Use a fresh output directory; resume existing tasks through the existing study
+recovery mechanism instead of overwriting their records.
+
+Discovery defaults to three research fits and six decision actions. `--rounds` bounds
+decision actions in this mode; `--max-fits` independently bounds baseline and candidate
+fits. A survey, unavailable input or invalid candidate need not consume a fit. Acquiring
+new inputs after an experiment can require a linked experiment and another baseline;
+declare enough fit budget for that pair before execution. Four fits can cover
+`B₁ → B₁+H₁ → B₂ → B₂+H₂`. There is no requirement for a candidate to improve the score.
+
+## Modules and ownership
+
+```mermaid
+flowchart LR
+    Memory[Persisted facts and research decisions] --> Decision[Decision Agent]
+    Decision --> News[News analysis]
+    News --> Decision
+    Catalog[Survey and executable factor definitions] --> Decision
+    Decision --> Acquisition[Targeted source acquisition]
+    Acquisition --> Inputs[Validated input bundle]
+    Decision --> DSL[Shared expression validation]
+    DSL --> Runner[Experiment Runner]
+    Inputs --> Runner
+    Runner --> Memory
+    Decision --> Memory
+    Runner --> Report[Report and retained artifacts]
+```
+
+| Boundary | Implementation | Responsibility |
+| --- | --- | --- |
+| Entry and existing preparations | `research/study.py`, `research/study_discovery.py` | Select the mode, reuse retained prices/windows and providers, connect module callbacks, finish the existing report path |
+| Outer research loop and Memory handoff | `research/discovery_loop.py` | Request bounded actions, persist completed facts before another decision, retain candidates, share budgets across linked experiments |
+| Decision, news and acquisition interfaces | `research/discovery_sources.py` | Structured LLM output, targeted searches/reads, evidence-linked numerical extraction and input alignment |
+| Shared Factor DSL | `factors/expressions.py` | Versioned bounded expression DAG, causal numerical calculation, missing-value behavior and normalized identities |
+| Survey and candidate definitions | `research/discovery_factors.py` | Retrieve known specifications, resolve executable adapters, bind novel expressions to supplied inputs |
+| Numerical execution | `research/discovery_engine.py`, `research/demo_model.py` | Adapt admitted columns to existing training and strategy evaluation; never decide the next research question |
+| Policy and admission checks | `research/discovery_contracts.py` | Effective policy identities, allowed patches and deterministic context/numerical/feedback gates |
+| Presentation | `research/study_report.py`, `research/discovery_report.py` and existing workbench | Show candidate lineage, experiments, actual usage and reasons for stopping |
+
+These are Python module boundaries, not separate services. The outer loop owns the next
+investigation; the Experiment Runner returns measurements or diagnostics. Workflow code
+persists measured results independently of the agent's subsequent interpretation.
+
+Recovery restores admitted article bodies, source identities and temporal provenance along
+with cumulative usage from completed source operations. Replaying a cached survey therefore
+does not require another search or download before retrying a failed extraction.
+
+Completed research enters shared history even when incomparable experiments produce no
+single selected forecast. Its experiment facts remain available to subsequent research with
+their comparison boundaries; it creates no forecast publication or settlement. Bounded
+Memory retrieval prioritizes measured experiment/acquisition facts over intervening decisions.
+
+## Experimental survey and executable factors
+
+All 32 detailed records in `experimental/candidate_factors/definitions/` are available
+to bounded survey retrieval, with source revisions, license references, input
+requirements and execution status. The 341 raw inventory entries remain a lower-assurance
+index: they include templates, helpers and duplicates. They are not 341 runnable factors.
+
+The executable surveyed subset is:
+
+| Survey record | Local calculation | Inputs |
+| --- | --- | --- |
+| `qlib.roc` | `close[t-window] / close[t]` | Full positive close-price window |
+| `qlib.ma` | `mean(close[t-window+1:t+1]) / close[t]` | Full positive close-price window |
+| `qlib.kmid` | `(close[t] - open[t]) / open[t]` | Positive finalized open and close |
+
+ROC is Qlib's inverse price ratio, not conventional percentage return. The new KMID
+adapter measures an intrabar price change; it does not measure business demand. These
+are local numerical implementations, not calls into installed Qlib. See the retained
+[source notices](../experimental/candidate_factors/THIRD_PARTY_NOTICES.md).
+
+The other survey records remain discoverable with missing-input/operator diagnostics.
+The noncausal reference-only specification cannot become a forecasting feature. Availability
+of an operator does not imply that its numerical values cover a particular experiment.
+
+## Expressions absent from the catalog
+
+Decision Agent can submit a new expression without adding a hand-written factor entry.
+Version two of the shared grammar supports leaves, addition, subtraction, multiplication,
+division, lag, rolling mean, sample standard deviation and rolling z-score. Temporal
+operators have explicit windows, complete trailing observations and no future access.
+Division by zero, nonfinite values and constant-window z-scores remain missing. Known
+incompatible units cannot be added or subtracted. Graph size, depth and windows are bounded.
+
+Leaves bind to declared raw prices, surveyed outputs, existing business inputs or acquired
+series. Missing leaves produce acquisition diagnostics. Unsupported operators remain
+capability requests; a formula cannot execute arbitrary Python, shell commands or network
+access. Existing version-one expression serialization and recipe identities are preserved.
+
+Candidate names do not establish novelty. The normalized recipe identity removes incidental
+node names, binding aliases and supported commutative ordering. Exact input versions and
+experiment identities are retained separately for reproduction.
+
+## Data, time and comparison rules
+
+Acquisition retains source excerpts, URLs, publication/receipt/version timestamps,
+measurement periods, units and extracted observations. Per-row evidence identifies which
+observation supplied each numerical value. A declared last-disclosed-value rule may reuse
+an observation within its maximum age; repeated daily copies are not independent historical
+measurements. Values are not backfilled before their effective availability.
+
+Retrospective research can use current evidence to motivate historical experiments and
+must disclose reconstructed historical availability. Retained mode requires the existing
+historical receipt/version proofs before evidence enters any agent context. Selecting a
+date range alone does not provide historical information isolation, and filtering supplied
+evidence cannot remove pretrained LLM knowledge.
+
+Experiment samples, labels, baselines and metrics remain fixed. Missing candidate values
+do not silently drop rows. Changed input domains require linked matched experiments and
+charge their baselines to the same total budget. Compare improvements within compatible
+experiments. Incompatible populations do not produce a global leaderboard; publication
+requires a declared selection rule or an explicit choice.
+
+Training labels must have matured at fit time. Terminal results stay outside active
+research feedback and Memory retrieval. A latest forecast, if published, is separate from
+historical development and terminal evaluation.
+
+## Evidence and completion status
+
+Implementation and offline tests are not the complete RFC acceptance. Completion also
+requires a recorded real-service lineage connecting the **same candidate** from news to
+new data, fitted feature columns and feedback; an authentic two-candidate outer-loop
+trajectory; planned news-ablation and counterfactual-feedback observations; required final
+validation; and actual browser acceptance for browser usability claims.
+
+A useful negative result can satisfy execution acceptance; neither successful execution
+nor a lower development error establishes independent predictive gain or profitability.
+The records below distinguish completed execution witnesses from inconclusive observations.
+Do not close the RFC by treating an inconclusive news-influence observation as a pass.
+
+### Recorded implementation validation (2026-11-04)
+
+The offline integration exercises an absent operating-demand input, acquisition, two
+different temporal expressions and three actual LightGBM fits. Its providers and prices
+are simulated. Regression coverage also checks unchanged experiment rows, rejection of
+fabricated evidence, cross-study retrieval of measured feedback, and recovery without
+repeating completed training. Failed source calls and failed fit attempts retain their
+budget charges across recovery; reporting failures after a saved fit do not charge another
+fit. Publication-only latest forecasts do not enter research feedback.
+
+Real-service exploration records remain separate from that fixture:
+
+| Observation | Outcome and limitation |
+| --- | --- |
+| KO attempt 01 | Codex proposed a guidance-derived input; unsupported arithmetic extraction and exhausted acquisition allowance led to a baseline-only report. This is not a discovery witness. |
+| KO attempt 02 | Codex proposed a pricing/volume mechanism. A legitimate issuer date format was rejected and headline-only extraction wasted allowance. The run stopped at baseline; regressions now cover both defects. Original records remain unchanged. |
+| KO attempt 03 | The first Codex decision timed out before fitting. Resume refused after source changes, preserving the original runtime identity. |
+| KO attempt 04, runtime commit `2d19657` | An initial RSS failure resumed on the unchanged runtime. Codex acquired two literal quarterly operating measurements and synthesized a five-session change in the pricing/volume gap. The resulting column entered a real fit. After reading its actual feedback, Codex revised it to the persistent gap level and fitted again. Both candidates used the same acquired inputs and fixed samples. |
+| Preregistered news ablation, one Codex pair | **Inconclusive.** Removing the earnings/guidance headline changed the cited evidence, but both arms still proposed a pricing/volume gap. Retained earnings context and pretrained knowledge are alternative explanations. |
+| Preregistered synthetic-feedback intervention, one Codex pair | The favorable branch retained the proposed pricing/volume investigation; the unfavorable branch explicitly cited the worse synthetic MAE and proposed a temporal currency-impact measurement. This meets the declared qualitative action-sensitivity criterion, without establishing statistical causality or predictive benefit. |
+
+Paired plans, effective input contexts and all outputs were retained before assessment.
+Synthetic feedback never entered authentic study memory. The single-pair observations do
+not establish general reliability. The harness is `examples/discovery_acceptance.py`;
+each plan fixes the provider, maximum pairs, intervention and observable criteria before
+any calls. Its default result is inconclusive until an explicit evidence review is recorded.
+
+Attempt 04 completed four decisions, two acquisition requests and three fits. The baseline
+and first candidate each had development price MAE **2.5450**; the revision had **2.5586**.
+The researcher stopped with one fit still available and retained the baseline. Each candidate
+had two distinct training values, sourced from only two quarterly disclosures; daily repeats
+are not additional observations. This is an authentic discovery/acquisition/feedback witness,
+with no predictive-gain claim. The prior stopped and failed attempts were not overwritten.
+
+Actual Chromium acceptance launched discovery from the workbench with simulated providers
+and real LightGBM, then opened the live view, history and full report. The live view showed
+three fits, four of six decision actions, zero real LLM requests and the matched results.
+Source lineage and feature tables were inspected at desktop and mobile widths. The real
+attempt-04 report was also inspected separately. These browser checks establish usability,
+not predictive quality. Focused UI checks and 14 actual Qlib integration tests passed.
+The implementation PR must report final-revision full validation and any remaining failures
+separately from these service/browser observations.

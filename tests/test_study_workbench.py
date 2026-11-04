@@ -178,10 +178,13 @@ def test_form_mode_switch_and_old_template_clear_stale_windows():
 const assert = require('node:assert/strict');
 const fields = {};
 for (const key of ['research_mode','rounds','max_fits','latest_fit','walk_forward_folds',
+                   'compare_models','patience',
                    'train_start','train_end','development_start','development_end',
                    'terminal_start','terminal_end']) fields[key] = {value:'',type:'text'};
 fields.research_mode.value = 'incremental';
-const elements = {'start-form':{elements:fields}, 'incremental-hint':{}, 'date-windows':{}};
+fields.compare_models.type = 'checkbox';
+const elements = {'start-form':{elements:fields}, 'incremental-hint':{}, 'discovery-hint':{},
+                  'rounds-label':{}, 'date-windows':{}};
 const $ = id => elements[id];
 """
         + helpers

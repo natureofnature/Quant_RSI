@@ -170,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
                 help="shared EIA resource cache; use a fresh directory for each research cycle",
             )
             demo.add_argument(
-                "--research-mode", choices=("legacy", "incremental"), default="legacy"
+                "--research-mode", choices=("legacy", "incremental", "discovery"), default="legacy"
             )
             demo.add_argument(
                 "--information-mode", choices=("retrospective", "retained"), default="retrospective"
@@ -253,13 +253,14 @@ def main(argv: list[str] | None = None) -> int:
                 type=int,
                 default=None,
                 choices=range(2, 11),
-                help="maximum research fits including baseline (default: legacy 2, incremental 3)",
+                help="research rounds (legacy 2, incremental 3); "
+                "discovery decision calls (default 6)",
             )
             demo.add_argument(
                 "--max-fits",
                 type=int,
                 choices=range(2, 11),
-                help="fit allowance; defaults to --rounds",
+                help="fit allowance; discovery defaults to 3, other modes to --rounds",
             )
             demo.add_argument(
                 "--patience",

@@ -56,14 +56,16 @@ def study_options(options):
     }
     if not isinstance(options, dict) or set(options) - defaults.keys():
         raise ValueError("Unexpected study options")
-    if options.get("research_mode") == "incremental":
+    if options.get("research_mode") in {"incremental", "discovery"}:
         defaults.update(rounds=3, latest_fit="selected")
+        if options.get("research_mode") == "discovery":
+            defaults.update(rounds=6, max_fits=3)
     result = defaults | options
     result["question"] = research_question(result["question"])
     for key, allowed in (
         ("llm", {"codex", "api", "simulated", "deepseek", "cursor"}),
         ("model", {"lightgbm", "ridge"}),
-        ("research_mode", {"legacy", "incremental"}),
+        ("research_mode", {"legacy", "incremental", "discovery"}),
         ("latest_fit", {"refit", "selected"}),
         ("financials_source", {"auto", "sec", "issuer"}),
         ("data", {"daily", "synthetic"}),
@@ -110,8 +112,18 @@ def study_options(options):
         if result[key] is not None and type(result[key]) is not int:
             raise ValueError("Research limits must be integers")
     validate_limits(result["rounds"], result["max_fits"], result["patience"])
-    incremental = result["research_mode"] == "incremental"
-    if incremental and (result["rounds"] > 3 or result["max_fits"] > 3):
+    if result["research_mode"] == "discovery" and (
+        result["latest_fit"] == "refit"
+        or result["compare_models"]
+        or result["patience"] is not None
+    ):
+        raise ValueError(
+            "Discovery uses selected-model publication; disable comparisons and patience"
+        )
+    incremental = result["research_mode"] in {"incremental", "discovery"}
+    if result["research_mode"] == "incremental" and (
+        result["rounds"] > 3 or result["max_fits"] > 3
+    ):
         raise ValueError("Incremental research permits at most three research fits")
     if incremental and result["walk_forward_folds"]:
         raise ValueError("Incremental research uses fixed windows; disable time-window diagnostics")

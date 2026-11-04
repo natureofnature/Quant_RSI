@@ -2,12 +2,19 @@
 
 This is an experimental, source-pinned collection for [RFC #31](https://github.com/natureofnature/Quant_RSI/issues/31).
 It supplies factor semantics and execution requirements while the RFC owns the
-runtime contracts, materializer and discovery lifecycle. Nothing here is loaded
-by the production factor catalog, registered as a model feature or promoted.
+runtime contracts, materializer and discovery lifecycle. Connected research now reads
+the detailed definitions as searchable knowledge through
+[`discovery_factors.py`](../../src/quant_rsi/research/discovery_factors.py). Each record
+retains explicit execution status and provenance; reading a specification does not
+automatically register it as a model feature or promote it.
 
 The bounded discovery baseline introduced in PR #32 is documented in the
 [factor discovery guide](../../docs/factor_discovery.md). This survey does not
-extend its operator grammar or automatically bind any of these candidates.
+automatically bind any of these candidates. The connected
+[`--research-mode discovery` path](../../docs/news_driven_discovery.md) makes the two
+existing Qlib ROC/MA adapters and an additional local Qlib KMID adapter available
+with explicit price inputs, and permits new versioned DSL expressions. Other records
+remain searchable with missing-input/operator or reference-only diagnostics.
 
 ## Contents
 
