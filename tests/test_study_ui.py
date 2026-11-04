@@ -105,16 +105,18 @@ def test_server_redirects_to_canonical_page_and_polls_with_queries(tmp_path, que
             connection.request("GET", "/test-token" + query)
             response = connection.getresponse()
             assert response.status == 302
-            assert response.headers["Location"] == "/test-token/" + query
+            assert response.headers["Location"] == "/test-token/"
             assert response.headers["Cache-Control"] == "no-store"
             assert response.headers["Content-Length"] == "0"
             assert response.read() == b""
             with urlopen(base + "/test-token" + query, timeout=3) as response:
-                assert response.url == base + "/test-token/" + query
+                assert response.url == base + "/test-token/"
+                state_url = urljoin(response.url, "state") + query
+                response.read()
+            with urlopen(base + "/test-token/" + query, timeout=3) as response:
                 assert response.headers.get_content_type() == "text/html"
                 assert b"THE RESEARCH LOOP" in response.read()
-                # Match the live page's relative fetch('state') after redirection.
-                state_url = urljoin(response.url, "state") + query
+            # Match the live page's relative fetch('state') after redirection.
             with urlopen(state_url, timeout=3) as response:
                 assert response.headers.get_content_type() == "application/json"
                 assert json.load(response)["symbol"] == "KO"

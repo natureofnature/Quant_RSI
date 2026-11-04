@@ -252,12 +252,12 @@ def make_server(root, token):
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            path, separator, query = self.path.partition("?")
+            path = self.path.partition("?")[0]
             if path == prefix[:-1]:
                 # Relative state polling requires the page URL's trailing slash.
                 self.server.last_request = time.monotonic()
                 self.send_response(302)
-                self.send_header("Location", prefix + separator + query)
+                self.send_header("Location", prefix)
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
