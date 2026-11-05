@@ -11,6 +11,11 @@ NOTICE = (
     "predictive usefulness or causality and do not select factors. "
     "Training observations may have overlapping return-label horizons."
 )
+FORECAST_NOTICE = (
+    "Current-cutoff input ranges and saved-model accounting only; no observed outcome, "
+    "feature selection or causal importance. Additive contributions use log_return units, "
+    "not simple-return percentage points. Training ranges do not guarantee future validity."
+)
 
 
 def diagnose_candidates(matrix, train, ids, baseline_count):
@@ -104,4 +109,132 @@ def diagnose_candidates(matrix, train, ids, baseline_count):
         "omitted_correlation_pairs": max(0, len(pairs) - MAX_CORRELATION_PAIRS),
         "absolute_correlation_threshold": CORRELATION_THRESHOLD,
         "notice": NOTICE,
+    }
+
+
+def diagnose_forecast(matrix, train, fit, baseline_count):
+    """Explain the last matrix row using admitted training rows and a saved fit only.
+
+    Prediction z uses the population training standard deviation, and is undefined
+    for a constant column. Ridge accounting uses the saved model's own scaler.
+    Missing/nonlinear states still permit input-range diagnostics.
+    """
+    from quant_rsi.research.study_estimators import StandardizedRidge
+
+    ids = fit["factor_ids"]
+    structure = diagnose_candidates(matrix, train, ids, baseline_count)
+    matrix, train = np.asarray(matrix, dtype=float), np.asarray(train)
+    x, point = matrix[train], matrix[-1]
+    predicted = float(fit["predicted_log_return"])
+    if not np.isfinite(point).all() or not np.isfinite(predicted):
+        raise ValueError("Forecast diagnostics require finite prediction values")
+    columns = []
+    for index, column in enumerate(structure["columns"]):
+        values, value = x[:, index], float(point[index])
+        # Normalization keeps range summaries serializable even for large inputs.
+        magnitude = max(float(np.max(np.abs(values))), abs(value), 1.0)
+        scaled = values / magnitude
+        scale = float(scaled.std())
+        constant = bool(np.all(values == values[0]))
+        z = (value / magnitude - float(scaled.mean())) / scale if scale and not constant else None
+        columns.append(
+            {
+                "factor_id": column["factor_id"],
+                "role": column["role"],
+                "training_min": float(values.min()),
+                "training_max": float(values.max()),
+                "distinct_values": column["distinct_values"],
+                "constant": constant,
+                "prediction_value": value,
+                "prediction_z": float(z) if z is not None and np.isfinite(z) else None,
+                "outside_training_range": bool(value < values.min() or value > values.max()),
+            }
+        )
+    decomposition = {
+        "available": False,
+        "units": "log_return",
+        "predicted_log_return": predicted,
+        "reason": "Linear saved state unavailable; no nonlinear importance decomposition inferred",
+    }
+    state = fit.get("state") or {}
+    if "coefficients" in state:
+        model = StandardizedRidge.from_state(state)
+        if len(model.mean) != len(ids):
+            raise ValueError("Saved ridge state does not match forecast factor columns")
+        contributions = ((point - model.mean) / model.scale) * model.coefficients
+        baseline, candidate = (
+            float(contributions[:baseline_count].sum()),
+            float(contributions[baseline_count:].sum()),
+        )
+        reconstructed = model.intercept + baseline + candidate
+        if not np.isfinite(contributions).all() or not np.isclose(
+            reconstructed, predicted, rtol=1e-10, atol=1e-12
+        ):
+            raise ValueError("Saved ridge accounting does not reconstruct the forecast")
+        decomposition = {
+            "available": True,
+            "units": "log_return",
+            "intercept": model.intercept,
+            "baseline_group": baseline,
+            "candidate_group": candidate,
+            "reconstructed_prediction": reconstructed,
+            "predicted_log_return": predicted,
+            "reconstruction_error": reconstructed - predicted,
+        }
+    return {
+        **{
+            key: structure[key]
+            for key in (
+                "training_samples",
+                "model_columns",
+                "baseline_columns",
+                "candidate_columns",
+            )
+        },
+        "columns": columns,
+        "outside_training_range_count": sum(c["outside_training_range"] for c in columns),
+        "decomposition": decomposition,
+        "notice": FORECAST_NOTICE,
+    }
+
+
+def summarize_forecast(diagnostic):
+    """Bound the LLM view without ranking factors or introducing outcome fields."""
+    outside = [c for c in diagnostic["columns"] if c["outside_training_range"]]
+    return {
+        "training_samples": diagnostic["training_samples"],
+        "model_columns": diagnostic["model_columns"],
+        "decomposition": dict(diagnostic["decomposition"]),
+        "outside_training_range_count": len(outside),
+        "outside_training_range_columns": [dict(column) for column in outside[:8]],
+        "omitted_outside_training_range_columns": max(0, len(outside) - 8),
+        "notice": FORECAST_NOTICE,
+    }
+
+
+def compare_forecast_diagnostics(fixed, adaptive):
+    """Account for refitted baseline weights separately from added columns."""
+
+    def base_ids(item):
+        return [c["factor_id"] for c in item["columns"] if c["role"] == "baseline"]
+
+    result = {"available": False, "units": "log_return", "notice": FORECAST_NOTICE}
+    if (
+        not fixed.get("comparison_identity")
+        or fixed["comparison_identity"] != adaptive.get("comparison_identity")
+        or base_ids(fixed) != base_ids(adaptive)
+        or fixed["candidate_columns"]
+    ):
+        return result | {
+            "reason": "Matching training rows, labels and baseline input identity are required"
+        }
+    left, right = fixed["decomposition"], adaptive["decomposition"]
+    if not (left["available"] and right["available"]):
+        return result | {"reason": "Both saved linear decompositions are required"}
+    return result | {
+        "available": True,
+        "intercept_change": right["intercept"] - left["intercept"],
+        "baseline_refit_change": right["baseline_group"] - left["baseline_group"],
+        "candidate_group": right["candidate_group"],
+        "predicted_log_return_change": right["predicted_log_return"] - left["predicted_log_return"],
     }

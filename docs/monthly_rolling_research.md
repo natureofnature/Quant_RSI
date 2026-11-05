@@ -240,6 +240,41 @@ actual model columns, and LightGBM split counts/gain or standardized Ridge
 coefficients. These describe model use, not reliability or causal importance.
 Different expressions of the same topic do not necessarily add information.
 
+### Forecast diagnostics supplied to research
+
+Before each decision, `baseline_diagnostics` describes the already fitted fixed
+model using only admitted training rows and the current prediction inputs. It
+includes training ranges, distinct-value counts and prediction z-scores. A
+constant training column has no defined z-score; an outside-range value indicates
+extrapolation, not proof that the forecast is wrong. The LLM receives at most eight
+outside-range columns in input order, with the omitted count; the saved fold and
+HTML report retain every column.
+
+For Ridge, the saved scaler and coefficients reconstruct the prediction as
+intercept + baseline terms + candidate terms. The paired adaptive-minus-fixed
+accounting separates changes in baseline coefficients from new candidate terms;
+it requires the same training rows, labels, baseline columns and prediction inputs.
+These are log-return units, not simple-return percentage points, causal effects
+or predictive importance. Missing and nonlinear model states report accounting
+as unavailable. No additional fitting, clipping or automatic selection is done.
+
+Only settled earlier months supply outcome feedback. Their diagnostics and paired
+accounting accompany that feedback; the current month's target is not supplied.
+New decisions may differ because the LLM has more information. The context is
+part of the decision-cache identity, so older prompts are not silently reused.
+Frozen previous experiments and their input receipts remain unchanged.
+
+### Issuer article text
+
+Article reading preserves visible paragraphs and tables inside page-wide HTML
+forms, a layout used by some issuer investor-relations sites. Actual form controls,
+hidden elements and existing navigation/script exclusions are removed; article,
+main and body preference and transport/size limits remain unchanged. This is text
+extraction, not a semantic table parser or a guarantee of full-article coverage.
+New text and hashes belong to new acquisitions. Fetch receipt times remain actual
+receipt times; a newly read old release does not become point-in-time evidence.
+Retained historical mode still does not fetch new articles.
+
 To compare pools without collecting a different news corpus, add
 `--news-history /tmp/soxx-monthly-news/news_history` alongside `--news-research`.
 The acquisition must match the requested symbol, search query and full date range.
