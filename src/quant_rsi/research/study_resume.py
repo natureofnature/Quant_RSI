@@ -23,6 +23,12 @@ def binding(configuration):
     files += list((source.parents[1] / "instruments").rglob("*.json"))
     if configuration.get("catalog"):
         files.append(Path(configuration["catalog"]).resolve())
+    if configuration.get("profile") and configuration.get("input_identity", {}).get(
+        "window_profile_sha256"
+    ):
+        # Rolling windows bind the retained input bytes, not the editable source profile.
+        window_profile = Path(configuration["profile"]).resolve()
+        files = [path for path in files if path.resolve() != window_profile]
     dependencies = ["numpy", "lightgbm", "pydantic"]
     if configuration.get("financials"):
         dependencies += ["pypdf", "fonttools", "openpyxl", "et-xmlfile"]

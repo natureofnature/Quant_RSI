@@ -429,8 +429,13 @@ def render_rolling(result):
             for f in folds
         ],
     )
+    window_kind = (
+        "trading-session"
+        if result.get("configuration", {}).get("train_sessions") is not None
+        else "calendar"
+    )
     parts.append(
-        "<p>Each model is retrained on its fixed calendar window using only labels "
+        f"<p>Each model is retrained on its fixed {window_kind} window using only labels "
         "mature at that forecast origin. Feature warm-up and unmatured labels reduce "
         "the actual training sample. Returns below are close-to-close price returns.</p>"
     )

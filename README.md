@@ -479,7 +479,11 @@ For rolling training windows with news-driven factor revisions, continuous
 accounts and baseline comparisons, see [rolling research](docs/monthly_rolling_research.md).
 Use `research-rolling ... --horizon-sessions 3 --news-research --llm codex`
 for a three-trading-session forecast and feedback cycle; `--train-months 6`
-controls the training window separately. Omitting the horizon option retains
+controls the training window separately. For instrument-owned settings, use
+`--profile instruments/US/SOXX/rolling.json`: 126 history sessions and a 3-session
+forecast/test interval (93 fitted rows after warm-up and label maturity exclusions).
+Override these with `--train-sessions` and `--horizon-sessions`. Runs freeze a copy
+of the profile for resume. Omitting both the profile and horizon options retains
 calendar-month forecasts. See the [complete three-session example](docs/monthly_rolling_research.md#three-trading-session-news-research).
 Add `--candidate-revision` to let the LLM inspect training coverage, redundancy
 and screening failures, then revise once at the same cutoff before fitting the

@@ -144,6 +144,8 @@ def decision_context(
         context["max_data_requests"] = 2
     if fold.get("period_kind") == "trading_sessions":
         context.update(period_kind="trading_sessions", period_id=fold["period_id"])
+        if "training_window_sessions" in fold:
+            context["training_window_sessions"] = fold["training_window_sessions"]
     return context
 
 

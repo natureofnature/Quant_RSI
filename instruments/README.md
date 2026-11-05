@@ -17,6 +17,42 @@ ownership, examples and the remaining execution boundary.
 
 ## Tracked Profiles
 
+### Rolling research windows
+
+[`US/SOXX/rolling.json`](US/SOXX/rolling.json) configures the SOXX rolling study:
+
+```json
+{
+  "schema_version": 1,
+  "kind": "RollingWindowProfile",
+  "instrument": "SOXX",
+  "training_window_sessions": 126,
+  "horizon_sessions": 3
+}
+```
+
+Load it explicitly with `research-rolling SOXX --profile instruments/US/SOXX/rolling.json`
+alongside the required price, target-month and output arguments. Both lengths count
+exchange trading sessions. The first is retained price history, including 30 warm-up
+rows and the final horizon rows with immature labels: 126/3 yields 93 fitted rows.
+The second is the forecast/test interval and decision stride, not a separate
+independent validation set. The target-month range determines the total test span.
+
+CLI `--train-sessions` and `--horizon-sessions` override the corresponding profile
+values. `--train-months` instead selects calendar-month training; it cannot be
+combined with `--train-sessions`. The profile requires 61..445 history sessions,
+1..20 horizon sessions and at least `60 + horizon_sessions` history sessions.
+Copy this profile into another stock's directory and change its instrument identity;
+the requested symbol must match. It does not provision market or news data.
+
+Each run retains `window_profile.json` and its hash. `--resume` with the original
+command uses that retained copy, so editing the source profile affects new runs
+only; changing effective CLI settings requires a new output directory. Without
+`--profile`, existing defaults remain six calendar months and calendar-month
+forecasts. See the [complete rolling example](../docs/monthly_rolling_research.md#three-trading-session-news-research).
+
+### Connected studies and forecast workflows
+
 For `research-study`, KO and XOM have `relationships.json`, `news_feed.json` and
 `factors.json` configurations. XOM uses its official issuer RSS, a dated CVX
 joint-venture relationship and a local XOM-minus-CVX return composition over

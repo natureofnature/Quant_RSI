@@ -24,6 +24,7 @@ from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.rolling_acquired import AcquiredResolver, load_acquired_history
 from quant_rsi.research.rolling_candidates import screen_candidates
+from quant_rsi.research.rolling_config import load_window_profile
 from quant_rsi.research.rolling_diagnostics import (
     compare_forecast_diagnostics,
     diagnose_candidates,
@@ -86,7 +87,10 @@ def add_arguments(commands):
     )
     parser.add_argument("--first-month", required=True, help="first forecast month, YYYY-MM")
     parser.add_argument("--last-month", required=True, help="last forecast month, YYYY-MM")
-    parser.add_argument("--train-months", type=int, default=6)
+    parser.add_argument("--profile", type=Path, help="instrument-owned rolling window JSON")
+    training = parser.add_mutually_exclusive_group()
+    training.add_argument("--train-months", type=int, help="calendar-month history; default 6")
+    training.add_argument("--train-sessions", type=int, help="exact trading-session history window")
     parser.add_argument(
         "--horizon-sessions",
         type=int,
@@ -822,6 +826,24 @@ def aggregate(data, folds, policy):
 def run_rolling(args):
     symbol = args.symbol.strip().upper()
     root = args.output.resolve()
+    train_months = getattr(args, "train_months", None)
+    train_sessions = getattr(args, "train_sessions", None)
+    horizon = getattr(args, "horizon_sessions", None)
+    profile_path, profile_raw = getattr(args, "profile", None), None
+    if train_months is not None and train_sessions is not None:
+        raise ValueError("Choose --train-months or --train-sessions, not both")
+    if profile_path is not None:
+        profile, profile_raw = load_window_profile(
+            root / "window_profile.json" if args.resume else profile_path, symbol
+        )
+        if train_months is None and train_sessions is None:
+            train_sessions = profile.training_window_sessions
+        if horizon is None:
+            horizon = profile.horizon_sessions
+    if train_sessions is not None and horizon is None:
+        raise ValueError("--train-sessions requires --horizon-sessions or a window profile")
+    if train_months is None and train_sessions is None:
+        train_months = 6
     review_path = getattr(args, "price_basis_review", None)
     if review_path and getattr(args, "ohlcv_features", False):
         raise ValueError("Reviewed O/C price basis does not qualify --ohlcv-features")
@@ -837,12 +859,17 @@ def run_rolling(args):
         else None
     )
     calendar = read_calendar(args.prices_dir)
-    horizon = getattr(args, "horizon_sessions", None)
     plan = (
-        monthly_plan(data, calendar, args.first_month, args.last_month, args.train_months)
+        monthly_plan(data, calendar, args.first_month, args.last_month, train_months)
         if horizon is None
         else session_plan(
-            data, calendar, args.first_month, args.last_month, args.train_months, horizon
+            data,
+            calendar,
+            args.first_month,
+            args.last_month,
+            train_months if train_months is not None else 6,
+            horizon,
+            train_sessions=train_sessions,
         )
     )
     if review_path:
@@ -923,6 +950,7 @@ def run_rolling(args):
         if k not in {"resume", "command"}
         and not (k == "price_basis_review" and v is None)
         and not (k == "horizon_sessions" and v is None)
+        and not (k in {"profile", "train_sessions"} and v is None)
         and not (k == "gpr_history" and v is None)
         and not (k == "ohlcv_features" and not v)
         and not (k in {"acquired_history", "max_extractions"} and not acquired_paths)
@@ -933,6 +961,13 @@ def run_rolling(args):
         output=str(root),
         factor_root=str(Path(__file__).resolve().parents[3] / "instruments"),
     )
+    if train_sessions is not None:
+        config.pop("train_months", None)
+        config["train_sessions"] = train_sessions
+    else:
+        config["train_months"] = train_months
+    if horizon is not None:
+        config["horizon_sessions"] = horizon
     config["input_identity"] = {
         "target": info,
         "peers": peer_info,
@@ -940,6 +975,9 @@ def run_rolling(args):
         "history_sha256": digest(canonical(frozen_history)) if frozen_history is not None else None,
         "risk_sha256": digest(canonical(risk_history)) if risk_history is not None else None,
     }
+    if profile_raw is not None:
+        config["profile"] = str(profile_path.resolve())
+        config["input_identity"]["window_profile_sha256"] = digest(profile_raw)
     if gpr_history is not None:
         config["input_identity"]["gpr_sha256"] = digest(canonical(gpr_history))
     if ohlcv_history is not None:
@@ -959,7 +997,10 @@ def run_rolling(args):
         "symbol": symbol,
         "configuration": config,
         "notice": (NOTICE if horizon is None else SESSION_NOTICE.format(horizon=horizon)).replace(
-            "six-month", f"{args.train_months}-month"
+            "six-month",
+            f"{train_sessions}-trading-session"
+            if train_sessions is not None
+            else f"{train_months}-month",
         ),
         "price_basis_notice": args.price_note
         + (
@@ -985,6 +1026,8 @@ def run_rolling(args):
 
     with run_lock(root):
         cache = StudyCache(root, config, resume=args.resume)
+        if profile_raw is not None and not args.resume:
+            atomic_write(root / "window_profile.json", profile_raw)
         if review_path and not args.resume:
             destination = root / "price_basis_review"
             for name in ["review.json"] + [
