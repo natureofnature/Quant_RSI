@@ -482,6 +482,11 @@ Add `--candidate-revision` to let the LLM inspect training coverage, redundancy
 and screening failures, then revise once at the same cutoff before fitting the
 final pool. This adds one provider operation per month and no model fits;
 structural diagnostics are not evidence of predictive usefulness.
+The LLM also receives the fixed model's current input ranges and, for Ridge,
+saved-model prediction accounting. Reports show these diagnostics alongside
+baseline comparisons; they add no fits and do not establish factor importance.
+Use `--max-candidates 16 --max-news-inputs 32` for a larger joint candidate pool
+(up to 32 candidates), subject to executable inputs and training coverage.
 The LLM can select an exact subset of existing recipes by reference, preserving
 their definitions and ancestry without regenerating retained factors.
 Add `--news-research` to acquire dated headlines and train executable,

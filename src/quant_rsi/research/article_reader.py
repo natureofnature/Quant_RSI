@@ -1,4 +1,4 @@
-"""Bounded public-page reads for current research context, never historical training data."""
+"""Bounded public-page text with actual receipt times; historical admission is separate."""
 
 import gzip
 import hashlib
@@ -108,7 +108,14 @@ class _ArticleText(HTMLParser):
         "header",
         "noscript",
         "svg",
-        "form",
+        "textarea",
+        "select",
+        "option",
+        "optgroup",
+        "button",
+        "label",
+        "datalist",
+        "output",
         "aside",
         "template",
     }
@@ -132,11 +139,25 @@ class _ArticleText(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.stack = []
+        self.hidden_depths = []
         self.parts = {"article": [], "main": [], "body": []}
 
     def handle_starttag(self, tag, attrs):
         if tag not in self._void:
             self.stack.append(tag)
+            attributes = dict(attrs)
+            styles = {}
+            for declaration in (attributes.get("style") or "").lower().split(";"):
+                name, separator, value = declaration.partition(":")
+                if separator:
+                    styles[name.strip()] = value.strip().removesuffix("!important").strip()
+            if (
+                "hidden" in attributes
+                or (attributes.get("aria-hidden") or "").strip().lower() == "true"
+                or styles.get("display") == "none"
+                or styles.get("visibility") == "hidden"
+            ):
+                self.hidden_depths.append(len(self.stack))
 
     def handle_startendtag(self, tag, attrs):
         pass
@@ -145,9 +166,10 @@ class _ArticleText(HTMLParser):
         if tag in self.stack:
             index = len(self.stack) - 1 - self.stack[::-1].index(tag)
             del self.stack[index:]
+            self.hidden_depths = [depth for depth in self.hidden_depths if depth <= len(self.stack)]
 
     def handle_data(self, data):
-        if self._ignored.intersection(self.stack):
+        if self.hidden_depths or self._ignored.intersection(self.stack):
             return
         self.parts["body"].append(data)
         for tag in ("article", "main"):

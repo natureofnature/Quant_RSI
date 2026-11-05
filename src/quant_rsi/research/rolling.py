@@ -24,7 +24,12 @@ from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.rolling_acquired import AcquiredResolver, load_acquired_history
 from quant_rsi.research.rolling_candidates import screen_candidates
-from quant_rsi.research.rolling_diagnostics import diagnose_candidates
+from quant_rsi.research.rolling_diagnostics import (
+    compare_forecast_diagnostics,
+    diagnose_candidates,
+    diagnose_forecast,
+    summarize_forecast,
+)
 from quant_rsi.research.rolling_news_sources import collect_history, load_history, select_evidence
 from quant_rsi.research.rolling_ohlcv import load_ohlcv_history
 from quant_rsi.research.rolling_research import (
@@ -258,6 +263,13 @@ def _feedback(folds, cutoff):
                 "candidate_status": fold["candidate_status"],
                 "candidate_pool": fold.get("candidate_pool"),
                 "candidate_rejections": fold.get("candidate_rejections", []),
+                "forecast_diagnostics": {
+                    arm: summarize_forecast(value)
+                    for arm, value in fold.get("forecast_diagnostics", {}).items()
+                },
+                "paired_forecast_decomposition": deepcopy(
+                    fold.get("paired_forecast_decomposition")
+                ),
                 "actual_adaptive_factors": fold["fits"].get("adaptive", {}).get("factor_ids", []),
                 "forecasts": deepcopy(fold["forecasts"]),
                 "errors": {
@@ -415,6 +427,7 @@ def run_months(
         folder = root / fold["month"]
         folder.mkdir(exist_ok=True)
         fold["forecasts"], fold["fits"] = {}, {}
+        baseline_count = len(baseline)
 
         def fit(
             arm,
@@ -422,6 +435,7 @@ def run_months(
             ids,
             *,
             train=train,
+            baseline_count=baseline_count,
             labels=labels,
             planned=planned,
             fold=fold,
@@ -444,6 +458,19 @@ def run_months(
             _write(folder / f"{arm}_model.json", fitted)
             fold["fits"][arm] = {k: v for k, v in fitted.items() if k != "state"}
             fold["fits"][arm]["training_information_cutoff"] = fold["training_targets"][-1]
+            diagnostic = diagnose_forecast(values, train, fitted, baseline_count)
+            diagnostic["comparison_identity"] = digest(
+                canonical(
+                    {
+                        "baseline_factor_ids": ids[:baseline_count],
+                        "training_origins": fold["training_origins"],
+                        "baseline_x": values[train, :baseline_count].tolist(),
+                        "prediction_baseline_x": values[-1, :baseline_count].tolist(),
+                        "labels": labels.tolist(),
+                    }
+                )
+            )
+            fold.setdefault("forecast_diagnostics", {})[arm] = diagnostic
             return _forecast(fold, prefix.closes[-1, 0], fitted["predicted_log_return"])
 
         fold["forecasts"]["fixed"] = fit("fixed", matrix, baseline)
@@ -479,6 +506,7 @@ def run_months(
             max_news_inputs,
             acquired_inputs=acquired_view,
         )
+        context["baseline_diagnostics"] = summarize_forecast(fold["forecast_diagnostics"]["fixed"])
         _write(folder / "research_context.json", context)
         fold["news_coverage"] = news["coverage_status"]
         fold["feedback_months"] = [value["month"] for value in context["mature_feedback"]]
@@ -633,6 +661,9 @@ def run_months(
                             acquired_inputs=acquired_view,
                         )
                         revision_context["candidate_review"] = deepcopy(attempt)
+                        revision_context["baseline_diagnostics"] = deepcopy(
+                            context["baseline_diagnostics"]
+                        )
                         _write(folder / "research_revision_context.json", revision_context)
                         operation = f"{fold['month']}_revision_decision"
                         try:
@@ -693,6 +724,12 @@ def run_months(
                 fold["forecasts"]["adaptive"] = deepcopy(fold["forecasts"]["fixed"])
             if "adaptive" not in fold["fits"]:
                 fold["fits"]["adaptive"] = deepcopy(fold["fits"]["fixed"]) | {"reused_arm": "fixed"}
+                fold["forecast_diagnostics"]["adaptive"] = deepcopy(
+                    fold["forecast_diagnostics"]["fixed"]
+                )
+            fold["paired_forecast_decomposition"] = compare_forecast_diagnostics(
+                fold["forecast_diagnostics"]["fixed"], fold["forecast_diagnostics"]["adaptive"]
+            )
         fold["candidate_recipes"] = deepcopy(incumbent)
         fold["candidate_news_inputs"] = deepcopy(incumbent_news)
         if acquired_view is not None:

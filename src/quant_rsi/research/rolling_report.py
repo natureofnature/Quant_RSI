@@ -52,6 +52,116 @@ def render_rolling(result):
         )
 
     folds = result.get("folds") or []
+    diagnosed = [
+        (fold["month"], arm, diagnostic)
+        for fold in folds
+        for arm, diagnostic in fold.get("forecast_diagnostics", {}).items()
+    ]
+    if diagnosed:
+        parts.append(
+            "<details><summary>Forecast input ranges and model decomposition</summary>"
+            "<p>Ranges use admitted training rows only. Outside-range inputs indicate "
+            "extrapolation, not a wrong forecast. Constant columns have no defined z-score. "
+            "Model terms below are log-return percentage points (100 × log return), "
+            "not simple-return percentage points or causal factor importance. "
+            "No additional models are fitted for these diagnostics.</p>"
+        )
+        table(
+            "Saved model accounting",
+            [
+                "Month",
+                "Model",
+                "Training rows",
+                "Columns",
+                "Outside range",
+                "Intercept",
+                "Baseline terms",
+                "Candidate terms",
+                "Total log return",
+                "Accounting status",
+            ],
+            [
+                [
+                    month,
+                    ARMS.get(arm, arm),
+                    diagnostic["training_samples"],
+                    diagnostic["model_columns"],
+                    diagnostic["outside_training_range_count"],
+                    *[
+                        _number(100 * decomposition[key]) if key in decomposition else None
+                        for key in (
+                            "intercept",
+                            "baseline_group",
+                            "candidate_group",
+                            "predicted_log_return",
+                        )
+                    ],
+                    "Available" if decomposition["available"] else decomposition.get("reason"),
+                ]
+                for month, arm, diagnostic in diagnosed
+                for decomposition in [diagnostic["decomposition"]]
+            ],
+        )
+        table(
+            "Prediction inputs versus training range",
+            [
+                "Month",
+                "Model",
+                "Factor",
+                "Role",
+                "Training min",
+                "Training max",
+                "Distinct values",
+                "Prediction input",
+                "Training z-score",
+                "Outside range",
+            ],
+            [
+                [
+                    month,
+                    ARMS.get(arm, arm),
+                    column["factor_id"],
+                    column["role"],
+                    _number(column["training_min"]),
+                    _number(column["training_max"]),
+                    column["distinct_values"],
+                    _number(column["prediction_value"]),
+                    _number(column["prediction_z"]),
+                    column["outside_training_range"],
+                ]
+                for month, arm, diagnostic in diagnosed
+                for column in diagnostic["columns"]
+            ],
+        )
+        table(
+            "Adaptive minus fixed accounting",
+            [
+                "Month",
+                "Intercept change",
+                "Baseline coefficient refit",
+                "Candidate terms",
+                "Total log-return change",
+                "Accounting status",
+            ],
+            [
+                [
+                    fold["month"],
+                    *[
+                        _number(100 * pair[key]) if key in pair else None
+                        for key in (
+                            "intercept_change",
+                            "baseline_refit_change",
+                            "candidate_group",
+                            "predicted_log_return_change",
+                        )
+                    ],
+                    "Available" if pair["available"] else pair.get("reason"),
+                ]
+                for fold in folds
+                if (pair := fold.get("paired_forecast_decomposition"))
+            ],
+        )
+        parts.append("</details>")
     attempts = [
         (fold["month"], attempt) for fold in folds for attempt in fold.get("candidate_attempts", [])
     ]

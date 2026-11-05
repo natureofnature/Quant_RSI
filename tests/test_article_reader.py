@@ -92,6 +92,77 @@ def test_html_prefers_article_and_pins_public_address_with_tls_hostname(transpor
     assert "not_verified_full_article" in result["content_extent"]
 
 
+def test_outer_form_preserves_financial_body_and_tables_without_controls(transport):
+    # Server-rendered issuer pages can wrap the entire report in an ASP.NET form,
+    # without any article/main element. Form attribute values are never body text.
+    body = b"""<body><form method="post" action="/report">
+    <input type="hidden" name="state" value="secret-state"/>
+    <header>Account menu</header><nav>Investor navigation</nav>
+    <div><h1>Quarterly results</h1><p>May 24, 2023</p>
+    <h2>Data Center</h2><p>Revenue was $4.28 billion, up 14% from a year ago.</p>
+    <table><tr><th>Period</th><th>Revenue</th></tr>
+    <tr><td>Q1</td><td>$4.28 billion</td></tr></table></div>
+    <label>Email address<input type="password" value="secret-password"></label>
+    <textarea>secret-draft</textarea><button>Subscribe</button>
+    <select><optgroup label="Options"><option>Marketing alerts</option></optgroup></select>
+    <datalist><option>Suggested account</option></datalist><output>Private calculation</output>
+    <script>secret-script</script><style>secret-style</style><footer>Footer links</footer>
+    </form></body>"""
+    transport["responses"].append(Response(body))
+    result = reader.read_article("https://public.test/report")
+    assert result["status"] == "available"
+    assert result["text"] == (
+        "Quarterly results May 24, 2023 Data Center "
+        "Revenue was $4.28 billion, up 14% from a year ago. Period Revenue Q1 $4.28 billion"
+    )
+    assert result["content_sha256"] == hashlib.sha256(body).hexdigest()
+    assert datetime.fromisoformat(result["received_at"]).tzinfo is not None
+
+
+@pytest.mark.parametrize("scope", ["main", "article"])
+def test_semantic_body_preference_is_preserved_inside_form(transport, scope):
+    body = f"<form>Other content<{scope}>Issuer report</{scope}>Related links</form>".encode()
+    transport["responses"].append(Response(body))
+    assert reader.read_article("https://public.test/report")["text"] == "Issuer report"
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        "hidden",
+        'hidden="false"',  # HTML boolean attributes are true by their presence.
+        'aria-hidden=" TRUE "',
+        'style="display: none"',
+        'style="color: red; DISPLAY: none !important ;"',
+        'style="visibility: hidden"',
+    ],
+)
+def test_explicit_hidden_containers_do_not_leak_or_hide_following_body(transport, attribute):
+    body = f"""<form><div {attribute}><span>Hidden UI</span>
+    <div hidden>Nested hidden UI</div>Still hidden</div>
+    <input hidden value="secret-state"><input hidden value="other-secret"/>
+    <div aria-hidden="false">Visible report</div></form>""".encode()
+    transport["responses"].append(Response(body))
+    assert reader.read_article("https://public.test/report")["text"] == "Visible report"
+
+
+def test_hidden_scope_closes_with_ancestor_even_for_imperfect_markup(transport):
+    body = b"<form><div hidden><span>Hidden</unknown></div>Visible report</form>"
+    transport["responses"].append(Response(body))
+    assert reader.read_article("https://public.test/report")["text"] == "Visible report"
+
+
+def test_control_only_form_has_no_readable_article(transport):
+    body = b"""<form><label>Password<input type="password" value="secret"></label>
+    <textarea>secret draft</textarea><button>Sign in</button>
+    <select><option>Account choice</option></select><div hidden>Hidden UI</div></form>"""
+    transport["responses"].append(Response(body))
+    result = reader.read_article("https://public.test/report")
+    assert result["status"] == "unavailable"
+    assert result["reason"] == "no_readable_text"
+    assert result["text"] == ""
+
+
 @pytest.mark.parametrize(
     "body,kind,expected",
     [
