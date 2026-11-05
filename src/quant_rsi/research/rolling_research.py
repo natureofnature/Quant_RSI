@@ -338,7 +338,7 @@ def admit_decision(
     return decision.model_dump(mode="json"), candidates
 
 
-def candidate_matrix(candidates, columns, definitions, baseline, required):
+def candidate_matrix(candidates, columns, definitions, baseline, required, *, input_evidence=None):
     matrix = [columns[name] for name in baseline]
     identities = list(baseline)
     refs = set()
@@ -348,7 +348,7 @@ def candidate_matrix(candidates, columns, definitions, baseline, required):
             raise ValueError("Duplicate candidate recipe")
         refs.add(candidate.recipe_ref)
         definition = candidate.definition(definitions)
-        values = compute_factor(definition, columns, definitions)
+        values = compute_factor(definition, columns, definitions, input_evidence=input_evidence)
         if not np.isfinite(values[required]).all():
             raise ValueError("Candidate unavailable on the fixed training/prediction sample")
         if any(np.array_equal(values[required], col[required]) for col in matrix):
@@ -360,7 +360,9 @@ def candidate_matrix(candidates, columns, definitions, baseline, required):
     return np.column_stack(matrix), identities
 
 
-def verify_news_dependency(candidates, columns, definitions, required, *, acquired_inputs=()):
+def verify_news_dependency(
+    candidates, columns, definitions, required, *, acquired_inputs=(), input_evidence=None
+):
     """Reject nominal news bindings whose computed feature ignores the news input.
 
     This numerical screening is not a symbolic proof of every possible dependency.
@@ -374,15 +376,20 @@ def verify_news_dependency(candidates, columns, definitions, required, *, acquir
             if item.factor_id.startswith("news.") or item.factor_id in acquired_inputs
         ]
         definition = candidate.definition(definitions)
-        original = compute_factor(definition, columns, definitions)[required]
+        original = compute_factor(definition, columns, definitions, input_evidence=input_evidence)[
+            required
+        ]
         depends = False
         for source in sources:
             values = columns[source]
             for replacement in (np.zeros_like(values), 1 + np.arange(len(values), dtype=float) % 7):
                 probe = np.where(np.isfinite(values), replacement, np.nan)
-                changed = compute_factor(definition, columns | {source: probe}, definitions)[
-                    required
-                ]
+                changed = compute_factor(
+                    definition,
+                    columns | {source: probe},
+                    definitions,
+                    input_evidence=input_evidence,
+                )[required]
                 comparable = np.isfinite(original) & np.isfinite(changed)
                 if np.any(
                     ~np.isclose(original[comparable], changed[comparable], rtol=1e-10, atol=1e-12)

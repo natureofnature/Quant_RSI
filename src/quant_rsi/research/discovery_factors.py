@@ -17,7 +17,7 @@ from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.factors.expressions import Name, SeriesFactorExpression, evaluate_series
 from quant_rsi.factors.price_adapters import CandidatePriceRecipe, evaluate_price_adapter
-from quant_rsi.market.market_contracts import Hash
+from quant_rsi.market.market_contracts import Hash, timestamp
 
 SURVEY_BINDINGS = {
     "qlib.kmid": {"open": "price.open", "close": "price.close"},
@@ -264,6 +264,14 @@ class DiscoveryFactor(StrictModel):
         }
         if self.parent_recipe_refs:
             definition["parent_recipe_refs"] = list(self.parent_recipe_refs)
+        groups = {}
+        for item in self.inputs:
+            forecast = sources.get(item.factor_id, {}).get("forecast") or {}
+            if forecast.get("pairing_group"):
+                groups.setdefault(forecast["pairing_group"], set()).add(item.factor_id)
+        paired = [sorted(group) for _, group in sorted(groups.items()) if len(group) > 1]
+        if paired:
+            definition["forecast_pairing"] = {"version": 1, "groups": paired}
         return definition
 
 
@@ -295,7 +303,7 @@ def _expression_unit(proposal, sources):
     return values[proposal.expression.nodes[-1].name]
 
 
-def compute_factor(definition, columns, definitions=None):
+def compute_factor(definition, columns, definitions=None, *, input_evidence=None):
     """Resolve an exact expression to a numerical column; source admission is external."""
     recipe = definition["recipe"]
     if recipe.get("op") != "discovery_expression" or recipe.get("operator_version") != 2:
@@ -313,11 +321,77 @@ def compute_factor(definition, columns, definitions=None):
     )
     if proposal.recipe_ref != definition["recipe_ref"]:
         raise ValueError("Discovery recipe identity does not match its executable expression")
-    if definitions is not None and not proposal.definition(definitions)["runnable"]:
-        raise ValueError("Discovery expression needs admitted input definitions")
+    if definitions is not None:
+        expected = proposal.definition(definitions)
+        if not expected["runnable"]:
+            raise ValueError("Discovery expression needs admitted input definitions")
+        if definition.get("forecast_pairing") != expected.get("forecast_pairing"):
+            raise ValueError("Forecast pairing differs from admitted input definitions")
     missing = [item.factor_id for item in proposal.inputs if item.factor_id not in columns]
     if missing:
         raise ValueError(f"Discovery expression needs input: {', '.join(missing)}")
-    return evaluate_series(
-        proposal.expression, {item.name: columns[item.factor_id] for item in proposal.inputs}
-    )
+    bound = {item.name: columns[item.factor_id] for item in proposal.inputs}
+    pairing = definition.get("forecast_pairing", {"version": 1, "groups": []})
+    if pairing["version"] != 1:
+        raise ValueError("Unknown forecast pairing version")
+    for group_ids in pairing["groups"]:
+        forecasts = [item for item in proposal.inputs if item.factor_id in group_ids]
+        if len({item.factor_id for item in forecasts}) != len(group_ids) or len(group_ids) < 2:
+            raise ValueError("Invalid forecast pairing group")
+        _check_paired_temporal_expression(proposal, {item.name for item in forecasts})
+        evidence = input_evidence or {}
+        size = len(bound[forecasts[0].name])
+        rows = [evidence.get(item.factor_id, []) for item in forecasts]
+        if any(len(row) != size for row in rows):
+            raise ValueError("Combined forecasts need aligned vintage evidence")
+        for series in rows:
+            for row in series:
+                if "forecast_vintage" not in row:
+                    raise ValueError("Combined forecasts need complete vintage evidence")
+                vintage = row["forecast_vintage"]
+                if vintage is None:
+                    continue
+                if (
+                    not isinstance(vintage, dict)
+                    or set(vintage) != {"source_id", "published_at", "target_quarter"}
+                    or not all(
+                        isinstance(value, str) and value.strip() for value in vintage.values()
+                    )
+                    or not re.fullmatch(r"[1-9][0-9]{3}-Q[1-4]", vintage["target_quarter"])
+                ):
+                    raise ValueError("Invalid forecast vintage evidence")
+                timestamp(vintage["published_at"])
+        matched = np.array(
+            [
+                bool(group[0].get("forecast_vintage"))
+                and all(
+                    row.get("forecast_vintage") == group[0]["forecast_vintage"] for row in group
+                )
+                for group in zip(*rows, strict=True)
+            ],
+            dtype=bool,
+        )
+        # Mask inputs before temporal operators, so lags cannot consume mismatched vintages.
+        for item in forecasts:
+            bound[item.name] = np.where(matched, bound[item.name], np.nan)
+    return evaluate_series(proposal.expression, bound)
+
+
+def _check_paired_temporal_expression(proposal, paired_names):
+    """Support paired arithmetic followed by a unary temporal chain, without cross-vintage math."""
+    temporal = {"lag", "rolling_mean", "rolling_std", "rolling_zscore"}
+    dependencies, shifted = {}, {}
+    for node in proposal.expression.nodes:
+        names = (
+            {node.leaf}
+            if node.op == "leaf"
+            else set().union(*(dependencies[name] for name in node.inputs))
+        )
+        uses_pair = bool(names & paired_names)
+        prior_shift = any(shifted[name] for name in node.inputs)
+        if node.op in temporal and uses_pair and not paired_names <= names:
+            raise ValueError("Combine paired forecast inputs before temporal operators")
+        if prior_shift and node.op not in temporal:
+            raise ValueError("Paired forecast temporal operators must be an outermost unary chain")
+        dependencies[node.name] = names
+        shifted[node.name] = prior_shift or (node.op in temporal and uses_pair)
