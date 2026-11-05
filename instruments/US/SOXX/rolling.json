@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "kind": "RollingWindowProfile",
+  "instrument": "SOXX",
+  "training_window_sessions": 126,
+  "horizon_sessions": 3
+}

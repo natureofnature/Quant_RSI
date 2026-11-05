@@ -9,7 +9,8 @@ post-selection `research-study --walk-forward-folds` diagnostic.
 
 Add `--horizon-sessions 3` to predict cumulative close-to-close returns over exactly
 three exchange trading sessions and make the next decision at the previous target
-close. Training length remains independently controlled by `--train-months`.
+close. Training length remains independently controlled by `--train-months` or
+`--train-sessions`. An explicit instrument profile can provide both lengths.
 The news, measured business inputs, experimental-factor survey, candidate screening,
 model fitting and mature-feedback paths are shared with monthly research.
 
@@ -20,7 +21,7 @@ quant-rsi research-rolling SOXX \
   --prices-dir /path/to/retained/SOXX \
   --related-prices-dir /path/to/retained \
   --first-month 2026-07 --last-month 2026-10 \
-  --train-months 6 --horizon-sessions 3 \
+  --profile instruments/US/SOXX/rolling.json \
   --model ridge --llm codex --news-research \
   --max-candidates 16 --max-news-inputs 32 \
   --output /path/to/new/soxx-three-session-study
@@ -41,7 +42,17 @@ boundaries; a final remainder shorter than three sessions is not forecast or
 silently shortened. The planner retains at most one pending target, then stops.
 It requires complete observed training and forecast intervals.
 
-Each training window is `[origin + 1 calendar day - train_months, origin + 1 day)`;
+The SOXX profile selects exactly 126 retained exchange trading sessions through
+each origin and a 3-session forecast/test interval. This is about six months of
+history, not exactly six calendar months. It produces **93 fitted rows** after
+30 warm-up rows and 3 immature-label origins are excluded. Override either setting
+with `--train-sessions 180` or `--horizon-sessions 5`; an override changes only that
+setting. The profile's symbol must match the command. A copied profile and its hash
+are retained with the output; resume uses that copy, and rejects changed effective
+settings. See [profile fields and limits](../instruments/README.md#rolling-research-windows).
+
+For calendar-month training, use `--train-months 6` instead. Each such training
+window is `[origin + 1 calendar day - train_months, origin + 1 day)`;
 subtracting months clips a nonexistent day to that month's last day. Thirty rows
 are feature warm-up; the last three origins have immature labels and are excluded
 from training. Evaluation intervals do not overlap, but daily training labels can
@@ -62,7 +73,7 @@ fits. Three-session research therefore creates more calls than monthly research;
 start with a short target range. A shorter horizon gives earlier feedback, not a
 guarantee of predictive advantage. Compare RSI and baselines on the **same horizon,
 dates, information and costs**; lower three-day price MAE than monthly MAE alone
-does not establish an improvement. Omitting `--horizon-sessions` retains the
+does not establish an improvement. Omitting both `--profile` and `--horizon-sessions` retains the
 existing month-end behavior; 1–20 session horizons are supported, with at most
 240 complete intervals per task. Changing the horizon requires a new output run.
 

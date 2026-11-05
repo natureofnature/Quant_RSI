@@ -96,25 +96,44 @@ def period_id(fold):
     return fold["period_id"] if "period_id" in fold else fold["month"]
 
 
-def session_plan(data, calendar, first_month, last_month, train_months=6, horizon_sessions=3):
+def session_plan(
+    data,
+    calendar,
+    first_month,
+    last_month,
+    train_months=6,
+    horizon_sessions=3,
+    *,
+    train_sessions=None,
+):
     """Plan contiguous H-session targets within the requested calendar-month range.
 
     Training is the half-open calendar interval [origin + 1 day - M months,
     origin + 1 day), clipping the start day when its month is shorter. Only full
     H-session intervals are forecast; a trailing shorter interval is omitted.
     The first unavailable target is retained as pending, then planning stops.
+    An explicit train_sessions instead selects exactly N published sessions
+    through the origin, using retained dates to bound calendar verification.
     """
     first, last = month_start(first_month), month_start(last_month)
     if (
         first > last
-        or type(train_months) is not int
-        or not 1 <= train_months <= 24
+        or (
+            train_sessions is None
+            and (type(train_months) is not int or not 1 <= train_months <= 24)
+        )
         or type(horizon_sessions) is not int
         or not 1 <= horizon_sessions <= 20
     ):
         raise ValueError(
             "Ordered months, 1..24 training months and 1..20 horizon sessions required"
         )
+    if train_sessions is not None and (
+        type(train_sessions) is not int
+        or not 61 <= train_sessions <= 445
+        or train_sessions < 60 + horizon_sessions
+    ):
+        raise ValueError("Training sessions must be 61..445 and at least 60 + horizon sessions")
     if (last.year - first.year) * 12 + last.month - first.month >= 24:
         raise ValueError("At most 24 calendar months per session task")
     future = sessions(calendar, first, shift_month(last, 1) - timedelta(days=1))
@@ -129,15 +148,27 @@ def session_plan(data, calendar, first_month, last_month, train_months=6, horizo
         block = future[offset : offset + horizon_sessions]
         target = block[-1]
         end = date.fromisoformat(origin["session_id"])
-        exclusive_end = end + timedelta(days=1)
-        shifted = shift_month(exclusive_end, -train_months)
-        start = shifted.replace(
-            day=min(exclusive_end.day, monthrange(shifted.year, shifted.month)[1])
-        )
+        if train_sessions is None:
+            exclusive_end = end + timedelta(days=1)
+            shifted = shift_month(exclusive_end, -train_months)
+            start = shifted.replace(
+                day=min(exclusive_end.day, monthrange(shifted.year, shifted.month)[1])
+            )
+        else:
+            retained_history = [day for day in data.dates if day <= origin["session_id"]]
+            if len(retained_history) < train_sessions:
+                raise ValueError(
+                    f"Insufficient retained training sessions for {target['session_id']}"
+                )
+            start = date.fromisoformat(retained_history[-train_sessions])
         history = sessions(calendar, start, end)
         expected = [row["session_id"] for row in history]
         actual = [day for day in data.dates if start.isoformat() <= day <= end.isoformat()]
-        if not expected or actual != expected:
+        if (
+            not expected
+            or actual != expected
+            or (train_sessions is not None and len(expected) != train_sessions)
+        ):
             raise ValueError(f"Incomplete training history/calendar for {target['session_id']}")
         observed = [row["session_id"] for row in block if row["session_id"] <= data.dates[-1]]
         retained = [day for day in data.dates if origin["session_id"] < day <= target["session_id"]]
@@ -167,6 +198,8 @@ def session_plan(data, calendar, first_month, last_month, train_months=6, horizo
                 "calendar_sha256": calendar["sha256"],
             }
         )
+        if train_sessions is not None:
+            result[-1]["training_window_sessions"] = train_sessions
         if target["session_id"] > data.dates[-1]:
             break
         origin = target
