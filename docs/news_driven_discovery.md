@@ -151,6 +151,59 @@ observation supplied each numerical value. A declared last-disclosed-value rule 
 an observation within its maximum age; repeated daily copies are not independent historical
 measurements. Values are not backfilled before their effective availability.
 
+### Published quarterly expectations
+
+Active discovery can acquire a published forecast without treating it as an actual
+result. A `DataRequest` declares optional forecast metadata, for example:
+
+```json
+{"forecast": {"product": "conventional DRAM", "statistic": "lower",
+              "basis": "QoQ contract-price growth", "pairing_group": "memory_prices"}}
+```
+
+Use `forecast: null` for realized measurements. An extracted forecast retains a
+`target_quarter` such as `2026-Q1`, exact calendar-quarter start/end dates, the literal
+quarter excerpt (`1Q26` or `Q1 2026`), the numerical excerpt and publication evidence.
+A future target quarter is permitted; a future publication is not. Fiscal-quarter
+mappings are not supported. Named-month dates such as `5 January 2026` are accepted
+without relaxing ambiguous numeric date checks. Product, statistic and basis are
+declared measurement semantics; literal checks alone do not independently verify the
+financial interpretation, so source interpretation review remains necessary.
+
+Alignment uses the latest disclosed forecast vintage, then its latest target quarter,
+within the request's maximum age. It never uses a later revision at an earlier row.
+Retained mode still requires receipt/version/extraction availability. Forecast metadata,
+alignment policy and per-row source/publication/target keys enter the input identity.
+Existing realized requests and observations omit the new nullable fields, preserving
+their previous serialization and successful replay identities.
+
+Matching is opt-in: inputs with the same non-null `pairing_group`, used together in a
+candidate, must share the source article, publication vintage and target quarter on
+each row. Unmatched rows remain missing; the executor does not silently fall back to
+an older common pair. Different groups or null groups allow independent expectations.
+The generated candidate definition retains the pairing requirement. For paired inputs,
+combine the values first and apply any lag/rolling operations as an outermost unary
+chain. `lag(DRAM - NAND)` is supported; `lag(DRAM) - NAND` is rejected because it can
+mix different forecast vintages. Both study and rolling candidate execution enforce
+these rules; unused forecast bundles do not impose constraints on other candidates.
+
+An executable formula is not necessarily a trainable candidate: the fixed training
+and prediction rows must still have complete inputs. Missing releases remain a data
+acquisition task; do not extend the maximum age or remove rows solely to pass admission.
+
+A bounded SOXX integration run on 2026-11-05 used Codex `gpt-6.1-sol` with high
+reasoning effort to search an additional release and extract both forecast lower
+bounds from four TrendForce publications ([January 5](https://www.trendforce.com/presscenter/news/20260105-12860.html),
+[February 2](https://www.trendforce.com/presscenter/news/20260202-12911.html),
+[March 31](https://www.trendforce.com/presscenter/news/20260331-12995.html),
+[July 3](https://www.trendforce.com/presscenter/news/20260703-13134.html)). Eight observations
+passed source checks and the same-release DRAM-minus-NAND lower-bound difference
+computed on 87 of 126 retained historical rows. With the original 45-day maximum
+age, 39 of 93 training rows remained missing, although the prediction row was covered.
+The unchanged-sample admission check rejected fitting: **zero fits, no performance
+result**. This is current-time retrospective acquisition evidence, not a historically
+blind test, and four releases from one provider are not independent confirmations.
+
 Retrospective research can use current evidence to motivate historical experiments and
 must disclose reconstructed historical availability. Retained mode requires the existing
 historical receipt/version proofs before evidence enters any agent context. Selecting a

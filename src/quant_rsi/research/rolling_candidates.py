@@ -135,7 +135,12 @@ def screen_candidates(
                     raise ValueError(f"News input has no training variation: {identity}")
             active_columns, active_definitions = columns | nc, definitions + nd
             proposed_matrix, proposed_ids = candidate_matrix(
-                [record], active_columns, active_definitions, baseline, required
+                [record],
+                active_columns,
+                active_definitions,
+                baseline,
+                required,
+                input_evidence=acquired.get("input_evidence"),
             )
             values = proposed_matrix[:, -1]
             if news_required or measurements:
@@ -145,6 +150,7 @@ def screen_candidates(
                     active_definitions,
                     required,
                     acquired_inputs=qualified,
+                    input_evidence=acquired.get("input_evidence"),
                 )
             if len(np.unique(values[train])) < 2:
                 raise ValueError("Candidate expression has no training variation")

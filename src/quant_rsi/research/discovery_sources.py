@@ -13,13 +13,20 @@ from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, model_validator
+from pydantic import Field, model_serializer, model_validator
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.research.active_news import SearchResponse
 from quant_rsi.research.article_reader import read_article
+
+
+class ForecastMeasure(StrictModel):
+    product: str = Field(min_length=1, max_length=200)
+    statistic: Literal["point", "lower", "upper"]
+    basis: str = Field(min_length=1, max_length=100)
+    pairing_group: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")] | None = None
 
 
 class DataRequest(StrictModel):
@@ -30,6 +37,14 @@ class DataRequest(StrictModel):
     query: str = Field(min_length=1, max_length=500)
     source_urls: tuple[str, ...] = Field(default=(), max_length=6)
     max_age_days: int = Field(default=185, ge=1, le=730)
+    forecast: ForecastMeasure | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        value = handler(self)
+        if self.forecast is None:
+            value.pop("forecast", None)
+        return value
 
     @model_validator(mode="after")
     def urls(self):
@@ -52,6 +67,14 @@ class ExtractedObservation(StrictModel):
     unit: str
     excerpt: str = Field(min_length=1, max_length=1500)
     period_excerpt: str = Field(default="", max_length=1500)
+    target_quarter: Annotated[str, Field(pattern=r"^\d{4}-Q[1-4]$")] | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        value = handler(self)
+        if self.target_quarter is None:
+            value.pop("target_quarter", None)
+        return value
 
 
 class NumericalExtraction(StrictModel):
@@ -124,6 +147,10 @@ def _date_in_excerpt(day, excerpt):
         target.strftime("%b %d %Y").lower(),
         f"{target.strftime('%B').lower()} {target.day} {target.year}",
         f"{target.strftime('%b').lower()} {target.day} {target.year}",
+        f"{target.day} {target.strftime('%B').lower()} {target.year}",
+        f"{target.day} {target.strftime('%b').lower()} {target.year}",
+        target.strftime("%d %B %Y").lower(),
+        target.strftime("%d %b %Y").lower(),
         f"{target.month}/{target.day}/{target.year}",
     }
     if any(re.search(r"(?<!\w)" + re.escape(value) + r"(?!\w)", normalized) for value in variants):
@@ -137,6 +164,28 @@ def _date_in_excerpt(day, excerpt):
         )
         return re.search(numeric, normalized) is not None
     return False
+
+
+def _forecast_period(item, excerpt, source_text):
+    """Require a literal quarter and its exact calendar bounds, not inferred actuals."""
+    if item.target_quarter is None:
+        return False
+    # Do not let a shortened quote strip "fiscal"/"FY" from the source's quarter label.
+    for match in re.finditer(re.escape(excerpt), source_text):
+        context = source_text[max(0, match.start() - 64) : match.end() + 64]
+        if re.search(r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b", context, re.I):
+            return False
+    year, quarter = int(item.target_quarter[:4]), int(item.target_quarter[-1])
+    start = date(year, 3 * quarter - 2, 1)
+    following = date(year + (quarter == 4), 1 if quarter == 4 else 3 * quarter + 1, 1)
+    end = following - timedelta(days=1)
+    forms = (
+        rf"{quarter}Q(?:{year}|{year % 100:02d})",
+        rf"Q{quarter}\s+{year}",
+        rf"{year}[- ]Q{quarter}",
+    )
+    quoted = any(re.search(r"(?<!\w)" + form + r"(?!\w)", excerpt, re.I) for form in forms)
+    return item.period_start == start.isoformat() and item.period_end == end.isoformat() and quoted
 
 
 def _headline_only(article):
@@ -477,6 +526,15 @@ class DiscoverySources:
                 "arithmetic. Cite exact "
                 "contiguous excerpts supporting each value and period. Use period_excerpt for "
                 "a separate table/date header when the period is not adjacent to the value. "
+                "If request.forecast is present, extract published expectations for exactly its "
+                "product, statistic and basis, not realized values. Set target_quarter to YYYY-Qn "
+                "and period_start/end to that target quarter's actual calendar boundaries; quote "
+                "the calendar quarter literally in period_excerpt. Fiscal-quarter mappings are "
+                "unsupported; do not silently treat them as calendar quarters. "
+                "Future target quarters are allowed, "
+                "future publication dates are not. Extract only the current publication vintage, "
+                "not previous estimates quoted retrospectively. Otherwise target_quarter is null "
+                "and observations must describe realized periods. "
                 "publication_date is the "
                 "source's actual publication date, never the period end or retrieval "
                 "time; quote its "
@@ -570,15 +628,23 @@ def validate_extraction(
     for item in result.observations:
         try:
             end = date.fromisoformat(item.period_end)
-            if end > publication_day or (
-                item.period_start and date.fromisoformat(item.period_start) > end
-            ):
-                raise ValueError("invalid_period")
             period_excerpt = item.period_excerpt or item.excerpt
-            if period_excerpt not in text or not _date_in_excerpt(item.period_end, period_excerpt):
-                raise ValueError("period_end_not_in_excerpt")
-            if item.period_start and not _date_in_excerpt(item.period_start, period_excerpt):
-                raise ValueError("period_start_not_in_excerpt")
+            if request.forecast is not None:
+                if period_excerpt not in text or not _forecast_period(item, period_excerpt, text):
+                    raise ValueError("unverified_forecast_target_quarter")
+            else:
+                if (
+                    item.target_quarter is not None
+                    or end > publication_day
+                    or (item.period_start and date.fromisoformat(item.period_start) > end)
+                ):
+                    raise ValueError("invalid_period")
+                if period_excerpt not in text or not _date_in_excerpt(
+                    item.period_end, period_excerpt
+                ):
+                    raise ValueError("period_end_not_in_excerpt")
+                if item.period_start and not _date_in_excerpt(item.period_start, period_excerpt):
+                    raise ValueError("period_start_not_in_excerpt")
             if (
                 item.unit != request.unit
                 or item.excerpt not in text
@@ -605,6 +671,8 @@ def validate_extraction(
             else "reconstructed_public_disclosure_date",
             "publication_excerpt": result.publication_excerpt,
         }
+        if request.forecast is not None:
+            value["forecast"] = request.forecast.model_dump(mode="json")
         observations.append(value | {"observation_id": digest(canonical(value))})
     return observations, reasons
 
@@ -618,23 +686,29 @@ def align_input_bundle(request, observations, prediction_times):
     )
     column, evidence = [], []
     conflicts = []
+    vintage_field = "published_at" if request.forecast else "effective_available_at"
     for instant in prediction_times:
         cutoff = timestamp(instant)
         available = [
             o
             for o in observations
             if timestamp(o["effective_available_at"]) <= cutoff
-            and (cutoff - timestamp(o["effective_available_at"])).days <= request.max_age_days
+            and (cutoff - timestamp(o[vintage_field])).days <= request.max_age_days
         ]
-        # Prefer newest reporting period, then latest disclosure of that period.
-        available.sort(key=lambda o: (o["period_end"], timestamp(o["effective_available_at"])))
+        # Forecasts follow the latest published vintage, then its latest target quarter.
+        available.sort(
+            key=lambda o: (
+                (timestamp(o["published_at"]), o["period_end"])
+                if request.forecast is not None
+                else (o["period_end"], timestamp(o["effective_available_at"]))
+            )
+        )
         item = available[-1] if available else None
         if item:
             peers = [
                 o
                 for o in available
-                if (o["period_end"], o["effective_available_at"])
-                == (item["period_end"], item["effective_available_at"])
+                if (o["period_end"], o[vintage_field]) == (item["period_end"], item[vintage_field])
             ]
             if len({o["value"] for o in peers}) > 1:
                 conflicts.append({"prediction_time": instant, "reason": "conflicting_measurements"})
@@ -647,6 +721,16 @@ def align_input_bundle(request, observations, prediction_times):
                 "effective_available_at": item["effective_available_at"] if item else None,
             }
         )
+        if request.forecast is not None:
+            evidence[-1]["forecast_vintage"] = (
+                {
+                    "source_id": item["source_id"],
+                    "published_at": item["published_at"],
+                    "target_quarter": item["target_quarter"],
+                }
+                if item
+                else None
+            )
     body = {
         "request": request.model_dump(mode="json"),
         "observations": observations,
@@ -658,6 +742,8 @@ def align_input_bundle(request, observations, prediction_times):
         "covered_rows": sum(x is not None for x in column),
         "conflicts": conflicts,
     }
+    if request.forecast is not None:
+        body["alignment"] = "latest_forecast_vintage_max_age_no_backfill_strict_pairing_v1"
     identity = digest(canonical(body))
     return body | {
         "identity": identity,
@@ -670,6 +756,11 @@ def align_input_bundle(request, observations, prediction_times):
                 "unit": request.unit,
                 "recipe": {"op": "acquired", "input_identity": identity},
                 "runnable": bool(body["covered_rows"]),
+                **(
+                    {"forecast": request.forecast.model_dump(mode="json")}
+                    if request.forecast
+                    else {}
+                ),
             }
         ],
         "limitations": [
@@ -706,6 +797,13 @@ def discovery_decision(llm, context):
         "exists. Request acquisition before fitting missing inputs; retain candidate definitions "
         "and evidence IDs. Acquisition extracts only literal quoted scalar values in exactly "
         "the requested source units: it cannot calculate midpoints, spreads, growth, or sums. "
+        "For published quarterly expectations set data_requests.forecast with product, statistic "
+        "(point/lower/upper), basis and pairing_group; use null for realized measurements. "
+        "Forecast target quarters are calendar quarters, distinct from publication vintages. "
+        "For comparisons requiring matched forecasts, use the same non-null pairing_group on "
+        "their requests: combined inputs in that group must share source, publication and target "
+        "quarter; mismatches stay missing. Use null pairing_group for independent expectations. "
+        "Combine paired inputs before applying outermost lag/rolling operators. "
         "For a range request its literal lower and upper bounds as separate input leaves, then "
         "compose any derived measurement with supported DSL operators and declared inputs. "
         "Prefer one literal measurement when the derivation lacks a supported constant/operator. "

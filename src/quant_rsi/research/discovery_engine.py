@@ -121,7 +121,10 @@ class DiscoveryExperimentRunner:
         definition = proposal.definition(definitions)
         if not definition["runnable"]:
             return definition, None, definitions
-        values = compute_factor(definition, columns, definitions)
+        input_evidence = {
+            key: rows for bundle in bundles for key, rows in bundle["input_evidence"].items()
+        }
+        values = compute_factor(definition, columns, definitions, input_evidence=input_evidence)
         return definition, values, definitions
 
     def validate(self, candidate, bundles):
