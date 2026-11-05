@@ -5,6 +5,7 @@ quotes, dates and values are checked before aligning a declared measurement. Liv
 collection never invents historical receipt times.
 """
 
+import calendar
 import json
 import re
 from copy import deepcopy
@@ -38,16 +39,21 @@ class DataRequest(StrictModel):
     source_urls: tuple[str, ...] = Field(default=(), max_length=6)
     max_age_days: int = Field(default=185, ge=1, le=730)
     forecast: ForecastMeasure | None = None
+    period_granularity: Literal["calendar_month"] | None = None
 
     @model_serializer(mode="wrap")
     def serialize(self, handler):
         value = handler(self)
         if self.forecast is None:
             value.pop("forecast", None)
+        if self.period_granularity is None:
+            value.pop("period_granularity", None)
         return value
 
     @model_validator(mode="after")
     def urls(self):
+        if self.forecast is not None and self.period_granularity is not None:
+            raise ValueError("Calendar-month realized measurements cannot also be forecasts")
         for value in self.source_urls:
             parsed = urlsplit(value)
             if (
@@ -141,6 +147,9 @@ def _date_in_excerpt(day, excerpt):
     """Require the claimed publication date itself, not an unrelated cited timestamp."""
     target = date.fromisoformat(day)
     normalized = re.sub(r"\s+", " ", excerpt.lower()).replace(",", "")
+    normalized = re.sub(
+        r"\b(jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\.(?=\s+\d)", r"\1", normalized
+    )
     variants = {
         target.isoformat(),
         target.strftime("%B %d %Y").lower(),
@@ -163,6 +172,51 @@ def _date_in_excerpt(day, excerpt):
             rf"(?P=separator){target.year}(?!\d)"
         )
         return re.search(numeric, normalized) is not None
+    return False
+
+
+def _calendar_month_period(item, excerpt, source_text):
+    """Opt-in month labels establish a complete observation month, never publication."""
+    end = date.fromisoformat(item.period_end)
+    start = end.replace(day=1)
+    if (
+        item.period_start != start.isoformat()
+        or end.day != calendar.monthrange(end.year, end.month)[1]
+    ):
+        return False
+    for match in re.finditer(re.escape(excerpt), source_text):
+        context = source_text[max(0, match.start() - 64) : match.end() + 64]
+        if re.search(r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b", context, re.I):
+            return False
+    month = rf"(?:{end.strftime('%B')}|{end.strftime('%b')}\.?)"
+    label = rf"(?<!\w){month}\s+{end.year}(?!\w)"
+    month_name = "(?:" + "|".join(calendar.month_name[1:] + calendar.month_abbr[1:]) + r")\.?"
+    partial = r"(?:first|second|last)\s+(?:half|\d+\s+(?:(?:calendar|trading|business)\s+)?days?)"
+    prefix_scope = (
+        rf"(?:{partial}\s+(?:of\s+)?|"
+        rf"{month_name}(?:\s+\d{{4}})?\s*(?:to|through|[-–])\s*|"
+        r"(?:(?:year|month)[ -]to[ -]date|YTD)\s*(?:(?:for|through|in)\s+)?)$"
+    )
+
+    def partial_at(begin, finish):
+        before = source_text[max(0, begin - 100) : begin]
+        after = source_text[finish : finish + 64]
+        return re.search(prefix_scope, before, re.I) or re.search(
+            rf"^\s*[,(:-]?\s*{partial}\b", after, re.I
+        )
+
+    # A clean month in a heading cannot override a partial scope explicitly tied
+    # to the extracted value. Other cumulative rows elsewhere remain permissible.
+    for quote in re.finditer(re.escape(item.excerpt), source_text):
+        for match in re.finditer(label, item.excerpt, re.I):
+            if partial_at(quote.start() + match.start(), quote.start() + match.end()):
+                return False
+    for quote in re.finditer(re.escape(excerpt), source_text):
+        for match in re.finditer(label, excerpt, re.I):
+            begin, finish = quote.start() + match.start(), quote.start() + match.end()
+            if partial_at(begin, finish):
+                continue
+            return True
     return False
 
 
@@ -531,6 +585,9 @@ class DiscoverySources:
                 "and period_start/end to that target quarter's actual calendar boundaries; quote "
                 "the calendar quarter literally in period_excerpt. Fiscal-quarter mappings are "
                 "unsupported; do not silently treat them as calendar quarters. "
+                "For request.period_granularity=calendar_month, use the realized month's exact "
+                "first and last calendar dates and quote its literal month and year in "
+                "period_excerpt. A month label is not an exact publication date. "
                 "Future target quarters are allowed, "
                 "future publication dates are not. Extract only the current publication vintage, "
                 "not previous estimates quoted retrospectively. Otherwise target_quarter is null "
@@ -639,12 +696,20 @@ def validate_extraction(
                     or (item.period_start and date.fromisoformat(item.period_start) > end)
                 ):
                     raise ValueError("invalid_period")
-                if period_excerpt not in text or not _date_in_excerpt(
-                    item.period_end, period_excerpt
-                ):
-                    raise ValueError("period_end_not_in_excerpt")
-                if item.period_start and not _date_in_excerpt(item.period_start, period_excerpt):
-                    raise ValueError("period_start_not_in_excerpt")
+                if request.period_granularity == "calendar_month":
+                    if period_excerpt not in text or not _calendar_month_period(
+                        item, period_excerpt, text
+                    ):
+                        raise ValueError("unverified_calendar_month_period")
+                else:
+                    if period_excerpt not in text or not _date_in_excerpt(
+                        item.period_end, period_excerpt
+                    ):
+                        raise ValueError("period_end_not_in_excerpt")
+                    if item.period_start and not _date_in_excerpt(
+                        item.period_start, period_excerpt
+                    ):
+                        raise ValueError("period_start_not_in_excerpt")
             if (
                 item.unit != request.unit
                 or item.excerpt not in text
@@ -799,6 +864,9 @@ def discovery_decision(llm, context):
         "the requested source units: it cannot calculate midpoints, spreads, growth, or sums. "
         "For published quarterly expectations set data_requests.forecast with product, statistic "
         "(point/lower/upper), basis and pairing_group; use null for realized measurements. "
+        "For realized monthly measurements explicitly set period_granularity=calendar_month; "
+        "otherwise use null. This opt-in requires a literal month/year and exact full calendar "
+        "month boundaries, is incompatible with forecast, and never relaxes publication dates. "
         "Forecast target quarters are calendar quarters, distinct from publication vintages. "
         "For comparisons requiring matched forecasts, use the same non-null pairing_group on "
         "their requests: combined inputs in that group must share source, publication and target "

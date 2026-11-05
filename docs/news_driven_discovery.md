@@ -187,6 +187,20 @@ chain. `lag(DRAM - NAND)` is supported; `lag(DRAM) - NAND` is rejected because i
 mix different forecast vintages. Both study and rolling candidate execution enforce
 these rules; unused forecast bundles do not impose constraints on other candidates.
 
+Realized monthly disclosures can opt in with
+`"period_granularity": "calendar_month"` on `DataRequest`. A literal month and year
+in the quoted period evidence then identify exactly that month's first and last
+calendar dates, including leap-year February. Missing boundaries, partial months,
+fiscal-month mappings, mismatched months and future realized periods are rejected.
+This setting is incompatible with `forecast`; the default `null` retains exact-date
+period checks and is omitted from serialized requests to preserve existing identities.
+Publication still requires a literal exact day: `Jan. 9, 2026` is supported, while
+`January 2026` cannot establish a publication date. Original excerpts are retained.
+Month admission does not validate the financial meaning of a table row: current-month
+YoY, MoM and cumulative growth must still be distinguished during extraction and review.
+Receipt/version cutoffs, the existing maximum-age rule and missing-value behavior are
+unchanged. A monthly disclosure cannot become available at month-end before publication.
+
 An executable formula is not necessarily a trainable candidate: the fixed training
 and prediction rows must still have complete inputs. Missing releases remain a data
 acquisition task; do not extend the maximum age or remove rows solely to pass admission.
