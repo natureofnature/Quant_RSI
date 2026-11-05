@@ -112,6 +112,65 @@ def evaluate_monthly_strategy(
     }
 
 
+def evaluate_session_strategy(
+    data: MarketData,
+    symbol: str,
+    predictions: list[dict],
+    *,
+    horizon_sessions=3,
+    commission_bps="5",
+    slippage_bps="5",
+    initial_cash="10000",
+    threshold=0.0,
+):
+    """Replay contiguous, non-overlapping fixed-session forecasts in one account.
+
+    The planner verifies the exchange calendar. This boundary also rejects gaps,
+    overlaps, unknown targets and intervals shorter than the requested horizon.
+    """
+    if symbol not in data.instruments or not predictions or not math.isfinite(threshold):
+        raise ValueError("A supported symbol, predictions and finite threshold are required")
+    if type(horizon_sessions) is not int or not 1 <= horizon_sessions <= 20:
+        raise ValueError("Prediction horizon must be 1..20 trading sessions")
+    column = data.instruments.index(symbol)
+    positions = {session: index for index, session in enumerate(data.dates)}
+    previous_target = None
+    for row in predictions:
+        try:
+            origin, target = positions[row["origin_session"]], positions[row["target_session"]]
+        except (KeyError, TypeError):
+            raise ValueError(
+                "Session forecasts require observed origin and target sessions"
+            ) from None
+        if target - origin != horizon_sessions or (
+            previous_target is not None and origin != previous_target
+        ):
+            raise ValueError("Session forecasts must form contiguous fixed-horizon intervals")
+        previous_target = target
+    signals = _signals(data, column, predictions, horizon_sessions)
+    return _evaluate_signals(
+        data,
+        symbol,
+        signals,
+        previous_target,
+        commission_bps=commission_bps,
+        slippage_bps=slippage_bps,
+        initial_cash=initial_cash,
+        threshold=threshold,
+    ) | {
+        "evidence_mode": "historical_session_walk_forward_hypothetical_account",
+        "prediction_horizon_sessions": horizon_sessions,
+        "prediction_horizon": "fixed_trading_sessions",
+        "execution_note": (
+            "One continuous account across observed, non-overlapping session forecasts; "
+            "orders execute at the next retained open and daily NAV determines risk statistics. "
+            "Close-to-close forecast returns differ from executable next-open returns. "
+            "Quotes are rounded half-even to 12 decimal places; no per-period reset or "
+            "averaging of Sharpes. Pending intervals are excluded."
+        ),
+    }
+
+
 def _evaluate_signals(
     data, symbol, signals, last, *, commission_bps, slippage_bps, initial_cash, threshold
 ):

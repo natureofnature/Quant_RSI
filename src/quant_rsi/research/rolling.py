@@ -1,4 +1,4 @@
-"""Fixed-width monthly rolling forecasts through existing numerical/provider adapters."""
+"""Rolling forecasts through existing numerical, news and provider adapters."""
 
 import json
 import math
@@ -19,7 +19,7 @@ from quant_rsi.market.risk_data import align_risk_features, load_risk_history
 from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_prices import read_daily_history
 from quant_rsi.research.demo_related import profile_related
-from quant_rsi.research.demo_strategy import evaluate_monthly_strategy
+from quant_rsi.research.demo_strategy import evaluate_monthly_strategy, evaluate_session_strategy
 from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.llm import LLMHypothesizer
 from quant_rsi.research.rolling_acquired import AcquiredResolver, load_acquired_history
@@ -38,7 +38,7 @@ from quant_rsi.research.rolling_research import (
     feature_library,
     propose,
 )
-from quant_rsi.research.rolling_windows import monthly_plan, read_calendar
+from quant_rsi.research.rolling_windows import monthly_plan, period_id, read_calendar, session_plan
 from quant_rsi.research.study_estimators import StandardizedRidge
 from quant_rsi.research.study_news import load_archive
 from quant_rsi.research.study_peers import aligned_closes
@@ -54,11 +54,22 @@ NOTICE = (
     "cutoff-filtered; LLM pretrained knowledge is not. A few realized months do not establish "
     "predictive advantage. Pending months have no accuracy or realized strategy return."
 )
+SESSION_NOTICE = (
+    "Reconstructed {horizon}-trading-session rolling evaluation, not contemporaneously "
+    "captured forecasts. Each model uses its six-month history, 30-row warm-up and matured "
+    "{horizon}-session daily labels. Forecast intervals are contiguous and non-overlapping; "
+    "the next decision is made at the previous target close. Only mature prior outcomes "
+    "enter feedback. Only complete intervals within the requested target-month range are "
+    "planned, stopping after the first pending target. Supplied news is cutoff-filtered; "
+    "LLM pretrained knowledge is not. Training labels can overlap and are not independent "
+    "observations. Pending targets have no accuracy or realized strategy return. "
+    "A shorter horizon does not itself establish predictive advantage."
+)
 
 
 def add_arguments(commands):
     parser = commands.add_parser(
-        "research-rolling", help="six-month training / next-month forecasts"
+        "research-rolling", help="rolling forecasts by calendar month or fixed trading sessions"
     )
     parser.add_argument("symbol")
     parser.add_argument("--prices-dir", type=Path, required=True)
@@ -76,6 +87,11 @@ def add_arguments(commands):
     parser.add_argument("--first-month", required=True, help="first forecast month, YYYY-MM")
     parser.add_argument("--last-month", required=True, help="last forecast month, YYYY-MM")
     parser.add_argument("--train-months", type=int, default=6)
+    parser.add_argument(
+        "--horizon-sessions",
+        type=int,
+        help="fixed forecast and decision interval in trading sessions (1..20); e.g. 3",
+    )
     parser.add_argument("--model", choices=("lightgbm", "ridge"), default="lightgbm")
     parser.add_argument("--llm", choices=("none", "codex", "api"), default="none")
     parser.add_argument("--llm-model")
@@ -256,7 +272,7 @@ def _feedback(folds, cutoff):
         }
         result.append(
             {
-                "month": fold["month"],
+                ("period_id" if "period_id" in fold else "month"): period_id(fold),
                 "prediction_sha256": fold["prediction_sha256"],
                 "target_session": fold["target_session"],
                 "decision": fold["decision"],
@@ -290,6 +306,10 @@ def _feedback(folds, cutoff):
                 ),
             }
         )
+        if "period_id" in fold:
+            result[-1]["comparison_note"] = result[-1]["comparison_note"].replace(
+                "One monthly comparison", "One interval comparison"
+            )
     return result
 
 
@@ -424,7 +444,7 @@ def run_months(
         labels = np.log(
             prefix.closes[train + fold["horizon_sessions"], 0] / prefix.closes[train, 0]
         )
-        folder = root / fold["month"]
+        folder = root / period_id(fold)
         folder.mkdir(exist_ok=True)
         fold["forecasts"], fold["fits"] = {}, {}
         baseline_count = len(baseline)
@@ -451,7 +471,7 @@ def run_months(
                 "window": planned,
             }
             fitted = cache.call(
-                f"{fold['month']}_{arm}_fit",
+                f"{period_id(fold)}_{arm}_fit",
                 inputs,
                 lambda: fit_forecast(values, labels, train, model, ids),
             )
@@ -509,14 +529,17 @@ def run_months(
         context["baseline_diagnostics"] = summarize_forecast(fold["forecast_diagnostics"]["fixed"])
         _write(folder / "research_context.json", context)
         fold["news_coverage"] = news["coverage_status"]
-        fold["feedback_months"] = [value["month"] for value in context["mature_feedback"]]
+        fold["feedback_periods" if "period_id" in fold else "feedback_months"] = [
+            period_id(value) for value in context["mature_feedback"]
+        ]
         fold["decision"] = {"action": "retain", "reason": "LLM disabled; fixed baseline only"}
         fold["candidate_status"] = "disabled"
         if llm is not None:
+            operation = f"{period_id(fold)}_decision"
             raw = cache.call(
-                f"{fold['month']}_decision",
+                operation,
                 context,
-                lambda context=context, operation=f"{fold['month']}_decision": _recorded_proposal(
+                lambda context=context, operation=operation: _recorded_proposal(
                     llm, context, root, operation, candidate_revision
                 ),
             )
@@ -665,7 +688,7 @@ def run_months(
                             context["baseline_diagnostics"]
                         )
                         _write(folder / "research_revision_context.json", revision_context)
-                        operation = f"{fold['month']}_revision_decision"
+                        operation = f"{period_id(fold)}_revision_decision"
                         try:
                             raw = cache.call(
                                 operation,
@@ -716,9 +739,9 @@ def run_months(
                     "action": "rejected",
                     "reason": "LLM proposal rejected; fixed forecast used: " + str(exc),
                     "response_checkpoint": (
-                        f"checkpoints/{fold['month']}_revision_decision.json"
+                        f"checkpoints/{period_id(fold)}_revision_decision.json"
                         if candidate_revision
-                        else f"checkpoints/{fold['month']}_decision.json"
+                        else f"checkpoints/{period_id(fold)}_decision.json"
                     ),
                 }
                 fold["forecasts"]["adaptive"] = deepcopy(fold["forecasts"]["fixed"])
@@ -749,7 +772,8 @@ def run_months(
         frozen = canonical(fold)
         destination = folder / "prediction.json"
         if destination.exists() and destination.read_bytes() != frozen:
-            raise ValueError("Frozen monthly prediction changed; start a new study")
+            cadence = "session" if "period_id" in fold else "monthly"
+            raise ValueError(f"Frozen {cadence} prediction changed; start a new study")
         atomic_write(destination, frozen)
         fold["prediction_sha256"] = digest(frozen)
         fold = settle(fold, data)
@@ -762,6 +786,13 @@ def run_months(
 
 def aggregate(data, folds, policy):
     completed = [fold for fold in folds if fold["outcome"] == "observed"]
+    kinds = {fold.get("period_kind", "calendar_month") for fold in folds}
+    if len(kinds) > 1:
+        raise ValueError("Cannot aggregate mixed forecast interval kinds")
+    fixed_sessions = kinds == {"trading_sessions"}
+    horizons = {fold["horizon_sessions"] for fold in folds} if fixed_sessions else set()
+    if fixed_sessions and len(horizons) != 1:
+        raise ValueError("Session forecasts must share one fixed horizon")
     metrics, accounts = {}, {}
     for arm in ("fixed", "adaptive", "unchanged_price", "training_label_mean"):
         rows = [f["forecasts"][arm] for f in completed if arm in f["forecasts"]]
@@ -778,7 +809,13 @@ def aggregate(data, folds, policy):
             )
         }
         if arm in {"fixed", "adaptive"}:
-            accounts[arm] = evaluate_monthly_strategy(data, data.instruments[0], rows, **policy)
+            accounts[arm] = (
+                evaluate_session_strategy(
+                    data, data.instruments[0], rows, horizon_sessions=next(iter(horizons)), **policy
+                )
+                if fixed_sessions
+                else evaluate_monthly_strategy(data, data.instruments[0], rows, **policy)
+            )
     return metrics, accounts
 
 
@@ -800,7 +837,14 @@ def run_rolling(args):
         else None
     )
     calendar = read_calendar(args.prices_dir)
-    plan = monthly_plan(data, calendar, args.first_month, args.last_month, args.train_months)
+    horizon = getattr(args, "horizon_sessions", None)
+    plan = (
+        monthly_plan(data, calendar, args.first_month, args.last_month, args.train_months)
+        if horizon is None
+        else session_plan(
+            data, calendar, args.first_month, args.last_month, args.train_months, horizon
+        )
+    )
     if review_path:
         cutoff = info["price_basis_review"]["review"]["qualification_cutoff"]
         if cutoff > plan[0]["origin_session"]:
@@ -878,6 +922,7 @@ def run_rolling(args):
         for k, v in vars(args).items()
         if k not in {"resume", "command"}
         and not (k == "price_basis_review" and v is None)
+        and not (k == "horizon_sessions" and v is None)
         and not (k == "gpr_history" and v is None)
         and not (k == "ohlcv_features" and not v)
         and not (k in {"acquired_history", "max_extractions"} and not acquired_paths)
@@ -910,10 +955,12 @@ def run_rolling(args):
         root.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
     result = {
-        "kind": "MonthlyRollingStudy",
+        "kind": "MonthlyRollingStudy" if horizon is None else "SessionRollingStudy",
         "symbol": symbol,
         "configuration": config,
-        "notice": NOTICE.replace("six-month", f"{args.train_months}-month"),
+        "notice": (NOTICE if horizon is None else SESSION_NOTICE.format(horizon=horizon)).replace(
+            "six-month", f"{args.train_months}-month"
+        ),
         "price_basis_notice": args.price_note
         + (
             " "
@@ -974,7 +1021,7 @@ def run_rolling(args):
                 raise ValueError("Risk snapshot changed during retention; start a new study")
         runtime["previous_attempts"] = cache.previous
         _write(root / "config.json", config)
-        _write(root / "monthly_plan.json", plan)
+        _write(root / ("monthly_plan.json" if horizon is None else "session_plan.json"), plan)
         if ohlcv_history is not None:
             _write(
                 root / "ohlcv_inputs.json",
@@ -989,7 +1036,7 @@ def run_rolling(args):
         def completed(fold):
             result["folds"].append(fold)
             print(
-                f"[quant-rsi] {fold['month']}: {fold['outcome']}; "
+                f"[quant-rsi] {period_id(fold)}: {fold['outcome']}; "
                 f"candidate {fold['candidate_status']}",
                 flush=True,
             )

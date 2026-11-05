@@ -142,6 +142,8 @@ def decision_context(
             for key in ("evidence", "coverage", "input_evidence_ids")
         }
         context["max_data_requests"] = 2
+    if fold.get("period_kind") == "trading_sessions":
+        context.update(period_kind="trading_sessions", period_id=fold["period_id"])
     return context
 
 
@@ -245,8 +247,21 @@ def propose(llm, context):
         "Trailing warm-up starts at the six-month window boundary; recipes requiring too much "
         "history will be unavailable. No dropping samples. Candidates for retain/withdraw/select "
         "must be empty. Parent recipe refs may name only the supplied incumbent recipes. "
-        "Return only schema JSON.\nINPUT_JSON:\n" + canonical(context).decode()
+        "Return only schema JSON.\nINPUT_JSON:\n"
     )
+    if context.get("period_kind") == "trading_sessions":
+        # Rewrite instructions only, never retained evidence or user-provided text.
+        for old, new in (
+            ("monthly rolling", f"{context['horizon_sessions']}-trading-session rolling"),
+            ("target month's", "target interval's"),
+            ("target-month", "target-interval"),
+            ("cite its month,", "cite its period_id,"),
+            ("single monthly difference", "single interval difference"),
+            ("prior mature monthly feedback", "prior mature interval feedback"),
+            ("six-month window boundary", "configured training-window boundary"),
+        ):
+            prompt = prompt.replace(old, new)
+    prompt += canonical(context).decode()
     schema = strict_schema(MonthlyDecision)
     schema["properties"]["candidates"]["maxItems"] = limit
     schema["properties"]["news_inputs"]["maxItems"] = context.get("max_news_inputs", limit * 2)

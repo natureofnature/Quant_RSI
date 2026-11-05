@@ -1,11 +1,72 @@
-# Six-month training, next-month forecasts
+# Rolling research: calendar months or trading sessions
 
-`research-rolling` is a separate calendar-month entry point using the existing
+`research-rolling` supports calendar-month or fixed-trading-session forecasts using the existing
 retained daily reader, numerical factor operators, model parameters, provider
 transport/cache and account engine. It does not change the existing expanding,
 post-selection `research-study --walk-forward-folds` diagnostic.
 
-## SOXX example
+## Three-trading-session news research
+
+Add `--horizon-sessions 3` to predict cumulative close-to-close returns over exactly
+three exchange trading sessions and make the next decision at the previous target
+close. Training length remains independently controlled by `--train-months`.
+The news, measured business inputs, experimental-factor survey, candidate screening,
+model fitting and mature-feedback paths are shared with monthly research.
+
+Use qualified, complete retained SOXX prices and, optionally, aligned related prices:
+
+```bash
+quant-rsi research-rolling SOXX \
+  --prices-dir /path/to/retained/SOXX \
+  --related-prices-dir /path/to/retained \
+  --first-month 2026-07 --last-month 2026-10 \
+  --train-months 6 --horizon-sessions 3 \
+  --model ridge --llm codex --news-research \
+  --max-candidates 16 --max-news-inputs 32 \
+  --output /path/to/new/soxx-three-session-study
+```
+
+The paths above are placeholders for your retained inputs and a fresh output
+directory. The price command does not silently download missing prices. Existing
+`--news-history`, `--acquired-history`, risk inputs, provider settings and `--resume`
+remain available. Candidate limits allow up to 32 expressions in addition to the
+fixed baseline; missing or constant inputs are rejected explicitly. News is not
+silently replaced by a price-only hypothesis when `--news-research` is enabled.
+
+The first/last months bound **target dates**, not the training window. The first
+origin is the preceding month's final trading session. For July 2026, the first
+three-session interval is June 30 close → July 6 close, because July 3 is an
+exchange holiday. The next origin is July 6 close. Stride continues across month
+boundaries; a final remainder shorter than three sessions is not forecast or
+silently shortened. The planner retains at most one pending target, then stops.
+It requires complete observed training and forecast intervals.
+
+Each training window is `[origin + 1 calendar day - train_months, origin + 1 day)`;
+subtracting months clips a nonexistent day to that month's last day. Thirty rows
+are feature warm-up; the last three origins have immature labels and are excluded
+from training. Evaluation intervals do not overlap, but daily training labels can
+overlap and must not be counted as independent experiments. Pending outcomes never
+enter accuracy, accounts or LLM feedback. Receipt-aware news filtering and the
+existing reconstructed-versus-retained evidence distinction still apply.
+
+The output contains `session_plan.json`, one directory per target date, baseline
+and candidate model records, frozen predictions, later settlements, and `report.html`.
+The report retains forecast/actual charts, unchanged-price and training-mean
+controls, continuous strategy and buy-and-hold accounts, costs, Sharpe and drawdown.
+Execution remains next-open: a close-to-close prediction is not the same as an
+executable close-to-close trade. Accounts are not reset every three days, and
+period Sharpes are not averaged.
+
+Without `--candidate-revision`, each interval uses at most one LLM decision and two
+fits. Three-session research therefore creates more calls than monthly research;
+start with a short target range. A shorter horizon gives earlier feedback, not a
+guarantee of predictive advantage. Compare RSI and baselines on the **same horizon,
+dates, information and costs**; lower three-day price MAE than monthly MAE alone
+does not establish an improvement. Omitting `--horizon-sessions` retains the
+existing month-end behavior; 1–20 session horizons are supported, with at most
+240 complete intervals per task. Changing the horizon requires a new output run.
+
+## Calendar-month SOXX example
 
 Reuse the immutable pre-split collections prepared by the
 [SOXX October-cutoff example](soxx_november_2026.md):

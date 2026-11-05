@@ -1,9 +1,10 @@
-"""Display frozen monthly forecasts separately from observed evaluation outcomes."""
+"""Display frozen rolling forecasts separately from observed evaluation outcomes."""
 
 import json
 from html import escape
 
 from quant_rsi.research.discovery_report_comparisons import _finite, _line_chart, _number, _rows
+from quant_rsi.research.rolling_windows import period_id
 
 ARMS = {
     "fixed": "Fixed baseline",
@@ -25,8 +26,17 @@ def _text(value):
 
 
 def render_rolling(result):
+    folds = result.get("folds") or []
+    session_mode = result.get("kind") == "SessionRollingStudy" or any(
+        fold.get("period_kind") == "trading_sessions" for fold in folds
+    )
+    horizon = result.get("configuration", {}).get("horizon_sessions")
+    if horizon is None and folds:
+        horizon = folds[0].get("horizon_sessions")
+    cadence = f"{horizon}-session" if horizon is not None else "Trading-session"
+    heading = f"{cadence} rolling research" if session_mode else "Monthly rolling research"
     parts = [
-        f"<h1>{_text(result['symbol'])} · Monthly rolling research</h1>",
+        f"<h1>{_text(result['symbol'])} · {_text(heading)}</h1>",
         f"<p>{_text(result.get('notice'))}</p>",
     ]
     if result.get("status") == "failed":
@@ -41,8 +51,11 @@ def render_rolling(result):
         )
 
     def table(title, headers, rows):
+        if session_mode:
+            headers = [{"Month": "Period", "Months": "Periods"}.get(h, h) for h in headers]
+        table_class = " class='period-table'" if session_mode and headers[0] == "Period" else ""
         parts.append(
-            f"<section><h2>{escape(title)}</h2><div class='scroll'><table><thead><tr>"
+            f"<section><h2>{escape(title)}</h2><div class='scroll'><table{table_class}><thead><tr>"
             + "".join(f"<th>{escape(h)}</th>" for h in headers)
             + "</tr></thead><tbody>"
             + "".join(
@@ -51,9 +64,8 @@ def render_rolling(result):
             + "</tbody></table></div></section>"
         )
 
-    folds = result.get("folds") or []
     diagnosed = [
-        (fold["month"], arm, diagnostic)
+        (period_id(fold), arm, diagnostic)
         for fold in folds
         for arm, diagnostic in fold.get("forecast_diagnostics", {}).items()
     ]
@@ -145,7 +157,7 @@ def render_rolling(result):
             ],
             [
                 [
-                    fold["month"],
+                    period_id(fold),
                     *[
                         _number(100 * pair[key]) if key in pair else None
                         for key in (
@@ -163,7 +175,9 @@ def render_rolling(result):
         )
         parts.append("</details>")
     attempts = [
-        (fold["month"], attempt) for fold in folds for attempt in fold.get("candidate_attempts", [])
+        (period_id(fold), attempt)
+        for fold in folds
+        for attempt in fold.get("candidate_attempts", [])
     ]
     if attempts:
         parts.append(
@@ -258,7 +272,7 @@ def render_rolling(result):
             ],
             [
                 [
-                    fold["month"],
+                    period_id(fold),
                     item["factor_id"],
                     item["training_available"],
                     item["training_samples"],
@@ -289,7 +303,7 @@ def render_rolling(result):
             ],
             [
                 [
-                    fold["month"],
+                    period_id(fold),
                     item["input_id"],
                     item.get("symbol"),
                     item["measurement"],
@@ -317,7 +331,7 @@ def render_rolling(result):
             ],
             [
                 [
-                    fold["month"],
+                    period_id(fold),
                     item["id"],
                     item["symbol"],
                     item["source_url"],
@@ -334,7 +348,7 @@ def render_rolling(result):
             ["Month", "Requested measurements", "Unavailable / rejected requests"],
             [
                 [
-                    fold["month"],
+                    period_id(fold),
                     [
                         {
                             "input": row["request"]["input_id"],
@@ -353,7 +367,12 @@ def render_rolling(result):
             parts.append(
                 "<p>Measurement source operations (cumulative, including failed attempts): "
                 f"{_text(result['measurement_usage']['counts'])}. Extraction calls are additional "
-                "to monthly decision calls; replayed checkpoints do not repeat successful work.</p>"
+                + (
+                    "to per-period decision calls; "
+                    if session_mode
+                    else "to monthly decision calls; "
+                )
+                + "replayed checkpoints do not repeat successful work.</p>"
             )
 
     if any(fold.get("risk_inputs") for fold in folds):
@@ -364,7 +383,7 @@ def render_rolling(result):
             ["Month", "Factor", "Available training rows", "Prediction available"],
             [
                 [
-                    fold["month"],
+                    period_id(fold),
                     coverage["factor_id"],
                     f"{coverage['training_available']} / {coverage['training_samples']}",
                     coverage["prediction_available"],
@@ -395,7 +414,7 @@ def render_rolling(result):
         ],
         [
             [
-                f.get("month"),
+                period_id(f),
                 f"{f.get('training_window', {}).get('start')} → "
                 f"{f.get('training_window', {}).get('end')}",
                 f"{f['training_origins'][0]} → {f['training_origins'][-1]}"
@@ -416,7 +435,7 @@ def render_rolling(result):
         "the actual training sample. Returns below are close-to-close price returns.</p>"
     )
     for outcome, title in (
-        ("observed", "Observed monthly forecasts"),
+        ("observed", "Observed period forecasts" if session_mode else "Observed monthly forecasts"),
         ("not_observed", "Pending forecasts — excluded from accuracy"),
     ):
         rows = []
@@ -428,7 +447,7 @@ def render_rolling(result):
                 prediction = _return(row, "predicted_price")
                 rows.append(
                     [
-                        fold.get("month"),
+                        period_id(fold),
                         ARMS.get(arm, arm),
                         _number(row.get("reference_price")),
                         _number(row.get("predicted_price")),
@@ -469,7 +488,10 @@ def render_rolling(result):
         ],
     )
     parts.append(
-        "<p>Metrics use observed months only; pending forecasts have no accuracy score. "
+        "<p>Metrics use observed periods only; pending forecasts have no accuracy score. "
+        "A few periods are limited evidence, not proof of predictive advantage.</p>"
+        if session_mode
+        else "<p>Metrics use observed months only; pending forecasts have no accuracy score. "
         "A few months are limited evidence, not proof of predictive advantage.</p>"
     )
     arms = [arm for arm in ARMS if any(arm in (f.get("forecasts") or {}) for f in folds)]
@@ -500,7 +522,13 @@ def render_rolling(result):
             ],
         )
     )
-    parts.append(_line_chart("Monthly price return (%) — pending outcomes remain gaps", series))
+    parts.append(
+        _line_chart(
+            (cadence if session_mode else "Monthly")
+            + " price return (%) — pending outcomes remain gaps",
+            series,
+        )
+    )
     accounts, benchmarks = [], []
     for arm, account in (result.get("accounts") or {}).items():
         if not account:
@@ -545,7 +573,11 @@ def render_rolling(result):
         rows,
     )
     parts.append(
-        "<p>One continuous account per model across observed months, with explicit costs "
+        "<p>One continuous account per model across observed periods, with explicit costs "
+        "and next-open fills. Sharpe uses consecutive daily net NAV returns, never an "
+        "average of per-period Sharpes. Pending periods are excluded from account replay.</p>"
+        if session_mode
+        else "<p>One continuous account per model across observed months, with explicit costs "
         "and next-open fills. Sharpe uses consecutive daily net NAV returns, never an "
         "average of monthly Sharpes. Pending months are excluded from account replay.</p>"
     )
@@ -571,7 +603,7 @@ def render_rolling(result):
             ],
             [
                 [
-                    f["month"],
+                    period_id(f),
                     f.get("candidate_pool", {}).get("limit"),
                     f.get("candidate_pool", {}).get("proposed"),
                     f.get("candidate_pool", {}).get("accepted"),
@@ -585,7 +617,7 @@ def render_rolling(result):
             "Actual model feature usage",
             ["Month", "Arm", "Feature", "Fit-specific usage"],
             [
-                [f["month"], arm, identity, usage]
+                [period_id(f), arm, identity, usage]
                 for f in folds
                 for arm, fit in f.get("fits", {}).items()
                 for identity, usage in fit.get("feature_usage", {}).items()
@@ -601,7 +633,7 @@ def render_rolling(result):
         ["Month", "Candidate status", "Historical news", "Decision", "Fits / actual factors"],
         [
             [
-                f.get("month"),
+                period_id(f),
                 f.get("candidate_status"),
                 f.get("news_coverage"),
                 f.get("decision"),
@@ -614,7 +646,9 @@ def render_rolling(result):
         fitted = sum(bool(f.get("news_training")) for f in folds)
         parts.append(
             "<section class='notice'><h2>News research execution</h2>"
-            f"<p>{fitted} of {len(folds)} monthly models used executable news inputs. "
+            f"<p>{fitted} of {len(folds)} "
+            + ("per-period" if session_mode else "monthly")
+            + " models used executable news inputs. "
             "Headline counts and lexical balances measure the retrieved corpus; they are "
             "not observed revenue, verified sentiment, or a complete record of world events. "
             "Zero means no matching retrieved headline. Search coverage is partial. "
@@ -631,7 +665,7 @@ def render_rolling(result):
                 values = measurement["training_values"]
                 input_rows.append(
                     [
-                        fold["month"],
+                        period_id(fold),
                         identity,
                         recipe["hypothesis"],
                         recipe["operation"],
@@ -666,7 +700,7 @@ def render_rolling(result):
             ["Month", "Mode", "Coverage", "Eligible headlines", "Notice"],
             [
                 [
-                    f["month"],
+                    period_id(f),
                     f.get("news_evidence", {}).get("information_mode"),
                     f.get("news_coverage"),
                     len(f.get("news_evidence", {}).get("items", [])),
@@ -680,7 +714,7 @@ def render_rolling(result):
             ["Month", "ID", "Headline", "Published", "Actually retrieved", "Source URL"],
             [
                 [
-                    f["month"],
+                    period_id(f),
                     a["id"],
                     a.get("title"),
                     a.get("published_at"),
@@ -699,7 +733,9 @@ def render_rolling(result):
     return (
         """<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Monthly rolling research</title>
+<title>"""
+        + escape(heading)
+        + """</title>
 <style>body{margin:0;background:#0c1322;color:#e8eef8;font:16px system-ui}
 main{max-width:1250px;margin:auto;padding:28px}h1,th{color:#8ae8d2}
 section{margin:22px 0;padding:18px;background:#152137;border:1px solid #30425b;border-radius:12px}
@@ -710,7 +746,9 @@ td,pre{overflow-wrap:anywhere}p{line-height:1.6}pre{white-space:pre-wrap}
 .comparison-chart svg{width:100%;height:auto}.comparison-chart text{fill:#b7c9dd;font-size:13px}
 .comparison-legend{display:flex;flex-wrap:wrap;gap:10px 24px;padding-left:20px}
 @media(max-width:680px){main{padding:12px}section{padding:10px}}
-</style><main>"""
+"""
+        + (".period-table td:first-child{white-space:nowrap}\n" if session_mode else "")
+        + "</style><main>"
         + "".join(parts)
         + "</main></html>"
     )

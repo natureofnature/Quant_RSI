@@ -1,6 +1,7 @@
 """Calendar-month folds with cutoff-only, fixed-width training histories."""
 
 import json
+from calendar import monthrange
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -87,4 +88,86 @@ def monthly_plan(data, calendar, first_month, last_month, train_months=6):
             }
         )
         month = shift_month(month, 1)
+    return result
+
+
+def period_id(fold):
+    """Use a session target ID without changing retained monthly identifiers."""
+    return fold["period_id"] if "period_id" in fold else fold["month"]
+
+
+def session_plan(data, calendar, first_month, last_month, train_months=6, horizon_sessions=3):
+    """Plan contiguous H-session targets within the requested calendar-month range.
+
+    Training is the half-open calendar interval [origin + 1 day - M months,
+    origin + 1 day), clipping the start day when its month is shorter. Only full
+    H-session intervals are forecast; a trailing shorter interval is omitted.
+    The first unavailable target is retained as pending, then planning stops.
+    """
+    first, last = month_start(first_month), month_start(last_month)
+    if (
+        first > last
+        or type(train_months) is not int
+        or not 1 <= train_months <= 24
+        or type(horizon_sessions) is not int
+        or not 1 <= horizon_sessions <= 20
+    ):
+        raise ValueError(
+            "Ordered months, 1..24 training months and 1..20 horizon sessions required"
+        )
+    if (last.year - first.year) * 12 + last.month - first.month >= 24:
+        raise ValueError("At most 24 calendar months per session task")
+    future = sessions(calendar, first, shift_month(last, 1) - timedelta(days=1))
+    if len(future) // horizon_sessions > 240:
+        raise ValueError("At most 240 session forecasts per task")
+    before = sessions(calendar, shift_month(first, -1), first - timedelta(days=1))
+    if not before or len(future) < horizon_sessions:
+        raise ValueError("No complete forecast interval in the requested calendar range")
+    origin = before[-1]
+    result = []
+    for offset in range(0, len(future) - horizon_sessions + 1, horizon_sessions):
+        block = future[offset : offset + horizon_sessions]
+        target = block[-1]
+        end = date.fromisoformat(origin["session_id"])
+        exclusive_end = end + timedelta(days=1)
+        shifted = shift_month(exclusive_end, -train_months)
+        start = shifted.replace(
+            day=min(exclusive_end.day, monthrange(shifted.year, shifted.month)[1])
+        )
+        history = sessions(calendar, start, end)
+        expected = [row["session_id"] for row in history]
+        actual = [day for day in data.dates if start.isoformat() <= day <= end.isoformat()]
+        if not expected or actual != expected:
+            raise ValueError(f"Incomplete training history/calendar for {target['session_id']}")
+        observed = [row["session_id"] for row in block if row["session_id"] <= data.dates[-1]]
+        retained = [day for day in data.dates if origin["session_id"] < day <= target["session_id"]]
+        if retained != observed:
+            raise ValueError(f"Incomplete observed forecast interval for {target['session_id']}")
+        training = list(range(30, len(history) - horizon_sessions))
+        if len(training) < 30:
+            raise ValueError(
+                f"Insufficient mature daily training samples for {target['session_id']}"
+            )
+        result.append(
+            {
+                "period_id": target["session_id"],
+                "period_kind": "trading_sessions",
+                "training_window": {"start": start.isoformat(), "end": end.isoformat()},
+                "history_sessions": expected,
+                "origin_session": origin["session_id"],
+                "target_session": target["session_id"],
+                "information_cutoff": history[-1]["close_at"],
+                "target_close_at": target["close_at"],
+                "horizon_sessions": horizon_sessions,
+                "training_indices": training,
+                "training_origins": [expected[i] for i in training],
+                "training_targets": [expected[i + horizon_sessions] for i in training],
+                "warmup_sessions": 30,
+                "unmatured_origins": expected[-horizon_sessions:],
+                "calendar_sha256": calendar["sha256"],
+            }
+        )
+        if target["session_id"] > data.dates[-1]:
+            break
+        origin = target
     return result
