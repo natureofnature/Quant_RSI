@@ -475,9 +475,12 @@ Run a connected study using your existing Codex CLI login and public data:
 quant-rsi research-study KO --output /tmp/ko-study
 ```
 
-For fixed six-month training windows that roll monthly, with optional LLM
-factor revisions, continuous accounts and next-month forecasts, see
-[monthly rolling research](docs/monthly_rolling_research.md).
+For rolling training windows with news-driven factor revisions, continuous
+accounts and baseline comparisons, see [rolling research](docs/monthly_rolling_research.md).
+Use `research-rolling ... --horizon-sessions 3 --news-research --llm codex`
+for a three-trading-session forecast and feedback cycle; `--train-months 6`
+controls the training window separately. Omitting the horizon option retains
+calendar-month forecasts. See the [complete three-session example](docs/monthly_rolling_research.md#three-trading-session-news-research).
 Add `--candidate-revision` to let the LLM inspect training coverage, redundancy
 and screening failures, then revise once at the same cutoff before fitting the
 final pool. This adds one provider operation per month and no model fits;
