@@ -392,6 +392,45 @@ def test_quarter_token_does_not_turn_a_cumulative_half_year_into_quarter_actual(
     assert rows == [] and reasons == ["unverified_original_actual_release"]
 
 
+@pytest.mark.parametrize(
+    ("period", "value_quote", "accepted"),
+    [
+        ("Six months ended June 30, 2026", "Year-to-date gross margin was 58.0 percent.", False),
+        ("2026-Q2: 2026-04-01 to 2026-06-30", "Year-to-date gross margin was 58.0 percent.", False),
+        ("Month ended June 30, 2026", "Gross margin was 58.0 percent.", False),
+        ("2026-04-01 to 2026-06-30", "Gross margin was 58.0 percent.", True),
+    ],
+)
+def test_valid_release_anchor_does_not_admit_cumulative_or_monthly_observation(
+    period, value_quote, accepted
+):
+    request = bundles()[0]["request"]
+    article, results = source("actual-q2", "2026-07-16", "2026-Q2", {"actual": 58.0})
+    header = "Results for the second quarter ended June 30, 2026."
+    request["original_actual_releases"] = [
+        {
+            "period_start": "2026-04-01",
+            "period_end": "2026-06-30",
+            "source_url": article["url"],
+            "publication_date": "2026-07-16",
+            "release_excerpt": header,
+        }
+    ]
+    article["text"] = f"Published 2026-07-16. {header} {period}. {value_quote}"
+    article["content_sha256"] = digest(article["text"].encode())
+    results["actual"]["observations"][0].update(period_excerpt=period, excerpt=value_quote)
+    rows, reasons = validate_extraction(
+        DataRequest.model_validate_json(canonical(request)),
+        article,
+        NumericalExtraction.model_validate_json(canonical(results["actual"])),
+        extracted_at=RECEIPT,
+        information_mode="retrospective",
+        research_cutoff=RECEIPT,
+    )
+    assert bool(rows) == accepted
+    assert reasons == ([] if accepted else ["unverified_original_actual_observation_period"])
+
+
 @pytest.mark.parametrize("role_index", [1, 2])
 def test_original_guidance_spelled_out_calendar_quarter_is_admitted(role_index):
     guide = bundles()[role_index]

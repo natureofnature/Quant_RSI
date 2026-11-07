@@ -287,9 +287,19 @@ def _forecast_period(item, excerpt, source_text):
     return item.period_start == start.isoformat() and item.period_end == end.isoformat() and quoted
 
 
+def _quarter_scope_conflict(excerpt, text):
+    if re.search(r"\b(?:year[ -]to[ -]date|YTD|months?|monthly|cumulative)\b", excerpt, re.I):
+        return True
+    for match in re.finditer(re.escape(excerpt), text):
+        context = text[max(0, match.start() - 64) : match.end() + 64]
+        if re.search(r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b", context, re.I):
+            return True
+    return False
+
+
 def _original_quarter_period(item, excerpt, text):
     """An explicit original-release anchor may bind a spelled-out quarter-ended header."""
-    if re.search(r"\b(?:year[ -]to[ -]date|YTD|month|monthly)\b", excerpt, re.I):
+    if _quarter_scope_conflict(excerpt, text):
         return False
     end = date.fromisoformat(item.period_end)
     quarter = (end.month - 1) // 3 + 1
@@ -297,10 +307,6 @@ def _original_quarter_period(item, excerpt, text):
     if _forecast_period(target, excerpt, text):
         return True
     ordinal = ("first", "second", "third", "fourth")[quarter - 1]
-    for match in re.finditer(re.escape(excerpt), text):
-        context = text[max(0, match.start() - 64) : match.end() + 64]
-        if re.search(r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b", context, re.I):
-            return False
     return bool(re.search(rf"\b{ordinal}\s+quarter\s+ended\b", excerpt, re.I)) and _date_in_excerpt(
         item.period_end, excerpt
     )
@@ -805,6 +811,18 @@ def validate_extraction(
                     or not _original_quarter_period(item, anchor.release_excerpt, text)
                 ):
                     raise ValueError("unverified_original_actual_release")
+                if (
+                    _quarter_scope_conflict(period_excerpt, text)
+                    or _quarter_scope_conflict(item.excerpt, text)
+                    or not (
+                        _original_quarter_period(item, period_excerpt, text)
+                        or (
+                            _date_in_excerpt(item.period_start, period_excerpt)
+                            and _date_in_excerpt(item.period_end, period_excerpt)
+                        )
+                    )
+                ):
+                    raise ValueError("unverified_original_actual_observation_period")
         except ValueError as exc:
             reasons.append(str(exc))
             continue
