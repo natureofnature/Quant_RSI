@@ -771,7 +771,7 @@ def run_months(
                     for candidate in incumbent
                     if "discovery." + candidate["name"] in fitted_ids
                     for item in candidate["inputs"]
-                    if item["factor_id"] in acquired_view["qualified_input_ids"]
+                    if item["factor_id"] in acquired_view["columns"]
                 }
             )
         fold["candidate_recipe_role"] = (

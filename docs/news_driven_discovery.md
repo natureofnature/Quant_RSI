@@ -294,6 +294,30 @@ historical development and terminal evaluation.
 
 ## Evidence and completion status
 
+### TSM original-release alignment pilot (2026-11-07)
+
+A real Codex session (`gpt-6.1-sol`, high effort) submitted one typed acquisition
+decision and completed three literal extractions for an existing news-derived
+gross-margin guidance-position hypothesis. It used TSMC's
+[January 15 original release](https://investor.tsmc.com/japanese/encrypt/files/encrypt_file/reports/2026-01/3e49621566a3ca53bdf8aee2586929b666c17fd6/4Q25EarningsRelease.pdf)
+for Q1 2026 guidance of 63%–65%, and its
+[April 16 original release](https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-04/e85216eea8dccd8ca75d7e040e8d57be3ccd618b/1Q26%20EarningsRelease.pdf)
+for the same quarter's actual gross margin of 66.2%.
+
+The executable relation produced `(66.2 - 63) / (65 - 63) = 1.6`; all three
+acquisition bundles replayed identically from retained text/extraction receipts.
+The candidate recipe identity is
+`2828d9c57f64f3f64e933e9631dc05a13724c1b678ed8c4a7a0dda36430952e1`.
+The acquisition runtime was `a0b4c40`; original decisions, receipts, selected
+observation IDs and the earlier negative monthly-revenue experiment were preserved.
+
+This is **one independent quarterly event and zero model fits**, demonstrating
+source-to-feature execution only. Source text was retrieved retrospectively;
+publication dates do not establish archived historical bytes or past receipt times.
+The January 1 boundary is normalized from the stated calendar quarter, not a literal
+date in the release. Guidance assumes USD/NTD 31.6, so the measurement is not a pure
+demand signal, analyst consensus surprise, or evidence of predictive improvement.
+
 Implementation and offline tests are not the complete RFC acceptance. Completion also
 requires a recorded real-service lineage connecting the **same candidate** from news to
 new data, fitted feature columns and feedback; an authentic two-candidate outer-loop
