@@ -217,6 +217,10 @@ Quarter labels such as `2026-Q1` or `first quarter ended March 31, 2026` establi
 calendar boundaries only under this opt-in; monthly, YTD and fiscal scopes are not
 accepted. Publication still requires an exact date. Review must establish that the
 designated source reports that quarter's actual and the same accounting measure.
+The observation's own period and value excerpts are checked separately from the
+release heading; a quarterly heading cannot admit a cumulative value. This narrow
+adapter does not accept `three months ended` wording: use a verified quarterly header
+or exact matching full-quarter bounds without conflicting scope, otherwise retain the gap.
 The system does not infer a globally first disclosure from the earliest fetched record.
 
 Both study and rolling execution resolve a **candidate-local** view from admitted raw

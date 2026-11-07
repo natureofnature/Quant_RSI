@@ -396,6 +396,7 @@ def test_quarter_token_does_not_turn_a_cumulative_half_year_into_quarter_actual(
     ("period", "value_quote", "accepted"),
     [
         ("Six months ended June 30, 2026", "Year-to-date gross margin was 58.0 percent.", False),
+        ("Six months ended June 30, 2026", "Gross margin was 58.0 percent.", False),
         ("2026-Q2: 2026-04-01 to 2026-06-30", "Year-to-date gross margin was 58.0 percent.", False),
         ("Month ended June 30, 2026", "Gross margin was 58.0 percent.", False),
         ("2026-04-01 to 2026-06-30", "Gross margin was 58.0 percent.", True),
@@ -534,7 +535,7 @@ def test_study_and_rolling_use_same_matched_sources_and_preserve_dependency_prob
     result = screen_candidates([candidate.model_dump(mode="json")], [], **args)
     assert result["rejections"] == []
     np.testing.assert_allclose(result["matrix"][:, -1], study_values)
-    blocked = view | {"qualified_input_ids": []}
+    blocked = view | {"qualified_input_ids": [], "raw_qualified_input_ids": []}
     assert not screen_candidates(
         [candidate.model_dump(mode="json")], [], **(args | {"acquired_inputs": blocked})
     )["candidates"]

@@ -432,9 +432,9 @@ def align_acquired_history(history, row_times, cutoff, mode):
         "definitions": definitions,
         "evidence": evidence,
         "coverage": coverage,
-        # Raw admitted history may support a candidate-specific join even when the
-        # generic latest view conflicts. Every candidate still checks its fixed rows.
-        "qualified_input_ids": sorted(
+        "qualified_input_ids": sorted(identity for identity, ids in mapping.items() if ids),
+        # An explicit relation can recover historical pairs despite generic-latest conflicts.
+        "raw_qualified_input_ids": sorted(
             bundle["request"]["input_id"] for bundle in raw_bundles if bundle["observations"]
         ),
         "input_evidence_ids": mapping,

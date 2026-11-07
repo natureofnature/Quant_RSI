@@ -78,6 +78,7 @@ def screen_candidates(
             record = candidate.model_dump(mode="json")
             candidate_columns = columns
             candidate_definitions = definitions
+            candidate_qualified = qualified
             candidate_evidence = acquired.get("input_evidence", {})
             candidate_sources = acquired.get("input_evidence_ids", {})
             if candidate.realization_alignment:
@@ -86,6 +87,7 @@ def screen_candidates(
                 prepared = prepare_realization_inputs(
                     candidate, acquired.get("raw_bundles", []), times
                 )
+                candidate_qualified = qualified | set(acquired.get("raw_qualified_input_ids", ()))
                 candidate_columns = columns | prepared["columns"]
                 candidate_evidence = candidate_evidence | prepared["input_evidence"]
                 candidate_sources = candidate_sources | prepared["input_evidence_ids"]
@@ -107,7 +109,7 @@ def screen_candidates(
                 for item in candidate.inputs
                 if item.factor_id.startswith("acquired.")
             }
-            if not measurements <= qualified:
+            if not measurements <= candidate_qualified:
                 raise ValueError("Candidate requires an unavailable or unverified measurement")
             for identity in measurements:
                 sources = candidate_sources.get(identity, ())
@@ -172,7 +174,7 @@ def screen_candidates(
                     active_columns,
                     active_definitions,
                     required,
-                    acquired_inputs=qualified,
+                    acquired_inputs=candidate_qualified,
                     input_evidence=candidate_evidence,
                 )
             if len(np.unique(values[train])) < 2:

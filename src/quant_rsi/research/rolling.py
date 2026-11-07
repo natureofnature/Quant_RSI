@@ -632,7 +632,11 @@ def run_months(
                                     "qualified_input_ids": sorted(
                                         set(acquired_view["qualified_input_ids"])
                                         - blocked_measurements
-                                    )
+                                    ),
+                                    "raw_qualified_input_ids": sorted(
+                                        set(acquired_view.get("raw_qualified_input_ids", ()))
+                                        - blocked_measurements
+                                    ),
                                 }
                                 if acquired_view is not None
                                 else None
