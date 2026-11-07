@@ -1,5 +1,6 @@
 """Published expectations remain distinct from actuals; synthetic fixtures show wiring only."""
 
+import calendar
 from copy import deepcopy
 from types import SimpleNamespace
 
@@ -140,6 +141,71 @@ def test_day_first_literal_dates(quote):
     assert _date_in_excerpt("2026-01-05", quote)
     assert not _date_in_excerpt("2026-01-06", quote)
     assert not _date_in_excerpt("2026-01-05", "05/01/2026")
+
+
+@pytest.mark.parametrize(
+    "quarter,ordinal", [(1, "first"), (2, "second"), (3, "third"), (4, "fourth")]
+)
+@pytest.mark.parametrize("connector", ["", "of "])
+@pytest.mark.parametrize("year", [2025, 2026])
+def test_spelled_out_guidance_quarter_preserves_literal_source_quote(
+    quarter, ordinal, connector, year
+):
+    source, result = forecast_article(), forecast_extraction()
+    quote = f"{ordinal} quarter {connector}{year}"
+    source["text"] = source["text"].replace("1Q26", quote).replace("2026", str(year))
+    result["publication_date"] = f"{year}-01-05"
+    result["publication_excerpt"] = result["publication_excerpt"].replace("2026", str(year))
+    observation = result["observations"][0]
+    observation.update(
+        period_start=f"{year}-{3 * quarter - 2:02}-01",
+        period_end=f"{year}-{3 * quarter:02}-{calendar.monthrange(year, 3 * quarter)[1]}",
+        target_quarter=f"{year}-Q{quarter}",
+        period_excerpt=quote,
+        excerpt=observation["excerpt"].replace("1Q26", quote),
+    )
+    original_text = source["text"]
+    rows, reasons = checked(forecast_request(), source, result)
+    assert reasons == [] and len(rows) == 1
+    assert rows[0]["period_excerpt"] == quote
+    assert rows[0]["excerpt"] == observation["excerpt"]
+    assert rows[0]["target_quarter"] == f"{year}-Q{quarter}"
+    assert source["text"] == original_text
+
+
+@pytest.mark.parametrize(
+    "quote,prefix",
+    [
+        ("first quarter of 2025", ""),
+        ("second quarter of 2026", ""),
+        ("first quarter", ""),
+        ("first month of 2026", ""),
+        ("January 2026", ""),
+        ("first quarter of 2026", "fiscal "),
+        ("first quarter of 2026", "FY2026 "),
+    ],
+)
+def test_optional_of_does_not_relax_forecast_year_quarter_or_fiscal_guards(quote, prefix):
+    source, result = forecast_article(), forecast_extraction()
+    source["text"] = source["text"].replace("1Q26", prefix + quote)
+    observation = result["observations"][0]
+    observation["period_excerpt"] = quote
+    observation["excerpt"] = observation["excerpt"].replace("1Q26", prefix + quote)
+    rows, reasons = checked(forecast_request(), source, result)
+    assert rows == [] and reasons == ["unverified_forecast_target_quarter"]
+
+
+@pytest.mark.parametrize("change", [{"period_start": "2026-02-01"}, {"period_end": "2026-03-30"}])
+def test_spelled_out_guidance_still_requires_exact_calendar_bounds(change):
+    source, result = forecast_article(), forecast_extraction()
+    quote = "first quarter of 2026"
+    source["text"] = source["text"].replace("1Q26", quote)
+    observation = result["observations"][0]
+    observation.update(change)
+    observation["period_excerpt"] = quote
+    observation["excerpt"] = observation["excerpt"].replace("1Q26", quote)
+    rows, reasons = checked(forecast_request(), source, result)
+    assert rows == [] and reasons == ["unverified_forecast_target_quarter"]
 
 
 def test_forecast_future_target_keeps_actual_publication_availability():
