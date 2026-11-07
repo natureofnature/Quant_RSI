@@ -321,7 +321,7 @@ def _merge_acquired(columns, definitions, view, fold, train):
     if set(columns).intersection(view["columns"]):
         raise ValueError("Acquired inputs cannot replace native factors")
     fold["acquired_inputs"] = deepcopy(
-        {key: value for key, value in view.items() if key != "columns"}
+        {key: value for key, value in view.items() if key not in {"columns", "raw_bundles"}}
     )
     for item in fold["acquired_inputs"]["coverage"]:
         identity = item["input_id"]
@@ -632,7 +632,11 @@ def run_months(
                                     "qualified_input_ids": sorted(
                                         set(acquired_view["qualified_input_ids"])
                                         - blocked_measurements
-                                    )
+                                    ),
+                                    "raw_qualified_input_ids": sorted(
+                                        set(acquired_view.get("raw_qualified_input_ids", ()))
+                                        - blocked_measurements
+                                    ),
                                 }
                                 if acquired_view is not None
                                 else None
@@ -767,7 +771,7 @@ def run_months(
                     for candidate in incumbent
                     if "discovery." + candidate["name"] in fitted_ids
                     for item in candidate["inputs"]
-                    if item["factor_id"] in acquired_view["qualified_input_ids"]
+                    if item["factor_id"] in acquired_view["columns"]
                 }
             )
         fold["candidate_recipe_role"] = (

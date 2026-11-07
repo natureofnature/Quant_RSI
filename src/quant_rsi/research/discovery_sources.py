@@ -23,11 +23,41 @@ from quant_rsi.research.active_news import SearchResponse
 from quant_rsi.research.article_reader import read_article
 
 
-class ForecastMeasure(StrictModel):
+class RealizedMeasure(StrictModel):
     product: str = Field(min_length=1, max_length=200)
-    statistic: Literal["point", "lower", "upper"]
     basis: str = Field(min_length=1, max_length=100)
+
+
+class ForecastMeasure(RealizedMeasure):
+    statistic: Literal["point", "lower", "upper"]
     pairing_group: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")] | None = None
+
+
+class OriginalActualRelease(StrictModel):
+    """Reviewed admission constraint, not proof of a globally first disclosure."""
+
+    period_start: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    period_end: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    source_url: str
+    publication_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    release_excerpt: str = Field(min_length=1, max_length=1500)
+
+    @model_validator(mode="after")
+    def calendar_quarter(self):
+        start, end = date.fromisoformat(self.period_start), date.fromisoformat(self.period_end)
+        if (
+            start.month not in {1, 4, 7, 10}
+            or start.day != 1
+            or end.year != start.year
+            or end.month != start.month + 2
+            or end.day != calendar.monthrange(end.year, end.month)[1]
+            or date.fromisoformat(self.publication_date) <= end
+        ):
+            raise ValueError("Original actual release needs a completed calendar quarter")
+        url = urlsplit(self.source_url)
+        if url.scheme != "https" or not url.hostname or url.username or url.password:
+            raise ValueError("Original actual release needs a public HTTPS source URL")
+        return self
 
 
 class DataRequest(StrictModel):
@@ -40,6 +70,8 @@ class DataRequest(StrictModel):
     max_age_days: int = Field(default=185, ge=1, le=730)
     forecast: ForecastMeasure | None = None
     period_granularity: Literal["calendar_month"] | None = None
+    original_actual_releases: tuple[OriginalActualRelease, ...] = Field(default=(), max_length=128)
+    realized_measure: RealizedMeasure | None = None
 
     @model_serializer(mode="wrap")
     def serialize(self, handler):
@@ -48,10 +80,22 @@ class DataRequest(StrictModel):
             value.pop("forecast", None)
         if self.period_granularity is None:
             value.pop("period_granularity", None)
+        if not self.original_actual_releases:
+            value.pop("original_actual_releases", None)
+        if self.realized_measure is None:
+            value.pop("realized_measure", None)
         return value
 
     @model_validator(mode="after")
     def urls(self):
+        if self.forecast and self.realized_measure:
+            raise ValueError("A measurement cannot be both realized and forecast")
+        if self.original_actual_releases:
+            if self.forecast or self.period_granularity:
+                raise ValueError("Original actual releases require realized quarterly measurements")
+            periods = [item.period_end for item in self.original_actual_releases]
+            if len(periods) != len(set(periods)):
+                raise ValueError("Declare one original actual release per quarter")
         if self.forecast is not None and self.period_granularity is not None:
             raise ValueError("Calendar-month realized measurements cannot also be forecasts")
         for value in self.source_urls:
@@ -237,9 +281,35 @@ def _forecast_period(item, excerpt, source_text):
         rf"{quarter}Q(?:{year}|{year % 100:02d})",
         rf"Q{quarter}\s+{year}",
         rf"{year}[- ]Q{quarter}",
+        rf"{('first', 'second', 'third', 'fourth')[quarter - 1]}\s+quarter\s+{year}",
     )
     quoted = any(re.search(r"(?<!\w)" + form + r"(?!\w)", excerpt, re.I) for form in forms)
     return item.period_start == start.isoformat() and item.period_end == end.isoformat() and quoted
+
+
+def _quarter_scope_conflict(excerpt, text):
+    if re.search(r"\b(?:year[ -]to[ -]date|YTD|months?|monthly|cumulative)\b", excerpt, re.I):
+        return True
+    for match in re.finditer(re.escape(excerpt), text):
+        context = text[max(0, match.start() - 64) : match.end() + 64]
+        if re.search(r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b", context, re.I):
+            return True
+    return False
+
+
+def _original_quarter_period(item, excerpt, text):
+    """An explicit original-release anchor may bind a spelled-out quarter-ended header."""
+    if _quarter_scope_conflict(excerpt, text):
+        return False
+    end = date.fromisoformat(item.period_end)
+    quarter = (end.month - 1) // 3 + 1
+    target = item.model_copy(update={"target_quarter": f"{end.year}-Q{quarter}"})
+    if _forecast_period(target, excerpt, text):
+        return True
+    ordinal = ("first", "second", "third", "fourth")[quarter - 1]
+    return bool(re.search(rf"\b{ordinal}\s+quarter\s+ended\b", excerpt, re.I)) and _date_in_excerpt(
+        item.period_end, excerpt
+    )
 
 
 def _headline_only(article):
@@ -592,6 +662,9 @@ class DiscoverySources:
                 "future publication dates are not. Extract only the current publication vintage, "
                 "not previous estimates quoted retrospectively. Otherwise target_quarter is null "
                 "and observations must describe realized periods. "
+                "If original_actual_releases is declared, extract only the designated current "
+                "quarter actual from its original release; preserve the exact declared period "
+                "boundaries. Comparative or restated values from later releases are not eligible. "
                 "publication_date is the "
                 "source's actual publication date, never the period end or retrieval "
                 "time; quote its "
@@ -683,6 +756,7 @@ def validate_extraction(
     except (ValueError, TypeError, KeyError):
         return [], ["invalid_source_dates"]
     for item in result.observations:
+        anchor = None
         try:
             end = date.fromisoformat(item.period_end)
             period_excerpt = item.period_excerpt or item.excerpt
@@ -706,8 +780,10 @@ def validate_extraction(
                         item.period_end, period_excerpt
                     ):
                         raise ValueError("period_end_not_in_excerpt")
-                    if item.period_start and not _date_in_excerpt(
-                        item.period_start, period_excerpt
+                    if (
+                        item.period_start
+                        and not request.original_actual_releases
+                        and not _date_in_excerpt(item.period_start, period_excerpt)
                     ):
                         raise ValueError("period_start_not_in_excerpt")
             if (
@@ -716,6 +792,37 @@ def validate_extraction(
                 or not _literal_number(item.value, item.excerpt)
             ):
                 raise ValueError("unverified_literal_value_or_unit")
+            if request.original_actual_releases:
+                anchor = next(
+                    (
+                        a
+                        for a in request.original_actual_releases
+                        if a.period_end == item.period_end
+                    ),
+                    None,
+                )
+                if (
+                    anchor is None
+                    or anchor.period_start != item.period_start
+                    or anchor.publication_date != result.publication_date
+                    or anchor.source_url not in {article.get("url"), article.get("final_url")}
+                    or anchor.release_excerpt not in text
+                    or not _date_in_excerpt(anchor.period_end, anchor.release_excerpt)
+                    or not _original_quarter_period(item, anchor.release_excerpt, text)
+                ):
+                    raise ValueError("unverified_original_actual_release")
+                if (
+                    _quarter_scope_conflict(period_excerpt, text)
+                    or _quarter_scope_conflict(item.excerpt, text)
+                    or not (
+                        _original_quarter_period(item, period_excerpt, text)
+                        or (
+                            _date_in_excerpt(item.period_start, period_excerpt)
+                            and _date_in_excerpt(item.period_end, period_excerpt)
+                        )
+                    )
+                ):
+                    raise ValueError("unverified_original_actual_observation_period")
         except ValueError as exc:
             reasons.append(str(exc))
             continue
@@ -738,6 +845,8 @@ def validate_extraction(
         }
         if request.forecast is not None:
             value["forecast"] = request.forecast.model_dump(mode="json")
+        if anchor is not None:
+            value["original_actual_release"] = anchor.model_dump(mode="json")
         observations.append(value | {"observation_id": digest(canonical(value))})
     return observations, reasons
 
@@ -872,6 +981,17 @@ def discovery_decision(llm, context):
         "their requests: combined inputs in that group must share source, publication and target "
         "quarter; mismatches stay missing. Use null pairing_group for independent expectations. "
         "Combine paired inputs before applying outermost lag/rolling operators. "
+        "To compare a quarterly realized actual with its management guidance range, explicitly "
+        "set candidate.realization_alignment={actual: input_name, lower: input_name, upper: "
+        "input_name, policy: latest_pre_actual}. This resolves the latest same-quarter guidance "
+        "published strictly before the designated actual release, not the latest next-quarter "
+        "guidance and not analyst consensus. The actual data request must declare reviewed "
+        "original_actual_releases with exact calendar period_start/end, source_url, "
+        "publication_date and a literal release_excerpt identifying the current-quarter actual "
+        "and period-end date, plus realized_measure.product/basis matching the forecast range. "
+        "Survey original releases first if these facts are unavailable; "
+        "do not invent anchors. Comparative/restated later releases cannot replace the anchor. "
+        "Use null realization_alignment for other candidates. "
         "For a range request its literal lower and upper bounds as separate input leaves, then "
         "compose any derived measurement with supported DSL operators and declared inputs. "
         "Prefer one literal measurement when the derivation lacks a supported constant/operator. "

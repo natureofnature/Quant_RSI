@@ -46,7 +46,10 @@ offline example, supported operators and the separate real-service acceptance re
 Published quarterly expectations can enter acquisition with explicit forecast metadata;
 paired forecasts retain matching source, publication and target-quarter evidence. Realized
 monthly disclosures can explicitly declare calendar-month periods; publication still needs
-an exact date. Missing history still blocks training on the unchanged sample.
+an exact date. An explicit actual/guidance relation can resolve the same quarter's
+latest guidance issued before a designated original earnings release, instead of
+mixing actuals with next-quarter guidance. Missing history still blocks training
+on the unchanged sample.
 
 
 To start studies from the browser and return to previous tasks, open the local workbench:

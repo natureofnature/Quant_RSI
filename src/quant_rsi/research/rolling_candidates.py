@@ -76,6 +76,31 @@ def screen_candidates(
         try:
             candidate = DiscoveryFactor.model_validate_json(canonical(value))
             record = candidate.model_dump(mode="json")
+            candidate_columns = columns
+            candidate_definitions = definitions
+            candidate_qualified = qualified
+            candidate_evidence = acquired.get("input_evidence", {})
+            candidate_sources = acquired.get("input_evidence_ids", {})
+            if candidate.realization_alignment:
+                from quant_rsi.research.realization_alignment import prepare_realization_inputs
+
+                prepared = prepare_realization_inputs(
+                    candidate, acquired.get("raw_bundles", []), times
+                )
+                candidate_qualified = qualified | set(acquired.get("raw_qualified_input_ids", ()))
+                candidate_columns = columns | prepared["columns"]
+                candidate_evidence = candidate_evidence | prepared["input_evidence"]
+                candidate_sources = candidate_sources | prepared["input_evidence_ids"]
+                candidate_definitions = [
+                    item | {"runnable": True} if item["factor_id"] in prepared["columns"] else item
+                    for item in definitions
+                ]
+                diagnostics[candidate.recipe_ref] = {
+                    "input_id": candidate.recipe_ref,
+                    "kind": "realization_alignment",
+                    "input_evidence": prepared["input_evidence"],
+                    "source_ids": prepared["input_evidence_ids"],
+                }
             used = {
                 item.factor_id for item in candidate.inputs if item.factor_id.startswith("news.")
             }
@@ -84,13 +109,13 @@ def screen_candidates(
                 for item in candidate.inputs
                 if item.factor_id.startswith("acquired.")
             }
-            if not measurements <= qualified:
+            if not measurements <= candidate_qualified:
                 raise ValueError("Candidate requires an unavailable or unverified measurement")
             for identity in measurements:
-                sources = acquired.get("input_evidence_ids", {}).get(identity, ())
+                sources = candidate_sources.get(identity, ())
                 if not set(candidate.evidence_ids).intersection(sources):
                     raise ValueError(f"Candidate must cite a source supporting {identity}")
-                values = columns.get(identity)
+                values = candidate_columns.get(identity)
                 if values is None or not np.isfinite(values[required]).all():
                     raise ValueError(f"Measurement unavailable on fixed sample: {identity}")
                 if len(np.unique(values[train])) < 2:
@@ -133,14 +158,14 @@ def screen_candidates(
                     raise ValueError(f"News input unavailable on fixed sample: {identity}")
                 if len(np.unique(values[train])) < 2:
                     raise ValueError(f"News input has no training variation: {identity}")
-            active_columns, active_definitions = columns | nc, definitions + nd
+            active_columns, active_definitions = candidate_columns | nc, candidate_definitions + nd
             proposed_matrix, proposed_ids = candidate_matrix(
                 [record],
                 active_columns,
                 active_definitions,
                 baseline,
                 required,
-                input_evidence=acquired.get("input_evidence"),
+                input_evidence=candidate_evidence,
             )
             values = proposed_matrix[:, -1]
             if news_required or measurements:
@@ -149,8 +174,8 @@ def screen_candidates(
                     active_columns,
                     active_definitions,
                     required,
-                    acquired_inputs=qualified,
-                    input_evidence=acquired.get("input_evidence"),
+                    acquired_inputs=candidate_qualified,
+                    input_evidence=candidate_evidence,
                 )
             if len(np.unique(values[train])) < 2:
                 raise ValueError("Candidate expression has no training variation")
@@ -187,7 +212,7 @@ def screen_candidates(
         "ids": ids,
         "news_columns": news_columns,
         "diagnostics": [
-            item | {"used_by_model": identity in selected_inputs}
+            item | {"used_by_model": identity in selected_inputs or identity in refs}
             for identity, item in diagnostics.items()
         ],
         "rejections": rejections,

@@ -187,6 +187,64 @@ chain. `lag(DRAM - NAND)` is supported; `lag(DRAM) - NAND` is rejected because i
 mix different forecast vintages. Both study and rolling candidate execution enforce
 these rules; unused forecast bundles do not impose constraints on other candidates.
 
+#### Realized actual versus its own guidance range
+
+Independent latest-value alignment is insufficient for this comparison: a Q1 actual
+release often also announces Q2 guidance. A candidate can explicitly request:
+
+```json
+{"realization_alignment": {"version": 1, "actual": "actual_gm",
+  "lower": "guidance_lower", "upper": "guidance_upper", "policy": "latest_pre_actual"}}
+```
+
+These are the candidate's input **binding names**. Both bounds need matching forecast
+product, accounting basis, pairing group, issuer and unit. The actual request declares
+the same `realized_measure.product` and `realized_measure.basis`, plus reviewed anchors:
+
+```json
+{"original_actual_releases": [{
+  "period_start": "2026-01-01", "period_end": "2026-03-31",
+  "source_url": "https://example.com/original-earnings-release",
+  "publication_date": "2026-04-16",
+  "release_excerpt": "Results for the first quarter ended March 31, 2026."
+}]}
+```
+
+This is an illustrative schema, not issuer evidence. An anchor is an admission
+constraint, not evidence on its own: source URL, publication date, full calendar
+quarter and literal current-quarter release excerpt must match retained source text.
+Quarter labels such as `2026-Q1` or `first quarter ended March 31, 2026` establish
+calendar boundaries only under this opt-in; monthly, YTD and fiscal scopes are not
+accepted. Publication still requires an exact date. Review must establish that the
+designated source reports that quarter's actual and the same accounting measure.
+The observation's own period and value excerpts are checked separately from the
+release heading; a quarterly heading cannot admit a cumulative value. This narrow
+adapter does not accept `three months ended` wording: use a verified quarterly header
+or exact matching full-quarter bounds without conflicting scope, otherwise retain the gap.
+The system does not infer a globally first disclosure from the earliest fetched record.
+
+Both study and rolling execution resolve a **candidate-local** view from admitted raw
+histories before screening or computing features. Select the latest already-published
+designated actual quarter, then the latest same-quarter guidance strictly published
+before that release. Bounds must come from one source/publication; a missing or
+conflicting newest range does not fall back to an older complete one. Missing actuals,
+unavailable receipts, expired inputs, mismatched periods and nonpositive range widths
+remain missing with reasons. Date-only same-day releases cannot establish ordering.
+Later comparative/restated actuals cannot silently move the anchor. Existing generic
+latest-forecast recipes are unchanged.
+
+The relation enters recipe identity; source anchors enter input identity. Execution
+evidence records selected observation IDs, source IDs, periods, publication/availability
+times and missing reasons. Replay uses retained source and extraction receipts.
+Dependency probes operate on the prepared numerical columns, without resolving raw
+values again. Combine the actual and both bounds before applying outermost temporal
+operators. For `(actual - lower) / (upper - lower)`, values outside `[0, 1] are valid.
+This measures realization relative to management guidance, **not analyst consensus or
+market surprise**. Repeated daily quarter values are not independent disclosures;
+source admission and successful execution do not establish predictive usefulness.
+
+#### Realized calendar-month measurements
+
 Realized monthly disclosures can opt in with
 `"period_granularity": "calendar_month"` on `DataRequest`. A literal month and year
 in the quoted period evidence then identify exactly that month's first and last
@@ -235,6 +293,30 @@ research feedback and Memory retrieval. A latest forecast, if published, is sepa
 historical development and terminal evaluation.
 
 ## Evidence and completion status
+
+### TSM original-release alignment pilot (2026-11-07)
+
+A real Codex session (`gpt-6.1-sol`, high effort) submitted one typed acquisition
+decision and completed three literal extractions for an existing news-derived
+gross-margin guidance-position hypothesis. It used TSMC's
+[January 15 original release](https://investor.tsmc.com/japanese/encrypt/files/encrypt_file/reports/2026-01/3e49621566a3ca53bdf8aee2586929b666c17fd6/4Q25EarningsRelease.pdf)
+for Q1 2026 guidance of 63%–65%, and its
+[April 16 original release](https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-04/e85216eea8dccd8ca75d7e040e8d57be3ccd618b/1Q26%20EarningsRelease.pdf)
+for the same quarter's actual gross margin of 66.2%.
+
+The executable relation produced `(66.2 - 63) / (65 - 63) = 1.6`; all three
+acquisition bundles replayed identically from retained text/extraction receipts.
+The candidate recipe identity is
+`2828d9c57f64f3f64e933e9631dc05a13724c1b678ed8c4a7a0dda36430952e1`.
+The acquisition runtime was `a0b4c40`; original decisions, receipts, selected
+observation IDs and the earlier negative monthly-revenue experiment were preserved.
+
+This is **one independent quarterly event and zero model fits**, demonstrating
+source-to-feature execution only. Source text was retrieved retrospectively;
+publication dates do not establish archived historical bytes or past receipt times.
+The January 1 boundary is normalized from the stated calendar quarter, not a literal
+date in the release. Guidance assumes USD/NTD 31.6, so the measurement is not a pure
+demand signal, analyst consensus surprise, or evidence of predictive improvement.
 
 Implementation and offline tests are not the complete RFC acceptance. Completion also
 requires a recorded real-service lineage connecting the **same candidate** from news to
