@@ -118,12 +118,24 @@ class DiscoveryExperimentRunner:
     def prepare(self, candidate, bundles):
         proposal = DiscoveryFactor.model_validate_json(canonical(candidate))
         definitions, columns = self.inputs(bundles)
-        definition = proposal.definition(definitions)
-        if not definition["runnable"]:
-            return definition, None, definitions
         input_evidence = {
             key: rows for bundle in bundles for key, rows in bundle["input_evidence"].items()
         }
+        if proposal.realization_alignment:
+            from quant_rsi.research.realization_alignment import prepare_realization_inputs
+
+            prepared = prepare_realization_inputs(proposal, bundles, self.cutoffs)
+            columns = columns | prepared["columns"]
+            input_evidence = input_evidence | prepared["input_evidence"]
+            definitions = [
+                item | {"runnable": True} if item["factor_id"] in prepared["columns"] else item
+                for item in definitions
+            ]
+        definition = proposal.definition(definitions)
+        if not definition["runnable"]:
+            return definition, None, definitions
+        if proposal.realization_alignment:
+            definition["realization_input_evidence"] = prepared["input_evidence"]
         values = compute_factor(definition, columns, definitions, input_evidence=input_evidence)
         return definition, values, definitions
 

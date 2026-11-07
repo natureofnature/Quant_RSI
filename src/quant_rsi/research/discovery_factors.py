@@ -9,9 +9,10 @@ import json
 import re
 from copy import deepcopy
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
-from pydantic import Field, model_validator
+from pydantic import Field, model_serializer, model_validator
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
@@ -202,6 +203,14 @@ class DiscoveryInput(StrictModel):
     factor_id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_.-]+$")
 
 
+class RealizationAlignment(StrictModel):
+    version: Literal[1] = 1
+    actual: Name
+    lower: Name
+    upper: Name
+    policy: Literal["latest_pre_actual"]
+
+
 class DiscoveryFactor(StrictModel):
     name: Name
     description: str = Field(min_length=1, max_length=2000)
@@ -210,6 +219,14 @@ class DiscoveryFactor(StrictModel):
     evidence_ids: tuple[str, ...] = Field(default=(), max_length=20)
     # Research revisions/replacements, not numerical expression dependencies.
     parent_recipe_refs: tuple[Hash, ...] = Field(default=(), max_length=8)
+    realization_alignment: RealizationAlignment | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        value = handler(self)
+        if self.realization_alignment is None:
+            value.pop("realization_alignment", None)
+        return value
 
     @model_validator(mode="after")
     def bindings(self):
@@ -217,6 +234,11 @@ class DiscoveryFactor(StrictModel):
         leaves = {node.leaf for node in self.expression.nodes if node.op == "leaf"}
         if len(names) != len(set(names)) or set(names) != leaves:
             raise ValueError("Every unique input binding must be used by the expression")
+        if self.realization_alignment:
+            relation = self.realization_alignment
+            paired = {relation.actual, relation.lower, relation.upper}
+            if len(paired) != 3 or not paired <= set(names):
+                raise ValueError("Realization alignment needs three distinct declared inputs")
         if len(self.parent_recipe_refs) != len(set(self.parent_recipe_refs)):
             raise ValueError("Parent recipe references must be unique")
         if self.recipe_ref in self.parent_recipe_refs:
@@ -225,11 +247,22 @@ class DiscoveryFactor(StrictModel):
 
     @property
     def recipe_ref(self):
-        return digest(
-            canonical(
-                self.expression.normalized({item.name: item.factor_id for item in self.inputs})
-            )
-        )
+        bindings = {item.name: item.factor_id for item in self.inputs}
+        normalized = self.expression.normalized(bindings)
+        if self.realization_alignment:
+            relation = self.realization_alignment
+            normalized = {
+                "expression": normalized,
+                "realization_alignment": {
+                    "version": relation.version,
+                    "policy": relation.policy,
+                    **{
+                        key: bindings[getattr(relation, key)]
+                        for key in ("actual", "lower", "upper")
+                    },
+                },
+            }
+        return digest(canonical(normalized))
 
     def definition(self, definitions):
         sources = {item["factor_id"]: item for item in definitions}
@@ -264,6 +297,10 @@ class DiscoveryFactor(StrictModel):
         }
         if self.parent_recipe_refs:
             definition["parent_recipe_refs"] = list(self.parent_recipe_refs)
+        if self.realization_alignment:
+            definition["recipe"]["realization_alignment"] = self.realization_alignment.model_dump(
+                mode="json"
+            )
         groups = {}
         for item in self.inputs:
             forecast = sources.get(item.factor_id, {}).get("forecast") or {}
@@ -316,6 +353,7 @@ def compute_factor(definition, columns, definitions=None, *, input_evidence=None
                 "inputs": recipe["inputs"],
                 "expression": recipe["expression"],
                 "evidence_ids": definition.get("evidence_ids", []),
+                "realization_alignment": recipe.get("realization_alignment"),
             }
         )
     )
@@ -331,6 +369,10 @@ def compute_factor(definition, columns, definitions=None, *, input_evidence=None
     if missing:
         raise ValueError(f"Discovery expression needs input: {', '.join(missing)}")
     bound = {item.name: columns[item.factor_id] for item in proposal.inputs}
+    if proposal.realization_alignment:
+        from quant_rsi.research.realization_alignment import mask_realization_inputs
+
+        bound = mask_realization_inputs(proposal, bound, input_evidence)
     pairing = definition.get("forecast_pairing", {"version": 1, "groups": []})
     if pairing["version"] != 1:
         raise ValueError("Unknown forecast pairing version")

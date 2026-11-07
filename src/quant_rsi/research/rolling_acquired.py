@@ -138,7 +138,12 @@ def _replay(bundle):
             research_cutoff=cutoff.isoformat() if cutoff else extraction["extracted_at"],
         )
         for row in rows:
-            for quote in (row["publication_excerpt"], row["excerpt"], row.get("period_excerpt")):
+            for quote in (
+                row["publication_excerpt"],
+                row["excerpt"],
+                row.get("period_excerpt"),
+                row.get("original_actual_release", {}).get("release_excerpt"),
+            ):
                 if quote:
                     _quote_span(by_id[identity], quote)
         checked.extend(rows)
@@ -290,7 +295,13 @@ def _projections(acquisitions, cutoff, mode):
                 ("publication", row["publication_excerpt"]),
                 ("period", row.get("period_excerpt") or row["excerpt"]),
                 ("value", row["excerpt"]),
+                (
+                    "original_actual_release",
+                    row.get("original_actual_release", {}).get("release_excerpt"),
+                ),
             ):
+                if not excerpt:
+                    continue
                 start = _quote_span(article, excerpt)
                 span = {
                     "start": start,
@@ -365,9 +376,11 @@ def align_acquired_history(history, row_times, cutoff, mode):
         "Acquired rows extend beyond cutoff",
     )
     columns, definitions, coverage, mapping, input_evidence = {}, [], [], {}, {}
+    raw_bundles = []
     for bundle in history["acquisitions"]:
         rows = _rows(bundle, cutoff, mode)
         aligned = align_input_bundle(bundle["request"], rows, row_times)
+        raw_bundles.append({"request": aligned["request"], "observations": rows})
         identity = bundle["request"]["input_id"]
         values = np.asarray(aligned["columns"][identity], dtype=float)
         columns[identity] = values
@@ -419,9 +432,14 @@ def align_acquired_history(history, row_times, cutoff, mode):
         "definitions": definitions,
         "evidence": evidence,
         "coverage": coverage,
-        "qualified_input_ids": sorted(identity for identity, ids in mapping.items() if ids),
+        # Raw admitted history may support a candidate-specific join even when the
+        # generic latest view conflicts. Every candidate still checks its fixed rows.
+        "qualified_input_ids": sorted(
+            bundle["request"]["input_id"] for bundle in raw_bundles if bundle["observations"]
+        ),
         "input_evidence_ids": mapping,
         "input_evidence": input_evidence,
+        "raw_bundles": raw_bundles,
         "notice": NOTICE,
     }
 

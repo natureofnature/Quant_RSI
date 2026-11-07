@@ -321,7 +321,7 @@ def _merge_acquired(columns, definitions, view, fold, train):
     if set(columns).intersection(view["columns"]):
         raise ValueError("Acquired inputs cannot replace native factors")
     fold["acquired_inputs"] = deepcopy(
-        {key: value for key, value in view.items() if key != "columns"}
+        {key: value for key, value in view.items() if key not in {"columns", "raw_bundles"}}
     )
     for item in fold["acquired_inputs"]["coverage"]:
         identity = item["input_id"]

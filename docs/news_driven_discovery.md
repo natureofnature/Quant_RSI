@@ -187,6 +187,60 @@ chain. `lag(DRAM - NAND)` is supported; `lag(DRAM) - NAND` is rejected because i
 mix different forecast vintages. Both study and rolling candidate execution enforce
 these rules; unused forecast bundles do not impose constraints on other candidates.
 
+#### Realized actual versus its own guidance range
+
+Independent latest-value alignment is insufficient for this comparison: a Q1 actual
+release often also announces Q2 guidance. A candidate can explicitly request:
+
+```json
+{"realization_alignment": {"version": 1, "actual": "actual_gm",
+  "lower": "guidance_lower", "upper": "guidance_upper", "policy": "latest_pre_actual"}}
+```
+
+These are the candidate's input **binding names**. Both bounds need matching forecast
+product, accounting basis, pairing group, issuer and unit. The actual request declares
+the same `realized_measure.product` and `realized_measure.basis`, plus reviewed anchors:
+
+```json
+{"original_actual_releases": [{
+  "period_start": "2026-01-01", "period_end": "2026-03-31",
+  "source_url": "https://example.com/original-earnings-release",
+  "publication_date": "2026-04-16",
+  "release_excerpt": "Results for the first quarter ended March 31, 2026."
+}]}
+```
+
+This is an illustrative schema, not issuer evidence. An anchor is an admission
+constraint, not evidence on its own: source URL, publication date, full calendar
+quarter and literal current-quarter release excerpt must match retained source text.
+Quarter labels such as `2026-Q1` or `first quarter ended March 31, 2026` establish
+calendar boundaries only under this opt-in; monthly, YTD and fiscal scopes are not
+accepted. Publication still requires an exact date. Review must establish that the
+designated source reports that quarter's actual and the same accounting measure.
+The system does not infer a globally first disclosure from the earliest fetched record.
+
+Both study and rolling execution resolve a **candidate-local** view from admitted raw
+histories before screening or computing features. Select the latest already-published
+designated actual quarter, then the latest same-quarter guidance strictly published
+before that release. Bounds must come from one source/publication; a missing or
+conflicting newest range does not fall back to an older complete one. Missing actuals,
+unavailable receipts, expired inputs, mismatched periods and nonpositive range widths
+remain missing with reasons. Date-only same-day releases cannot establish ordering.
+Later comparative/restated actuals cannot silently move the anchor. Existing generic
+latest-forecast recipes are unchanged.
+
+The relation enters recipe identity; source anchors enter input identity. Execution
+evidence records selected observation IDs, source IDs, periods, publication/availability
+times and missing reasons. Replay uses retained source and extraction receipts.
+Dependency probes operate on the prepared numerical columns, without resolving raw
+values again. Combine the actual and both bounds before applying outermost temporal
+operators. For `(actual - lower) / (upper - lower)`, values outside `[0, 1] are valid.
+This measures realization relative to management guidance, **not analyst consensus or
+market surprise**. Repeated daily quarter values are not independent disclosures;
+source admission and successful execution do not establish predictive usefulness.
+
+#### Realized calendar-month measurements
+
 Realized monthly disclosures can opt in with
 `"period_granularity": "calendar_month"` on `DataRequest`. A literal month and year
 in the quoted period evidence then identify exactly that month's first and last
