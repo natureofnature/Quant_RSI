@@ -281,7 +281,10 @@ def _forecast_period(item, excerpt, source_text):
         rf"{quarter}Q(?:{year}|{year % 100:02d})",
         rf"Q{quarter}\s+{year}",
         rf"{year}[- ]Q{quarter}",
-        rf"{('first', 'second', 'third', 'fourth')[quarter - 1]}\s+quarter\s+{year}",
+        (
+            rf"{('first', 'second', 'third', 'fourth')[quarter - 1]}\s+quarter\s+"
+            rf"(?:of\s+)?{year}"
+        ),
     )
     quoted = any(re.search(r"(?<!\w)" + form + r"(?!\w)", excerpt, re.I) for form in forms)
     return item.period_start == start.isoformat() and item.period_end == end.isoformat() and quoted
