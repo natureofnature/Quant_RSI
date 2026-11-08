@@ -395,6 +395,21 @@ def _run(args, symbol, root, configuration, record, progress, cache):
     if prices is None:
         model.data = replace(model.data, instruments=(symbol,))
     _write(root / "evaluation_plan.json", model.terminal_plan())
+    account_windows = {
+        name: (
+            None
+            if len(indices) == 0
+            else {
+                "start": model.data.dates[int(indices[0])],
+                "end": model.data.dates[int(indices[-1])],
+            }
+        )
+        for name, indices in (
+            ("training", model.train),
+            ("development", model.origins),
+            ("test", model.terminal_origins),
+        )
+    }
     progress.finish(
         "load_prices",
         {"provider": model.price_provider, "symbol": symbol, "sessions": len(model.data.dates)},
@@ -1070,6 +1085,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         if model.profile_features is not None
         else [],
         "selection": selection,
+        "account_windows": account_windows,
         "factor_changes": {
             "activated": sorted(second_ids - first_ids),
             "deactivated": sorted(first_ids - second_ids),
