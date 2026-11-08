@@ -19,7 +19,7 @@ MAX_REDIRECTS = 3
 
 
 class _Unavailable(ValueError):
-    pass
+    http_requests = 0
 
 
 def _url(value):
@@ -60,6 +60,7 @@ def _fetch(url):
     family, kind, protocol, _, address = _public_target(parsed)
     connection = http.client.HTTPConnection(parsed.hostname, address[1], timeout=TIMEOUT)
     sock = socket.socket(family, kind, protocol)
+    http_requests = 0
     try:
         sock.settimeout(TIMEOUT)
         sock.connect(address)
@@ -67,6 +68,7 @@ def _fetch(url):
             sock = ssl.create_default_context().wrap_socket(sock, server_hostname=parsed.hostname)
         connection.sock = sock
         path = urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+        http_requests = 1
         connection.request(
             "GET",
             path,
@@ -93,6 +95,10 @@ def _fetch(url):
         if len(body) > MAX_BYTES:
             raise _Unavailable("response_too_large")
         return response.status, response.headers, body
+    except (OSError, http.client.HTTPException, ValueError) as exc:
+        failure = exc if isinstance(exc, _Unavailable) else _Unavailable("request_failed")
+        failure.http_requests = http_requests
+        raise failure from None
     finally:
         connection.close()
         sock.close()
@@ -184,11 +190,13 @@ class _ArticleText(HTMLParser):
         return ""
 
 
-def read_article(url):
+def read_article(url, *, avoid_hosts=None):
     """Read at most one bounded public page, following at most three checked redirects.
 
     An available page is extracted text, not proof of completeness, publication
     time, source accuracy, or a verified relationship. No browser/JS or paywall bypass.
+    ``avoid_hosts`` blocks every hop before resolution/connection. ``http_requests``
+    counts dispatched HTTP requests (including failed requests), not DNS lookups.
     """
     result = {
         "url": None,
@@ -198,15 +206,24 @@ def read_article(url):
         "text_truncated": False,
         "content_sha256": None,
         "content_extent": "bounded_public_page_text_not_verified_full_article",
+        "fetch_attempted": False,
+        "http_requests": 0,
     }
     try:
         _url(url)
         result["url"] = url
         current = url
         for redirects in range(MAX_REDIRECTS + 1):
-            _url(current)
+            parsed = _url(current)
             result["final_url"] = current
+            host = parsed.hostname.rstrip(".").lower().encode("idna").decode()
+            if host in (avoid_hosts or {}):
+                result["host_failure"] = avoid_hosts[host]
+                result["content_extent"] = "not_read"
+                raise _Unavailable("skipped_denied_host")
+            result["fetch_attempted"] = True
             status, headers, body = _fetch(current)
+            result["http_requests"] += 1
             if status in {301, 302, 303, 307, 308}:
                 if redirects == MAX_REDIRECTS:
                     raise _Unavailable("redirect_limit")
@@ -248,7 +265,12 @@ def read_article(url):
             break
     except _Unavailable as exc:
         result["reason"] = str(exc)
+        result["http_requests"] += exc.http_requests
     except (OSError, http.client.HTTPException, ValueError):
         result["reason"] = "request_failed"
-    result["received_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    result["received_at"] = (
+        None
+        if result.get("reason") == "skipped_denied_host" and not result["http_requests"]
+        else datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
     return result

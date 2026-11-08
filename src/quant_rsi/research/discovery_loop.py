@@ -310,6 +310,7 @@ def run_discovery(
                         "guard": guard,
                         "counts": result.get("counts", {}),
                         "operations": result.get("operations", []),
+                        "access_receipts": result.get("access_receipts", []),
                         "gaps": result.get("gaps", []),
                         "search": result.get("search", {}),
                         "excluded": result.get("excluded", []),

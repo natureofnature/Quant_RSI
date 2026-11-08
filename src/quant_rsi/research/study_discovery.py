@@ -220,18 +220,31 @@ def run_connected_discovery(
         return result
 
     operation_counts = {"acquire": 0, "survey": 0}
+    source_iteration = None
 
     def source_operation(kind, request):
         operation_counts[kind] += 1
         name = f"discovery_{kind}_{operation_counts[kind]}"
         emit(name, None)
+        source_context = {
+            "policy": policy,
+            "operation_id": digest(
+                canonical(
+                    {
+                        "iteration": source_iteration,
+                        "kind": kind,
+                        "request": request,
+                    }
+                )
+            ),
+        }
         output = (
-            sources.acquire(request, prediction_times=cutoffs, context={"policy": policy})
+            sources.acquire(request, prediction_times=cutoffs, context=source_context)
             if kind == "acquire"
             else sources.survey(
                 {"symbol": configuration["symbol"]} | request,
                 context={
-                    "policy": policy,
+                    **source_context,
                     "symbol": configuration["symbol"],
                     "forecast_target": context["forecast_target"],
                 },
@@ -241,6 +254,9 @@ def run_connected_discovery(
         return output
 
     def restore_sources(value):
+        nonlocal source_iteration
+        if "iteration" in value:
+            source_iteration = value["iteration"]
         engine.evidence_ids.update(row["id"] for row in value.get("evidence", []) if row.get("id"))
         engine.evidence_articles.update(
             (row["id"], row) for row in value.get("evidence", []) if row.get("id")

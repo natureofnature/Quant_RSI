@@ -30,6 +30,25 @@ No receipt or historical news snapshot is invented. Failures from a configured t
 RSS feed still stop the run. Legacy, incremental and non-active discovery retain their
 existing configuration requirements.
 
+Discovery keeps access failures as run-scoped feedback for later searches and preserves
+them on resume. Hosts that deny access, rate-limit requests or resolve to non-public
+addresses are avoided. An interrupted survey or acquisition replays its frozen search
+context and completed reads; later source operations use the accumulated feedback.
+Avoidance includes redirect destinations. Skipping a known denied host
+before a read uses no additional read allowance; a read that encounters a denied
+redirect still uses its existing allowance and records preceding HTTP requests.
+Access receipts are transport metadata, not source evidence. This feedback neither
+increases source budgets nor relaxes SSRF checks or access restrictions.
+
+Native discovery binds each source operation to its frozen decision iteration, operation
+kind and complete request. It can replay completed source work when writing the outer
+checkpoint fails. Identical requests within one batch share the inner source operation;
+each still consumes its existing outer acquisition slot. External orchestration that
+wraps `DiscoverySources.survey` or `acquire` in an outer checkpoint must supply the
+existing checkpoint callback and a stable `context.operation_id`, reuse that identity
+on resume, and change it for a new logical operation.
+Without that caller identity, a call after successful completion is a new investigation.
+
 For an offline wiring example with simulated evidence, decisions and acquisition,
 while retaining actual numerical feature calculation and model fitting:
 

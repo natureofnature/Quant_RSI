@@ -64,10 +64,10 @@ def _hostname(url):
 
 
 def _avoid_hosts(articles):
-    """Run-scoped access/rate-limit failures, not a judgment that a site is permanently down."""
+    """Run-scoped access/policy failures, not a judgment that a site is permanently down."""
     hosts = {}
     for article in articles:
-        if article.get("reason") in {"http_401", "http_403", "http_429"}:
+        if article.get("reason") in {"http_401", "http_403", "http_429", "non_public_address"}:
             for key in ("url", "final_url"):
                 if host := _hostname(article.get(key)):
                     hosts[host] = article["reason"]

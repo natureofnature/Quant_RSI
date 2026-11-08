@@ -19,7 +19,7 @@ from pydantic import Field, model_serializer, model_validator
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.research.active_news import SearchResponse
+from quant_rsi.research.active_news import SearchResponse, _avoid_hosts, _hostname
 from quant_rsi.research.article_reader import read_article
 from quant_rsi.research.discovery_hypotheses import EvidenceRelationship
 
@@ -383,7 +383,7 @@ class DiscoverySources:
         information_mode="retrospective",
         research_cutoff=None,
         retained_articles=(),
-        reader=read_article,
+        reader=None,
         call=None,
         max_searches=2,
         max_reads=6,
@@ -406,6 +406,10 @@ class DiscoverySources:
         self.limits = {"search": max_searches, "read": max_reads, "extract": max_extractions}
         self.counts = {key: 0 for key in self.limits} | {"analysis": 0}
         self.operations = []
+        self.access_receipts = []
+        for article in self.articles:
+            if article.get("status") == "unavailable":
+                self._remember_access(article)
         self.policy = deepcopy(policy or {})
         self.usage_path = Path(usage_path) if usage_path is not None else None
         if self.usage_path and self.usage_path.exists():
@@ -416,7 +420,11 @@ class DiscoverySources:
 
     def _save_usage(self):
         if self.usage_path:
-            usage = {"counts": self.counts, "operations": self.operations}
+            usage = {
+                "counts": self.counts,
+                "operations": self.operations,
+                "access_receipts": self.access_receipts,
+            }
             self.usage_path.parent.mkdir(parents=True, exist_ok=True)
             atomic_write(
                 self.usage_path, canonical({"usage": usage, "sha256": digest(canonical(usage))})
@@ -445,6 +453,9 @@ class DiscoverySources:
             snapshots = result.get("articles", result.get("evidence", []))
             if len(snapshots) > 64 or any(len(canonical(row)) > 128_000 for row in snapshots):
                 raise ValueError("Restored discovery articles exceed bounded input size")
+            for article in snapshots:
+                if article.get("status") == "unavailable":
+                    self._remember_access(article)
             articles, rejected = eligible_articles(
                 snapshots, information_mode=self.mode, research_cutoff=self.cutoff
             )
@@ -466,6 +477,11 @@ class DiscoverySources:
             (item["identity"], item["status"], item.get("attempt")) for item in self.operations
         }
         for result in results:
+            receipts = result.get("access_receipts", [])
+            if not isinstance(receipts, list) or len(receipts) > 256:
+                raise ValueError("Discovery access receipts exceed bounded input size")
+            for receipt in receipts:
+                self._remember_access(receipt)
             for kind in self.counts:
                 value = result.get("counts", {}).get(kind, 0)
                 if type(value) is int and value >= 0:
@@ -476,7 +492,88 @@ class DiscoverySources:
                     self.operations.append(deepcopy(operation))
                     known.add(key)
 
-    def _operation(self, kind, payload, operation):
+    def _remember_access(self, article):
+        # Transport metadata survives failed analysis and evidence admission filters.
+        # Never retain body text or treat a failed/skipped read as source evidence.
+        if not isinstance(article, dict) or len(canonical(article)) > 128_000:
+            raise ValueError("Invalid discovery access receipt")
+        receipt = {
+            key: deepcopy(article[key])
+            for key in (
+                "url",
+                "final_url",
+                "status",
+                "reason",
+                "received_at",
+                "fetch_attempted",
+                "http_requests",
+                "host_failure",
+            )
+            if key in article
+        }
+        if len(canonical(receipt)) > 8192:
+            raise ValueError("Discovery access receipt exceeds byte limit")
+        if receipt not in self.access_receipts:
+            if len(self.access_receipts) >= 256:
+                raise SourceAllowanceExhausted("Discovery access receipt limit exhausted")
+            self.access_receipts.append(receipt)
+
+    def _source_search_context(self, kind, request, context):
+        # Freeze one unfinished source operation, not every future search of the
+        # same query. This receipt uses the existing journal, without a tool charge.
+        binding = {
+            "kind": kind,
+            "request": request,
+            "policy": self.policy,
+            "information_mode": self.mode,
+            "research_cutoff": self.cutoff,
+            "context": {k: v for k, v in (context or {}).items() if k != "memory"},
+        }
+        contexts = [op for op in self.operations if op["kind"] == "source_context"]
+        for op in contexts:
+            frozen = {k: op.get(k) for k in ("input", "feedback", "attempt")}
+            if digest(canonical(frozen)) != op["identity"]:
+                raise ValueError("Frozen discovery search context changed")
+        operation_id = (context or {}).get("operation_id")
+        if operation_id is not None and any(
+            op["input"]["context"].get("operation_id") == operation_id and op["input"] != binding
+            for op in contexts
+        ):
+            raise ValueError("Discovery source operation identity was rebound")
+        matching = [op for op in contexts if op["input"] == binding]
+        if matching:
+            latest = max(matching, key=lambda op: op["attempt"])
+            if operation_id is not None:
+                return latest  # Same outer operation, even if its receipt write failed afterward.
+            # Old outer snapshots may contain started alongside completed. A
+            # completed receipt for the same attempt always wins.
+            if not any(
+                op["identity"] == latest["identity"] and op["status"] == "completed"
+                for op in matching
+            ):
+                return latest
+        frozen = {
+            "input": deepcopy(binding),
+            "feedback": self._access_feedback(),
+            "attempt": max((op["attempt"] for op in contexts), default=0) + 1,
+        }
+        receipt = {
+            "kind": "source_context",
+            "identity": digest(canonical(frozen)),
+            "status": "started",
+            **frozen,
+        }
+        self.operations.append(receipt)
+        self._save_usage()
+        return receipt
+
+    def _access_feedback(self):
+        return {
+            "previous_articles": deepcopy(self.access_receipts),
+            "avoid_hosts": sorted(_avoid_hosts(self.access_receipts)),
+        }
+
+    def _operation(self, kind, payload, operation, *, replay_only=False):
         payload = {
             "input": payload,
             "policy": self.policy,
@@ -488,6 +585,8 @@ class DiscoverySources:
         identity = digest(canonical([kind, payload]))
 
         def dispatch():
+            if replay_only:
+                raise ValueError("Completed discovery read checkpoint is unavailable")
             if kind in self.limits and self.counts[kind] >= self.limits[kind]:
                 raise SourceAllowanceExhausted(f"Discovery {kind} allowance exhausted")
             self.counts[kind] += 1
@@ -535,31 +634,85 @@ class DiscoverySources:
             return existing
         if self.mode == "retained":
             return None
-        article = self._operation("read", url, lambda: self.reader(url))
+        avoid_hosts = _avoid_hosts(self.access_receipts)
+        host = _hostname(url)
+        replay_only = (
+            host in avoid_hosts
+            and self.call is not None
+            and any(
+                r.get("url") == url and r.get("status") == "available" for r in self.access_receipts
+            )
+        )
+        if host in avoid_hosts and not replay_only:
+            previous = next(
+                (
+                    r
+                    for r in self.access_receipts
+                    if r.get("url") == url
+                    and r.get("reason")
+                    in {"http_401", "http_403", "http_429", "non_public_address"}
+                ),
+                None,
+            )
+            article = (
+                dict(previous, text="", content_sha256=None, content_extent="not_read")
+                if previous is not None
+                # Preserve URL/credential checks even for a skipped host.
+                else read_article(url, avoid_hosts=avoid_hosts)
+            )
+        else:
+
+            def read():
+                result = (
+                    self.reader(url)
+                    if self.reader is not None
+                    else read_article(url, avoid_hosts=avoid_hosts)
+                )
+                result = dict(result)
+                result.setdefault("fetch_attempted", True)
+                self._remember_access(result)
+                # Persist before analysis/extraction can fail, even if no outer
+                # survey/acquisition checkpoint has completed yet.
+                self._save_usage()
+                return result
+
+            article = self._operation("read", url, read, replay_only=replay_only)
+        # An inner read checkpoint may return without dispatching read().
+        self._remember_access(article)
+        self._save_usage()
         article = dict(
             article, id="source-" + digest(canonical([url, article.get("content_sha256")]))[:20]
         )
         self.articles.append(article)
         return article
 
-    def _search(self, query, symbol):
+    def _search(self, query, symbol, *, access_feedback=None):
         if self.mode == "retained":
             return {"query": query, "results": [], "status": "retained_search_disabled"}
+        access_feedback = self._access_feedback() if access_feedback is None else access_feedback
+        payload = {"query": query, "symbol": symbol} | access_feedback
         prompt = _prompt(
             "Search once for public primary HTML/text sources matching the supplied "
             "research query. "
             "Use web search, do not open pages or execute code. Return only actual search results. "
             "Prefer dated issuer disclosures with numerical historical measurements. "
-            "Never invent URLs.",
-            {"query": query, "symbol": symbol, "policy": self.policy},
+            "Avoid URLs already listed in previous_articles. Use failure reasons to find "
+            "alternative accessible primary sources. Do not return URLs on avoid_hosts, "
+            "including different paths: access was denied, rate-limited or blocked by network "
+            "policy in this run. Do not bypass access controls or change network policy. "
+            "This does not establish permanent site unavailability. Never invent URLs.",
+            payload | {"policy": self.policy},
         )
         response = self._operation(
             "search",
-            {"query": query, "symbol": symbol},
+            payload,
             lambda: self.llm.search(prompt, strict_schema(SearchResponse)),
         )
         value = SearchResponse.model_validate_json(response["text"]).model_dump(mode="json")
-        return value | {"search_actions": response.get("search_actions", [])}
+        return value | {
+            "search_actions": response.get("search_actions", []),
+            "avoid_hosts": access_feedback["avoid_hosts"],
+        }
 
     def survey(self, request, *, context=None):
         self._context(context)
@@ -569,9 +722,14 @@ class DiscoverySources:
             request.get("query") or context.get("question") or context.get("research_question", "")
         )
         symbol = request.get("symbol") or context.get("symbol", "")
+        source_context = (
+            self._source_search_context("survey", request, context)
+            if self.mode != "retained"
+            else None
+        )
         if self.mode != "retained":
             try:
-                search = self._search(query, symbol)
+                search = self._search(query, symbol, access_feedback=source_context["feedback"])
             except SourceAllowanceExhausted as exc:
                 search = {"query": query, "results": [], "status": "needs_data", "reason": str(exc)}
             for item in search["results"]:
@@ -653,6 +811,9 @@ class DiscoverySources:
             findings["findings"] = accepted
         else:
             findings = {"findings": [], "gaps": ["No eligible source material"]}
+        if source_context is not None:
+            source_context["status"] = "completed"
+            self._save_usage()
         return findings | {
             "articles": articles,
             "evidence": articles,
@@ -660,17 +821,33 @@ class DiscoverySources:
             "search": search,
             "counts": deepcopy(self.counts),
             "operations": deepcopy(self.operations),
+            "access_receipts": deepcopy(self.access_receipts),
         }
 
     def acquire(self, request, *, prediction_times, context=None):
         self._context(context)
         request = _record(DataRequest, request)
+        prediction_times = list(prediction_times)
         urls = list(request.source_urls)
+        source_context = (
+            self._source_search_context(
+                "acquire",
+                {
+                    "request": request.model_dump(mode="json"),
+                    "prediction_times": list(prediction_times),
+                },
+                context,
+            )
+            if not urls and self.mode != "retained"
+            else None
+        )
         searches = []
         acquisition_gaps = []
         if not urls and self.mode != "retained":
             try:
-                search = self._search(request.query, request.symbol)
+                search = self._search(
+                    request.query, request.symbol, access_feedback=source_context["feedback"]
+                )
             except SourceAllowanceExhausted as exc:
                 search = {
                     "query": request.query,
@@ -774,7 +951,11 @@ class DiscoverySources:
                     "rejections": reasons,
                 }
             )
-        return align_input_bundle(request, observations, prediction_times) | {
+        bundle = align_input_bundle(request, observations, prediction_times)
+        if source_context is not None:
+            source_context["status"] = "completed"
+            self._save_usage()
+        return bundle | {
             "articles": articles,
             "excluded": excluded,
             "extractions": extraction_records,
@@ -782,6 +963,7 @@ class DiscoverySources:
             "gaps": gaps,
             "counts": deepcopy(self.counts),
             "operations": deepcopy(self.operations),
+            "access_receipts": deepcopy(self.access_receipts),
         }
 
 
