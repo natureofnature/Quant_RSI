@@ -176,8 +176,10 @@ Acquisition requests can supply another company's measurements to the target exp
 `request.symbol` identifies the **source entity**, while the experiment retains its
 own forecast target. Each acquired input still declares its measurement and unit and
 retains source excerpts, periods and availability evidence. Reports show the source
-symbol alongside each requested measurement and retained observation, so a target's
-own revenue cannot silently stand in for a customer's revenue or capital expenditure.
+symbol alongside each requested measurement and retained observation, making unintended
+subject substitutions inspectable. These records do not independently verify that the
+quoted number belongs to the requested company or accounting basis; source interpretation
+still requires review.
 
 Missing units, incompatible periods, unavailable private-company disclosures and
 unsupported entity mappings remain explicit survey or acquisition gaps. A private

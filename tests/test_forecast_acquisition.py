@@ -325,6 +325,7 @@ def test_production_candidate_paths_require_matching_forecast_vintages():
     # Exercise the actual study prepare/validate boundary on the same fixed population.
     runner = DiscoveryExperimentRunner.__new__(DiscoveryExperimentRunner)
     runner.model = SimpleNamespace(
+        horizon=5,
         train=np.array([0, 1]),
         origins=np.array([2]),
         data=SimpleNamespace(dates=[t[:10] for t in TIMES]),
@@ -333,6 +334,8 @@ def test_production_candidate_paths_require_matching_forecast_vintages():
     runner.definitions = []
     runner.columns = {}
     runner.evidence_ids = set(candidate["evidence_ids"])
+    runner.target_symbol = "SOXX"
+    runner.evidence_articles = {}
     assert runner.validate(candidate, bundles)["status"] == "ready"
     # Remove NAND's February vintage; independent carry keeps January but pairing must mask it.
     late = deepcopy(bundles[1])
