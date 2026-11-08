@@ -143,6 +143,51 @@ without this field remain readable and are labeled unspecified; their parentage 
 invented or written back into preserved runs. See the [RFC evidence map](rfc119_acceptance.md)
 for the distinction between historical execution records and current lineage validation.
 
+## Business mechanisms, related entities and forecast targets
+
+Native discovery can survey a symbol other than the experiment's target. The research
+question determines which customers, suppliers or downstream payers to investigate;
+there is no fixed buyer list. A source-backed relationship is an investigation lead,
+not proof that one company's operating results cause another company's stock return.
+Survey findings can retain proposed relationships as `from_entity`, `to_entity`,
+`relationship`, `source_id` and a literal supporting `excerpt`. A direct customer,
+downstream payer and general industry trend are different claims. Unsupported links
+remain gaps rather than being promoted to established relationships.
+
+An optional candidate `hypothesis` separates the business explanation from the price
+forecast being tested:
+
+| Field | Meaning |
+| --- | --- |
+| `operating_mechanism` | Proposed business mechanism connecting the measurements |
+| `measurement_horizon` | The operating period, such as a calendar quarter |
+| `forecast_channel` | Why that information might affect the experiment's forecast target; nullable when unsupported |
+| `forecast_horizon_sessions` | The actual forecast horizon in trading sessions |
+| `relationships` | Proposed entity links with retained source IDs and literal supporting quotes |
+
+A quarterly operating mechanism does not establish a short-horizon price signal.
+An absent forecast channel remains `needs_data`; supplying a channel states a testable
+hypothesis, not evidence that it works. The forecast horizon must follow the actual
+experiment, independently of the measurement period. Reports show both horizons and
+label the relationships as proposed, evidence-quoted links. Legacy candidates without
+this block remain readable without inferred mechanisms, horizons or relationships.
+
+Acquisition requests can supply another company's measurements to the target experiment.
+`request.symbol` identifies the **source entity**, while the experiment retains its
+own forecast target. Each acquired input still declares its measurement and unit and
+retains source excerpts, periods and availability evidence. Reports show the source
+symbol alongside each requested measurement and retained observation, so a target's
+own revenue cannot silently stand in for a customer's revenue or capital expenditure.
+
+Missing units, incompatible periods, unavailable private-company disclosures and
+unsupported entity mappings remain explicit survey or acquisition gaps. A private
+entity may be named as a relationship lead without inventing a public ticker or an
+executable data source. Revenue, capital expenditure, operating cash flow, utilization
+and financing needs can motivate investigations, but a simple cash-flow-minus-capex
+calculation is not automatically a verified financing gap. Existing timing, coverage
+and formula admission rules continue to apply to cross-company inputs. Offline
+engineering fixtures demonstrate the data path, not predictive improvement.
+
 ## Data, time and comparison rules
 
 Acquisition retains source excerpts, URLs, publication/receipt/version timestamps,

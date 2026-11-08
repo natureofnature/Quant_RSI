@@ -21,6 +21,7 @@ from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.research.active_news import SearchResponse
 from quant_rsi.research.article_reader import read_article
+from quant_rsi.research.discovery_hypotheses import EvidenceRelationship
 
 
 class RealizedMeasure(StrictModel):
@@ -140,6 +141,14 @@ class SurveyFinding(StrictModel):
     evidence_ids: tuple[str, ...] = Field(min_length=1, max_length=8)
     measurements: tuple[str, ...] = Field(max_length=8)
     uncertainty: str = Field(max_length=1500)
+    relationships: tuple[EvidenceRelationship, ...] = Field(default=(), max_length=8)
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        value = handler(self)
+        if not self.relationships:
+            value.pop("relationships", None)
+        return value
 
 
 class SurveyAnalysis(StrictModel):
@@ -570,11 +579,39 @@ class DiscoverySources:
                     break
         else:
             search = {"query": query, "status": "retained_sources_only", "results": []}
-        articles, excluded = self._available()
+        requested_urls = {item["url"] for item in search["results"]}
+        # Keep the current investigation visible within the existing context cap.
+        # Stable ordering retains older evidence as remaining context; eligibility
+        # filtering still happens before the cap in _available().
+        prioritized = sorted(
+            self.articles,
+            key=lambda article: (
+                not (
+                    article.get("url") in requested_urls
+                    or article.get("final_url") in requested_urls
+                )
+            ),
+        )
+        articles, excluded = self._available(prioritized)
         payload = {"symbol": symbol, "question": query, "articles": articles, "policy": self.policy}
+        if context.get("forecast_target"):
+            payload["forecast_target"] = context["forecast_target"]
         prompt = _prompt(
             "Analyze the supplied source evidence for testable business mechanisms and competing "
             "explanations. Suggest measurements even when absent from the factor catalog. "
+            "Investigate relevant customers and downstream payers from evidence, not assumed "
+            "company lists. Related companies are investigation leads, not established links. "
+            "For each proposed relationship identify from_entity, to_entity and relationship, "
+            "using exact tickers for public entities and explicit company names otherwise, "
+            "with source_id and a literal source-body excerpt supporting that link. Cite this "
+            "source_id in the finding's evidence_ids. Distinguish direct customers from downstream "
+            "payers; an industry trend alone does not establish either relationship. Investigate "
+            "capital expenditure, revenue, operating cash flow, utilization and financing needs "
+            "when relevant. Do not equate cash flow minus capex with a verified financing gap. "
+            "Separate quarterly operating mechanisms from the experiment's forecast target; "
+            "slow-moving variables require a proposed forecast channel, not an automatic claim "
+            "about short-term returns. Missing/private-entity data and unsupported relationships "
+            "remain explicit gaps; use an empty relationships array when no link is established. "
             "Cite only "
             "supplied article IDs. Distinguish claims from verified numbers. No source is a valid "
             "empty finding; do not manufacture evidence or claim predictive value. Apply the "
@@ -589,9 +626,29 @@ class DiscoverySources:
             )
             analysis = SurveyAnalysis.model_validate_json(response)
             ids = {a["id"] for a in articles}
-            if any(set(f.evidence_ids) - ids for f in analysis.findings):
+            if any(set(f.evidence_ids) - ids for f in analysis.findings if not f.relationships):
                 raise ValueError("News finding cites unknown evidence")
             findings = analysis.model_dump(mode="json")
+            admitted = {article["id"]: article for article in articles}
+            accepted = []
+            for finding in analysis.findings:
+                errors = []
+                if set(finding.evidence_ids) - ids:
+                    errors.append("finding_cites_unavailable_source")
+                for relationship in finding.relationships:
+                    if relationship.source_id not in finding.evidence_ids:
+                        errors.append("relationship_source_not_cited_by_finding")
+                    else:
+                        error = relationship.evidence_error(admitted)
+                        if error:
+                            errors.append(error)
+                if errors:
+                    findings["gaps"].append(
+                        "Rejected relationship finding: " + "; ".join(dict.fromkeys(errors))
+                    )
+                else:
+                    accepted.append(finding.model_dump(mode="json"))
+            findings["findings"] = accepted
         else:
             findings = {"findings": [], "gaps": ["No eligible source material"]}
         return findings | {
@@ -961,6 +1018,14 @@ def discovery_decision(llm, context):
         candidates: tuple[dict, ...] = Field(max_length=8)
         data_requests: tuple[DataRequest, ...] = Field(max_length=4)
         query: str | None
+        survey_symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9.-]{0,14}$")] | None = None
+
+        @model_serializer(mode="wrap")
+        def serialize(self, handler):
+            value = handler(self)
+            if self.survey_symbol is None:
+                value.pop("survey_symbol", None)
+            return value
 
     class Decision(DecisionEnvelope):
         candidates: tuple[DiscoveryFactor, ...] = Field(max_length=8)
@@ -969,6 +1034,28 @@ def discovery_decision(llm, context):
         "Choose the next research action using evidence and measured feedback. The catalog is "
         "reference knowledge, not a vocabulary limit. Create a meaningful typed DSL candidate from "
         "news mechanisms, including supported parameterized lags/windows when appropriate. "
+        "Actively investigate relevant customers and downstream payers using evidence; do not "
+        "assume a fixed company list or adopt related-company leads as established relationships. "
+        "Use survey_symbol to investigate another public issuer without changing the prediction "
+        "target in context.symbol; use null when no different survey issuer is needed. "
+        "Trace demand, capital expenditure, revenue, operating cash flow, utilization and "
+        "financing needs where relevant, distinguishing direct customers from downstream payers. "
+        "A business candidate's hypothesis records operating_mechanism, measurement_horizon, "
+        "forecast_channel, forecast_horizon_sessions and evidence-backed relationships. "
+        "Separate quarterly operating effects from the actual model target and horizon; require "
+        "an explicit forecast_channel before testing business hypotheses. Slow-moving variables "
+        "are allowed, but are not automatically short-term return signals. If the channel is "
+        "unknown, keep forecast_channel null and survey/acquire or stop with the gap. "
+        "Each relationship needs source_id and a literal supporting excerpt; preserve uncertainty "
+        "and do not invent links. Use exact tickers for public relationship endpoints and explicit "
+        "company names otherwise. Cross-entity acquired inputs require a hypothesis with a "
+        "source-supported relationship path to the prediction target. Its "
+        "forecast_horizon_sessions must match context.forecast_target.horizon_sessions. "
+        "Request literal cross-entity "
+        "measurements using that issuer's "
+        "DataRequest.symbol with explicit units, periods and accounting basis. Never silently "
+        "convert YTD to quarterly data, capex guidance to realized capex, or cash flow minus capex "
+        "into a verified financing gap. Missing or private-entity inputs remain explicit gaps. "
         "Select actual declared input IDs; missing measurements may use acquired.* bindings and "
         "explicit data_requests. Do not invent values, URLs, evidence, or claim unavailable data "
         "exists. Request acquisition before fitting missing inputs; retain candidate definitions "
@@ -1008,7 +1095,7 @@ def discovery_decision(llm, context):
         "Use stop/retain when no justified next action remains. Never reset budgets, "
         "alter samples, "
         "or request terminal data. Return only schema JSON; no code execution. "
-        "All five fields must be present; use empty arrays/null for inapplicable fields.",
+        "Return all schema fields; use empty arrays/null for inapplicable fields.",
         {"context": context, "operators": operator_descriptions()},
     )
     # The provider receives the full schema, but a completed proposal with invalid

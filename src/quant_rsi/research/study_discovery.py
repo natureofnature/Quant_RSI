@@ -6,7 +6,7 @@ from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.research.demo_strategy import evaluate_strategy
-from quant_rsi.research.discovery_contracts import research_policy
+from quant_rsi.research.discovery_contracts import guard_records, research_policy
 from quant_rsi.research.discovery_engine import DiscoveryExperimentRunner
 from quant_rsi.research.discovery_factors import retrieve_candidates, survey_catalog
 from quant_rsi.research.discovery_loop import run_discovery
@@ -94,6 +94,7 @@ def run_connected_discovery(
         trace.append(event)
 
     engine = DiscoveryExperimentRunner(model, args, cutoffs, emit)
+    engine.target_symbol = configuration["symbol"]
     policy = research_policy()
     mode = configuration["information_mode"]
     evidence = []
@@ -164,6 +165,14 @@ def run_connected_discovery(
         "survey_candidates": retrieve_candidates(configuration["question"], catalog),
         "source_limits": sources.limits,
         "related": related,
+        "forecast_target": {
+            "symbol": configuration["symbol"],
+            "horizon_sessions": model.horizon,
+            "target": model.model_configuration["target"],
+            "reference": "origin session close",
+            "outcome": "close at origin plus horizon_sessions",
+            "execution": "strategy trades at the next session open",
+        },
         "prior_memory": prior_memory,
         "requested_data_period": {
             "start": model.data.dates[0],
@@ -181,6 +190,7 @@ def run_connected_discovery(
             "baseline": engine.baseline,
             "model": model.model_configuration,
             "metric": args.selection_metric,
+            "horizon_sessions": model.horizon,
         },
     }
     atomic_write(root / "discovery_context.json", canonical(context))
@@ -205,7 +215,12 @@ def run_connected_discovery(
             sources.acquire(request, prediction_times=cutoffs, context={"policy": policy})
             if kind == "acquire"
             else sources.survey(
-                request | {"symbol": configuration["symbol"]}, context={"policy": policy}
+                {"symbol": configuration["symbol"]} | request,
+                context={
+                    "policy": policy,
+                    "symbol": configuration["symbol"],
+                    "forecast_target": context["forecast_target"],
+                },
             )
         )
         emit(name, output)
@@ -213,8 +228,15 @@ def run_connected_discovery(
 
     def restore_sources(value):
         engine.evidence_ids.update(row["id"] for row in value.get("evidence", []) if row.get("id"))
+        engine.evidence_articles.update(
+            (row["id"], row) for row in value.get("evidence", []) if row.get("id")
+        )
         for bundle in value.get("input_bundles", []):
             engine.evidence_ids.update(row["source_id"] for row in bundle.get("observations", []))
+            admitted, _ = guard_records(
+                bundle.get("articles", []), mode=mode, cutoff=windows.get("research_cutoff")
+            )
+            engine.evidence_articles.update((row["id"], row) for row in admitted if row.get("id"))
         sources.restore_state(
             [
                 row["result"]

@@ -19,6 +19,7 @@ from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.factors.expressions import Name, SeriesFactorExpression, evaluate_series
 from quant_rsi.factors.price_adapters import CandidatePriceRecipe, evaluate_price_adapter
 from quant_rsi.market.market_contracts import Hash, timestamp
+from quant_rsi.research.discovery_hypotheses import ResearchHypothesis
 
 SURVEY_BINDINGS = {
     "qlib.kmid": {"open": "price.open", "close": "price.close"},
@@ -220,12 +221,15 @@ class DiscoveryFactor(StrictModel):
     # Research revisions/replacements, not numerical expression dependencies.
     parent_recipe_refs: tuple[Hash, ...] = Field(default=(), max_length=8)
     realization_alignment: RealizationAlignment | None = None
+    hypothesis: ResearchHypothesis | None = None
 
     @model_serializer(mode="wrap")
     def serialize(self, handler):
         value = handler(self)
         if self.realization_alignment is None:
             value.pop("realization_alignment", None)
+        if self.hypothesis is None:
+            value.pop("hypothesis", None)
         return value
 
     @model_validator(mode="after")

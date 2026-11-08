@@ -39,7 +39,11 @@ quant-rsi research-study KO --research-mode discovery --llm codex --news-researc
 
 This mode connects survey retrieval, new Factor DSL expressions, targeted acquisition
 of missing inputs and experiment feedback. Its catalog is a starting point, not the
-allowed vocabulary of hypotheses. Three research fits and six decision actions are
+allowed vocabulary of hypotheses. The agent can investigate customers and downstream
+payers, request their numerical disclosures, and propose cross-company factors with
+quoted relationship evidence and an explicit channel to the configured forecast horizon.
+Missing evidence remains a research gap, not an invented input. Three research fits
+and six decision actions are
 the defaults; candidates and acquisition attempts are counted separately. See
 [news-driven discovery](docs/news_driven_discovery.md) for module boundaries, the
 offline example, supported operators and the separate real-service acceptance requirements.
