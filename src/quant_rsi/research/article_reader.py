@@ -5,6 +5,7 @@ import hashlib
 import http.client
 import io
 import ipaddress
+import json
 import socket
 import ssl
 import zlib
@@ -55,7 +56,14 @@ def _public_target(parsed):
     return min(addresses, key=lambda item: item[0] != socket.AF_INET)
 
 
-def _fetch(url):
+def _fetch(url, *, json_body=None):
+    payload = None
+    if json_body is not None:
+        if not isinstance(json_body, dict):
+            raise _Unavailable("invalid_json_request")
+        payload = json.dumps(json_body, allow_nan=False, separators=(",", ":")).encode()
+        if len(payload) > 16_384:
+            raise _Unavailable("request_too_large")
     parsed = _url(url)
     family, kind, protocol, _, address = _public_target(parsed)
     connection = http.client.HTTPConnection(parsed.hostname, address[1], timeout=TIMEOUT)
@@ -69,25 +77,35 @@ def _fetch(url):
         connection.sock = sock
         path = urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
         http_requests = 1
-        connection.request(
-            "GET",
-            path,
-            headers={
-                "User-Agent": "QuantRSI/0.1 (public research article reader)",
-                "Accept": "text/html,text/plain,application/xhtml+xml",
-                "Accept-Encoding": "gzip, identity",
-            },
-        )
+        headers = {
+            "User-Agent": "QuantRSI/0.1 (public research article reader)",
+            "Accept": "application/json"
+            if payload is not None
+            else "text/html,text/plain,application/xhtml+xml",
+            "Accept-Encoding": "gzip, identity",
+        }
+        kwargs = {"headers": headers}
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
+            kwargs["body"] = payload
+        connection.request("POST" if payload is not None else "GET", path, **kwargs)
         response = connection.getresponse()
         if response.status in {301, 302, 303, 307, 308}:
+            if payload is not None:
+                raise _Unavailable("redirect_not_allowed")
             return response.status, response.headers, b""
         if response.status != 200:
             raise _Unavailable(f"http_{response.status}")
-        if response.headers.get_content_type() not in {
-            "text/html",
-            "text/plain",
-            "application/xhtml+xml",
-        }:
+        content_types = (
+            {"application/json"}
+            if payload is not None
+            else {
+                "text/html",
+                "text/plain",
+                "application/xhtml+xml",
+            }
+        )
+        if response.headers.get_content_type() not in content_types:
             raise _Unavailable("unsupported_content_type")
         if response.headers.get("Content-Encoding", "identity").lower() not in {"identity", "gzip"}:
             raise _Unavailable("unsupported_content_encoding")

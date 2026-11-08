@@ -11,12 +11,25 @@ from quant_rsi.research.discovery_engine import DiscoveryExperimentRunner
 from quant_rsi.research.discovery_factors import retrieve_candidates, survey_catalog
 from quant_rsi.research.discovery_loop import run_discovery
 from quant_rsi.research.discovery_sources import (
+    DisclosureIssuer,
     DiscoverySources,
     discovery_decision,
     simulated_discovery_decision,
     simulated_discovery_sources,
 )
 from quant_rsi.research.llm import LLMHypothesizer
+
+
+def _disclosure_profiles(root):
+    profiles = []
+    for path in sorted(Path(root).glob("US/*/disclosures.json")):
+        if path.stat().st_size > 16_384:
+            raise ValueError("Disclosure issuer profile exceeds byte limit")
+        profile = DisclosureIssuer.model_validate_json(path.read_bytes()).model_dump(mode="json")
+        if path.parent.name != profile["symbol"]:
+            raise ValueError("Disclosure issuer profile differs from instrument directory")
+        profiles.append(profile)
+    return profiles
 
 
 def _prior_memory(history, mode):
@@ -97,6 +110,7 @@ def run_connected_discovery(
     engine.target_symbol = configuration["symbol"]
     policy = research_policy()
     mode = configuration["information_mode"]
+    disclosure_profiles = _disclosure_profiles(args.factor_root) if args.news_research else []
     evidence = []
     for item in news.get("items", []):
         evidence.append(
@@ -136,6 +150,8 @@ def run_connected_discovery(
             max_searches=2 if args.news_research else 0,
             max_reads=6 if args.news_research else 0,
             max_extractions=12,
+            disclosure_profiles=disclosure_profiles,
+            disclosure_root=root / "discovery" / "disclosures",
         )
     )
     catalog = survey_catalog(available_inputs=engine.columns)
@@ -172,6 +188,7 @@ def run_connected_discovery(
         "definitions": engine.definitions,
         "survey_candidates": retrieve_candidates(configuration["question"], catalog),
         "source_limits": sources.limits,
+        "disclosure_sources": disclosure_profiles,
         "related": related,
         "forecast_target": {
             "symbol": configuration["symbol"],

@@ -98,6 +98,18 @@ def test_unknown_stage_remains_available_as_raw_data():
     assert visual_output("future_stage", {}, {}, "KO") == {"kind": "unknown"}
 
 
+def test_structured_disclosure_keeps_post_locator_for_source_cards():
+    article = {
+        "id": "source-mops-example",
+        "method": "POST",
+        "url": "https://mops.twse.com.tw/mops/api/t05st01_detail",
+        "text": "Retained official disclosure",
+    }
+    view = visual_output("news", {"items": [article]}, {}, "TSM")
+    assert view["items"][0]["method"] == "POST"
+    assert view["items"][0]["url"] == article["url"]
+
+
 def test_peer_availability_is_distinct_from_executed_input_usage():
     availability = [{"symbol": "PEER", "status": "available"}]
     view = visual_output(

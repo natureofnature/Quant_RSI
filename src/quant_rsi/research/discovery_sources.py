@@ -61,6 +61,22 @@ class OriginalActualRelease(StrictModel):
         return self
 
 
+class DisclosureQuery(StrictModel):
+    """A bounded official archive query, not an arbitrary URL or API call."""
+
+    provider: Literal["mops"]
+    year: int = Field(ge=1990, le=2100)
+    month: int = Field(ge=1, le=12)
+
+
+class DisclosureIssuer(StrictModel):
+    symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9.-]{0,14}$")]
+    provider: Literal["mops"]
+    company_id: Annotated[str, Field(pattern=r"^\d{4,6}$")]
+    company_name: str = Field(min_length=1, max_length=200)
+    identity_source: Annotated[str, Field(pattern=r"^https://", max_length=2048)]
+
+
 class DataRequest(StrictModel):
     input_id: Annotated[str, Field(pattern=r"^acquired\.[a-z][a-z0-9_]{0,63}$")]
     symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9.-]{0,14}$")]
@@ -68,6 +84,10 @@ class DataRequest(StrictModel):
     unit: str = Field(min_length=1, max_length=100)
     query: str = Field(min_length=1, max_length=500)
     source_urls: tuple[str, ...] = Field(default=(), max_length=6)
+    source_ids: tuple[Annotated[str, Field(min_length=1, max_length=200)], ...] = Field(
+        default=(), max_length=6
+    )
+    disclosure_query: DisclosureQuery | None = None
     max_age_days: int = Field(default=185, ge=1, le=730)
     forecast: ForecastMeasure | None = None
     period_granularity: Literal["calendar_month"] | None = None
@@ -77,6 +97,10 @@ class DataRequest(StrictModel):
     @model_serializer(mode="wrap")
     def serialize(self, handler):
         value = handler(self)
+        if not self.source_ids:
+            value.pop("source_ids", None)
+        if self.disclosure_query is None:
+            value.pop("disclosure_query", None)
         if self.forecast is None:
             value.pop("forecast", None)
         if self.period_granularity is None:
@@ -89,6 +113,8 @@ class DataRequest(StrictModel):
 
     @model_validator(mode="after")
     def urls(self):
+        if sum(bool(v) for v in (self.source_urls, self.source_ids, self.disclosure_query)) > 1:
+            raise ValueError("Choose source_urls, source_ids or disclosure_query, not a mixture")
         if self.forecast and self.realized_measure:
             raise ValueError("A measurement cannot be both realized and forecast")
         if self.original_actual_releases:
@@ -154,6 +180,11 @@ class SurveyFinding(StrictModel):
 class SurveyAnalysis(StrictModel):
     findings: tuple[SurveyFinding, ...] = Field(max_length=8)
     gaps: tuple[str, ...] = Field(max_length=8)
+
+
+class DisclosureSelection(StrictModel):
+    document_refs: tuple[str, ...] = Field(max_length=6)
+    reason: str = Field(min_length=1, max_length=1500)
 
 
 def strict_schema(model):
@@ -228,7 +259,7 @@ def _date_in_excerpt(day, excerpt):
     return False
 
 
-def _calendar_month_period(item, excerpt, source_text):
+def _calendar_month_period(item, excerpt, source_text, *, chinese=False):
     """Opt-in month labels establish a complete observation month, never publication."""
     end = date.fromisoformat(item.period_end)
     start = end.replace(day=1)
@@ -243,6 +274,36 @@ def _calendar_month_period(item, excerpt, source_text):
             return False
     month = rf"(?:{end.strftime('%B')}|{end.strftime('%b')}\.?)"
     label = rf"(?<!\w){month}\s+{end.year}(?!\w)"
+    if chinese:
+        label = rf"(?:{label}|(?<!\d){end.year}年\s*0?{end.month}月)"
+        for quote in re.finditer(re.escape(item.excerpt), source_text):
+            # Scope belongs to the quoted value, not a clean heading elsewhere.
+            before = re.split(r"[。；;]", source_text[max(0, quote.start() - 160) : quote.start()])[
+                -1
+            ]
+            after = re.split(r"[。；;]", source_text[quote.end() : quote.end() + 80])[0]
+            # Separate amount-bearing rows are not headings for this value. Keep
+            # amount-less cumulative headings and trailing scope annotations.
+            amount = r"\d[\d,]*(?:\.\d+)?\s*(?:[%％]|percent\b|[億亿萬万千仟百]*元)"
+            clauses = re.split(r"[，\n]|(?<!\d),(?!\d)", before)
+            boundary = max(
+                (i + 1 for i, clause in enumerate(clauses) if re.search(amount, clause)),
+                default=0,
+            )
+            before = "\n".join(clauses[boundary:])
+            clauses = re.split(r"[，\n]|(?<!\d),(?!\d)", after)
+            boundary = next(
+                (i for i, clause in enumerate(clauses) if re.search(amount, clause)), len(clauses)
+            )
+            after = "\n".join(clauses[:boundary])
+            if re.search(
+                r"累[計计]|年初[至迄]|前[一二三四五六七八九十\d]+[個个]?月|"
+                r"\d+\s*月?\s*[至到~～–-]\s*(?:\d{2,4}年)?\s*\d+月|"
+                r"[二三四五六七八九十\d]+[個个]?月[合總总][計计]|"
+                r"[上下]半月|[上中下]旬|月初至今",
+                before + item.excerpt + after,
+            ):
+                return False
     month_name = "(?:" + "|".join(calendar.month_name[1:] + calendar.month_abbr[1:]) + r")\.?"
     partial = r"(?:first|second|last)\s+(?:half|\d+\s+(?:(?:calendar|trading|business)\s+)?days?)"
     prefix_scope = (
@@ -344,6 +405,30 @@ def _literal_number(value, excerpt):
     return False
 
 
+def _mops_literal_unit(value, unit, excerpt):
+    """Admit only explicit number/unit pairs; never convert compound Chinese amounts."""
+    number = r"(?P<amount>[+-]?\d[\d,]*(?:\.\d+)?)"
+    if unit in {"percent", "%"}:
+        pattern = rf"(?<![\d.,]){number}\s*(?:%|％|percent\b)"
+    else:
+        scales = {
+            "TWD": "元",
+            "TWD thousand": "(?:千|仟)元",
+            "TWD million": "百萬元",
+            "TWD hundred million": "億元",
+        }
+        if unit not in scales:
+            return False
+        pattern = (
+            rf"(?:新[台臺]幣|NT\$|TWD)\s*{number}\s*{scales[unit]}"
+            r"(?![\d萬万億亿])"
+        )
+    return any(
+        _literal_number(value, match.group("amount"))
+        for match in re.finditer(pattern, excerpt.replace("−", "-"), re.I)
+    )
+
+
 def eligible_articles(articles, *, information_mode, research_cutoff):
     """Filter before any analysis/extraction prompt, including retained tool results."""
     admitted, excluded = [], []
@@ -390,6 +475,8 @@ class DiscoverySources:
         max_extractions=6,
         policy=None,
         usage_path=None,
+        disclosure_profiles=(),
+        disclosure_root=None,
     ):
         if information_mode not in {"retrospective", "retained"}:
             raise ValueError("Unknown discovery information mode")
@@ -399,6 +486,12 @@ class DiscoverySources:
             if type(value) is not int or not 0 <= value <= 64:
                 raise ValueError("Discovery operation limits must be integers in 0..64")
         self.llm, self.reader, self.call = llm, reader, call
+        self.disclosure_profiles = {
+            value["symbol"]: value
+            for profile in disclosure_profiles
+            for value in [DisclosureIssuer.model_validate(profile).model_dump(mode="json")]
+        }
+        self.disclosure_root = Path(disclosure_root) if disclosure_root is not None else None
         self.mode, self.cutoff = information_mode, research_cutoff
         self.articles = list(deepcopy(retained_articles))
         if len(self.articles) > 64 or any(len(canonical(a)) > 128_000 for a in self.articles):
@@ -508,6 +601,9 @@ class DiscoverySources:
                 "fetch_attempted",
                 "http_requests",
                 "host_failure",
+                "provider",
+                "request_sha256",
+                "document_ref",
             )
             if key in article
         }
@@ -532,6 +628,8 @@ class DiscoverySources:
         contexts = [op for op in self.operations if op["kind"] == "source_context"]
         for op in contexts:
             frozen = {k: op.get(k) for k in ("input", "feedback", "attempt")}
+            if "read_allowance" in op:
+                frozen["read_allowance"] = op["read_allowance"]
             if digest(canonical(frozen)) != op["identity"]:
                 raise ValueError("Frozen discovery search context changed")
         operation_id = (context or {}).get("operation_id")
@@ -556,6 +654,7 @@ class DiscoverySources:
             "input": deepcopy(binding),
             "feedback": self._access_feedback(),
             "attempt": max((op["attempt"] for op in contexts), default=0) + 1,
+            "read_allowance": max(0, self.limits["read"] - self.counts["read"]),
         }
         receipt = {
             "kind": "source_context",
@@ -586,7 +685,7 @@ class DiscoverySources:
 
         def dispatch():
             if replay_only:
-                raise ValueError("Completed discovery read checkpoint is unavailable")
+                raise ValueError(f"Completed discovery {kind} checkpoint is unavailable")
             if kind in self.limits and self.counts[kind] >= self.limits[kind]:
                 raise SourceAllowanceExhausted(f"Discovery {kind} allowance exhausted")
             self.counts[kind] += 1
@@ -628,7 +727,12 @@ class DiscoverySources:
 
     def _read(self, url):
         existing = next(
-            (a for a in self.articles if a.get("url") == url and not _headline_only(a)), None
+            (
+                a
+                for a in self.articles
+                if a.get("url") == url and a.get("provider") != "mops" and not _headline_only(a)
+            ),
+            None,
         )
         if existing is not None:
             return existing
@@ -686,6 +790,121 @@ class DiscoverySources:
         self.articles.append(article)
         return article
 
+    def _disclosure_operation(self, kind, payload, operation):
+        # A newly denied host cannot invalidate an already retained response.
+        # On a cache miss the provider returns a skip before resolving/connecting.
+        if "mops.twse.com.tw" in _avoid_hosts(self.access_receipts):
+            if self.call is not None:
+                try:
+                    return self._operation(kind, payload, operation, replay_only=True)
+                except ValueError as exc:
+                    if str(exc) != f"Completed discovery {kind} checkpoint is unavailable":
+                        raise
+            return operation()
+        return self._operation(kind, payload, operation)
+
+    def _disclosures(self, query, symbol, question, source_context):
+        from quant_rsi.research.mops_source import list_disclosures, read_disclosure
+
+        query = DisclosureQuery.model_validate(query).model_dump(mode="json")
+        output = {"provider": "mops", "query": query, "results": []}
+        if self.mode == "retained":
+            return output | {"status": "retained_search_disabled"}
+        issuer = self.disclosure_profiles.get(symbol)
+        if issuer is None or self.disclosure_root is None:
+            return output | {"status": "needs_data", "reason": "disclosure_issuer_not_configured"}
+
+        def listing():
+            value = list_disclosures(
+                issuer["company_id"],
+                query["year"],
+                query["month"],
+                root=self.disclosure_root,
+                avoid_hosts=_avoid_hosts(self.access_receipts),
+            )
+            self._remember_access(value)
+            self._save_usage()
+            return value
+
+        listed = self._disclosure_operation(
+            "search", {"provider": "mops", "issuer": issuer, "query": query}, listing
+        )
+        self._remember_access(listed)
+        self._save_usage()
+        output["listing"] = listed
+        if listed["status"] != "available":
+            return output | {"status": "needs_data", "reason": listed.get("reason", "unavailable")}
+        documents = {row["document_ref"]: row for row in listed["items"]}
+        if not documents:
+            return output | {"status": "needs_data", "reason": "no_disclosures_in_requested_month"}
+        allowance = min(6, source_context.get("read_allowance", self.limits["read"]))
+        if not allowance:
+            return output | {"status": "needs_data", "reason": "Discovery read allowance exhausted"}
+        selection_input = {
+            "question": question,
+            "issuer": issuer,
+            "documents": list(documents.values()),
+            "max_documents": allowance,
+            "access_feedback": source_context["feedback"],
+        }
+        prompt = _prompt(
+            "Choose official disclosure documents relevant to the research question, including "
+            "possible contrary evidence. These are list entries, not source-body evidence. "
+            "Return only supplied document_refs, at most max_documents. Do not invent a factor "
+            "or measurement from the titles. Prefer announcements that can explain the business "
+            "mechanism or provide the requested historical measurements. An empty selection is "
+            "valid if no listed item is relevant; explain the gap. Do not execute other tools.",
+            selection_input,
+        )
+        selection = DisclosureSelection.model_validate_json(
+            self._operation(
+                "analysis",
+                selection_input,
+                lambda: self.llm.structured(prompt, strict_schema(DisclosureSelection)),
+            )
+        ).model_dump(mode="json")
+        output["selection"] = selection
+        refs = selection["document_refs"]
+        if len(refs) > allowance or len(set(refs)) != len(refs) or set(refs) - documents.keys():
+            return output | {"status": "needs_data", "reason": "invalid_disclosure_selection"}
+        for ref in refs:
+            item = documents[ref]
+
+            def read(item=item):
+                article = read_disclosure(
+                    item, root=self.disclosure_root, avoid_hosts=_avoid_hosts(self.access_receipts)
+                )
+                article = article | {"issuer_symbol": symbol, "issuer_mapping": issuer}
+                self._remember_access(article)
+                self._save_usage()
+                return article
+
+            try:
+                article = next((a for a in self.articles if a.get("document_ref") == ref), None)
+                if article is None:
+                    article = self._disclosure_operation(
+                        "read", {"provider": "mops", "item": item}, read
+                    )
+            except SourceAllowanceExhausted as exc:
+                output.update(status="needs_data", reason=str(exc))
+                break
+            self._remember_access(article)
+            self._save_usage()
+            previous = next((a for a in self.articles if a["id"] == article["id"]), None)
+            if previous is not None and canonical(previous) != canonical(article):
+                raise ValueError("Disclosure snapshot identity has conflicting content")
+            if previous is None:
+                self.articles.append(deepcopy(article))
+            output["results"].append(
+                {
+                    "source_id": article["id"],
+                    "document_ref": ref,
+                    "title": item["title"],
+                    "url": article["url"],
+                }
+            )
+        return output
+
     def _search(self, query, symbol, *, access_feedback=None):
         if self.mode == "retained":
             return {"query": query, "results": [], "status": "retained_search_disabled"}
@@ -727,7 +946,13 @@ class DiscoverySources:
             if self.mode != "retained"
             else None
         )
-        if self.mode != "retained":
+        disclosure_query = request.get("disclosure_query")
+        if disclosure_query is not None:
+            try:
+                search = self._disclosures(disclosure_query, symbol, query, source_context)
+            except SourceAllowanceExhausted as exc:
+                search = {"query": query, "results": [], "status": "needs_data", "reason": str(exc)}
+        elif self.mode != "retained":
             try:
                 search = self._search(query, symbol, access_feedback=source_context["feedback"])
             except SourceAllowanceExhausted as exc:
@@ -740,6 +965,7 @@ class DiscoverySources:
         else:
             search = {"query": query, "status": "retained_sources_only", "results": []}
         requested_urls = {item["url"] for item in search["results"]}
+        requested_ids = {item["source_id"] for item in search["results"] if "source_id" in item}
         # Keep the current investigation visible within the existing context cap.
         # Stable ordering retains older evidence as remaining context; eligibility
         # filtering still happens before the cap in _available().
@@ -747,8 +973,14 @@ class DiscoverySources:
             self.articles,
             key=lambda article: (
                 not (
-                    article.get("url") in requested_urls
-                    or article.get("final_url") in requested_urls
+                    article.get("id") in requested_ids
+                    or (
+                        not requested_ids
+                        and (
+                            article.get("url") in requested_urls
+                            or article.get("final_url") in requested_urls
+                        )
+                    )
                 )
             ),
         )
@@ -811,6 +1043,8 @@ class DiscoverySources:
             findings["findings"] = accepted
         else:
             findings = {"findings": [], "gaps": ["No eligible source material"]}
+        if search.get("reason"):
+            findings["gaps"].append(search["reason"])
         if source_context is not None:
             source_context["status"] = "completed"
             self._save_usage()
@@ -838,12 +1072,27 @@ class DiscoverySources:
                 },
                 context,
             )
-            if not urls and self.mode != "retained"
+            if not urls and not request.source_ids and self.mode != "retained"
             else None
         )
         searches = []
         acquisition_gaps = []
-        if not urls and self.mode != "retained":
+        selected_ids = set(request.source_ids)
+        if request.disclosure_query is not None:
+            try:
+                search = self._disclosures(
+                    request.disclosure_query.model_dump(mode="json"),
+                    request.symbol,
+                    request.query + "\nRequested measurement: " + request.measurement,
+                    source_context,
+                )
+            except SourceAllowanceExhausted as exc:
+                search = {"results": [], "status": "needs_data", "reason": str(exc)}
+            searches.append(search)
+            selected_ids = {row["source_id"] for row in search["results"]}
+            if search.get("reason"):
+                acquisition_gaps.append(search["reason"])
+        elif not urls and not request.source_ids and self.mode != "retained":
             try:
                 search = self._search(
                     request.query, request.symbol, access_feedback=source_context["feedback"]
@@ -858,15 +1107,49 @@ class DiscoverySources:
                 acquisition_gaps.append(str(exc))
             searches.append(search)
             urls = [item["url"] for item in search["results"]]
+        from quant_rsi.research.mops_source import DETAIL_URL, LIST_URL
+
         for url in urls:
+            if url in {DETAIL_URL, LIST_URL} or any(
+                a.get("provider") == "mops" and a.get("url") == url for a in self.articles
+            ):
+                acquisition_gaps.append("structured_disclosure_requires_source_ids")
+                continue
             try:
                 self._read(url)
             except SourceAllowanceExhausted as exc:
                 acquisition_gaps.append(str(exc))
                 break
-        requested_articles = [a for a in self.articles if a.get("url") in urls]
-        if not request.source_urls:
+        exact_sources = bool(request.source_ids) or request.disclosure_query is not None
+        if exact_sources:
+            known_ids = {a["id"] for a in self.articles}
+            acquisition_gaps.extend(
+                f"Unknown source_id: {v}" for v in sorted(selected_ids - known_ids)
+            )
+            requested_articles = [a for a in self.articles if a["id"] in selected_ids]
+        else:
+            requested_articles = [a for a in self.articles if a.get("url") in urls]
+        if not request.source_urls and not exact_sources:
             requested_articles += [a for a in self.articles if a.get("url") not in urls]
+        matching_articles = []
+        for article in requested_articles:
+            if article.get("provider") == "mops":
+                if not exact_sources:
+                    acquisition_gaps.append(
+                        f"{article['id']}: structured_disclosure_requires_source_ids"
+                    )
+                    continue
+                issuer = self.disclosure_profiles.get(request.symbol)
+                if (
+                    issuer is None
+                    or article.get("issuer_symbol") != request.symbol
+                    or article.get("issuer_mapping") != issuer
+                    or article.get("company_id") != issuer["company_id"]
+                ):
+                    acquisition_gaps.append(f"{article['id']}: disclosure_issuer_mismatch")
+                    continue
+            matching_articles.append(article)
+        requested_articles = matching_articles
         headline_exclusions = [
             {"id": a["id"], "reason": "headline_only_no_numerical_source_body"}
             for a in requested_articles
@@ -909,7 +1192,12 @@ class DiscoverySources:
                 "time; quote its "
                 "date from the text. If publication is absent, return null and no observations. "
                 "Return no observations for a mismatched company, unit, measurement, period or "
-                "ambiguous table. Do not create intervening periods. Missing data is acceptable.",
+                "ambiguous table. For MOPS, quote its literal ROC publication date and map that "
+                "to publication_date; preserve the official publication time. Supported literal "
+                "units are percent/%, TWD, TWD thousand, TWD million and TWD hundred million. "
+                "Do not convert compound Chinese amounts such as 5118億5700萬元 into a number, "
+                "or treat cumulative or partial-month values as full-month observations. "
+                "Do not create intervening periods. Missing data is acceptable.",
                 payload,
             )
             try:
@@ -981,16 +1269,31 @@ def validate_extraction(
         return [], ["missing_literal_publication_evidence"]
     try:
         publication_day = date.fromisoformat(result.publication_date)
-        if not _date_in_excerpt(result.publication_date, result.publication_excerpt):
-            return [], ["publication_date_not_in_excerpt"]
         receipt = timestamp(article["received_at"])
-        # A date-only disclosure is conservatively available after all local day closes.
-        publication = datetime.combine(
-            publication_day + timedelta(days=1), datetime.min.time(), UTC
-        ) + timedelta(hours=12)
+        if article.get("provider") == "mops":
+            from quant_rsi.research.mops_source import _publication
+
+            raw_day, raw_time = article["publication_date_raw"], article["publication_time_raw"]
+            publication = _publication(raw_day, raw_time)
+            if (
+                publication.date() != publication_day
+                or raw_day not in result.publication_excerpt
+                or raw_time not in text
+                or timestamp(article["published_at"]) != publication
+            ):
+                return [], ["publication_date_not_in_official_fields"]
+            if publication > receipt:
+                return [], ["publication_after_receipt"]
+        else:
+            if not _date_in_excerpt(result.publication_date, result.publication_excerpt):
+                return [], ["publication_date_not_in_excerpt"]
+            # Date-only disclosures remain conservatively available after local day closes.
+            publication = datetime.combine(
+                publication_day + timedelta(days=1), datetime.min.time(), UTC
+            ) + timedelta(hours=12)
+            if publication_day > receipt.date():
+                return [], ["publication_after_receipt"]
         version = timestamp(article.get("version_available_at") or article["received_at"])
-        if publication_day > receipt.date():
-            return [], ["publication_after_receipt"]
         if information_mode == "retained":
             effective = max(publication, receipt, version, timestamp(extracted_at))
             if effective > timestamp(research_cutoff):
@@ -1016,7 +1319,7 @@ def validate_extraction(
                     raise ValueError("invalid_period")
                 if request.period_granularity == "calendar_month":
                     if period_excerpt not in text or not _calendar_month_period(
-                        item, period_excerpt, text
+                        item, period_excerpt, text, chinese=article.get("provider") == "mops"
                     ):
                         raise ValueError("unverified_calendar_month_period")
                 else:
@@ -1034,6 +1337,10 @@ def validate_extraction(
                 item.unit != request.unit
                 or item.excerpt not in text
                 or not _literal_number(item.value, item.excerpt)
+                or (
+                    article.get("provider") == "mops"
+                    and not _mops_literal_unit(item.value, item.unit, item.excerpt)
+                )
             ):
                 raise ValueError("unverified_literal_value_or_unit")
             if request.original_actual_releases:
@@ -1203,12 +1510,15 @@ def discovery_decision(llm, context):
         data_requests: tuple[DataRequest, ...] = Field(max_length=4)
         query: str | None
         survey_symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9.-]{0,14}$")] | None = None
+        disclosure_query: DisclosureQuery | None = None
 
         @model_serializer(mode="wrap")
         def serialize(self, handler):
             value = handler(self)
             if self.survey_symbol is None:
                 value.pop("survey_symbol", None)
+            if self.disclosure_query is None:
+                value.pop("disclosure_query", None)
             return value
 
     class Decision(DecisionEnvelope):
@@ -1230,6 +1540,20 @@ def discovery_decision(llm, context):
         "assume a fixed company list or adopt related-company leads as established relationships. "
         "Use survey_symbol to investigate another public issuer without changing the prediction "
         "target in context.symbol; use null when no different survey issuer is needed. "
+        "For issuers listed in context.disclosure_sources, you may use a survey disclosure_query "
+        "with provider=mops and a Gregorian year/month to investigate the official announcement "
+        "archive. Select the month from the research question and required information periods; "
+        "the application asks you which listed documents to read. A list query uses one search "
+        "allowance, each detail one read, and selection is a recorded LLM analysis call. "
+        "No issuer profile means this provider is unavailable; use other sources or report the "
+        "gap. Current retrieval of a historical announcement is not a historical version archive. "
+        "Use data_requests.source_ids to request measurements from exact retained document "
+        "snapshots, especially POST sources sharing one endpoint. "
+        "Use data_requests.disclosure_query "
+        "to acquire another announcement month when measurements are missing. source_ids, "
+        "source_urls and disclosure_query are mutually exclusive. Do not fabricate a GET URL "
+        "for a structured disclosure or change the source issuer. A few months do not establish "
+        "coverage of every training row; inspect the measured coverage before testing. "
         "Trace demand, capital expenditure, revenue, operating cash flow, utilization and "
         "financing needs where relevant, distinguishing direct customers from downstream payers. "
         "A business candidate's hypothesis records operating_mechanism, measurement_horizon, "
