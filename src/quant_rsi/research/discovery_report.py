@@ -369,7 +369,13 @@ def render_discovery(result):
             features,
         )
     gaps = [
-        [m.get("kind"), m.get("reason") or m.get("result", {}).get("reason"), m.get("ref", "")[:12]]
+        [
+            m.get("kind"),
+            f"not_executed: {m.get('reason')}"
+            if m.get("status") == "not_executed"
+            else m.get("reason") or m.get("result", {}).get("reason"),
+            m.get("ref", "")[:12],
+        ]
         for m in records
         if m.get("kind") in {"diagnostic", "failure"}
     ]

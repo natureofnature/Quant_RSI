@@ -53,6 +53,13 @@ new inputs after an experiment can require a linked experiment and another basel
 declare enough fit budget for that pair before execution. Four fits can cover
 `B₁ → B₁+H₁ → B₂ → B₂+H₂`. There is no requirement for a candidate to improve the score.
 
+Each decision sees the outer action limits, usage and remaining allowances. These are
+separate from source search/read/extraction limits: unused article reads do not authorize
+an additional survey after its action allowance is exhausted. A refused survey or
+acquisition is retained in Memory as `not_executed` with the request, exhausted budget
+and remaining action allowances. Later decisions and reports retain this diagnostic
+even if the researcher subsequently stops; resume does not dispatch the refused request.
+
 ### Prepare factors without fitting a model
 
 For native discovery, `--max-fits 0` prepares evidence, inputs and candidate columns

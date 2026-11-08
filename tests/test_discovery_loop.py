@@ -32,6 +32,100 @@ def runner(spec):
     }
 
 
+@pytest.mark.parametrize("kind,counter", [("survey", "surveys"), ("acquire", "acquisitions")])
+@pytest.mark.parametrize("limit", [0, 1])
+def test_budget_refusal_is_feedback_before_next_decision_and_survives_resume(
+    tmp_path, kind, counter, limit
+):
+    calls, seen = [], []
+    interrupted = False
+    request = {"input_id": "acquired.demand"}
+
+    def provider(value):
+        calls.append(value)
+        return {"status": "needs_data", "gaps": ["unavailable source"]}
+
+    def decide(context):
+        nonlocal interrupted
+        seen.append(context)
+        iteration = context["iteration"]
+        used = min(iteration - 1, limit)
+        assert context["action_budgets"][counter] == {
+            "limit": limit,
+            "used": used,
+            "remaining": limit - used,
+        }
+        if iteration <= limit + 1:
+            return {"action": kind, "query": "retry source", "data_requests": [request]}
+        diagnostic = context["memory"][-1]
+        assert diagnostic["kind"] == "diagnostic"
+        assert diagnostic["status"] == "not_executed"
+        assert diagnostic["reason"] == counter + "_budget_exhausted"
+        assert diagnostic["operation"] == kind
+        assert diagnostic["action_budgets"][counter]["remaining"] == 0
+        assert diagnostic["ref"] in context["consumed_memory_refs"]
+        path = tmp_path / f"discovery/memory/budget_{limit + 1}_0.json"
+        assert json.loads(path.read_text()) == diagnostic
+        assert diagnostic["requests"] == (
+            [request] if kind == "acquire" else [{"query": "retry source", "reason": ""}]
+        )
+        if not interrupted:
+            interrupted = True
+            raise RuntimeError("interrupt after receiving refusal")
+        return {"action": "stop"}
+
+    options = dict(
+        root=tmp_path,
+        cache=cache_at(tmp_path),
+        decide=decide,
+        run_experiment=lambda _: pytest.fail("zero-fit preparation must not fit"),
+        survey=provider,
+        acquire=provider,
+        survey_budget=limit,
+        acquisition_budget=limit,
+        fit_budget=0,
+        decision_budget=limit + 2,
+    )
+    context = {"source_limits": {"read": 6, "search": 2, "extract": 12}}
+    with pytest.raises(RuntimeError, match="interrupt after receiving refusal"):
+        run_discovery(context, **options)
+    diagnostic_path = tmp_path / f"discovery/memory/budget_{limit + 1}_0.json"
+    original = diagnostic_path.read_bytes()
+    result = run_discovery(context, **options)
+    assert len(calls) == limit
+    assert result["counts"][counter] == limit
+    assert result["counts"]["decisions"] == limit + 2
+    assert result["stop_reason"] == "stop"
+    assert diagnostic_path.read_bytes() == original
+    assert seen[-1] == seen[-2]
+    assert any(m.get("status") == "not_executed" for m in result["memory"])
+
+
+def test_partial_acquisition_batch_records_all_undispatched_requests(tmp_path):
+    requests = [{"input_id": f"acquired.input_{n}"} for n in range(3)]
+    calls = []
+    result = run_discovery(
+        {},
+        root=tmp_path,
+        cache=cache_at(tmp_path),
+        decide=lambda _: {"action": "acquire", "data_requests": requests},
+        acquire=lambda request: calls.append(request) or {"status": "needs_data"},
+        run_experiment=lambda _: pytest.fail("preparation must not fit"),
+        decision_budget=1,
+        acquisition_budget=1,
+        fit_budget=0,
+    )
+    assert calls == requests[:1]
+    diagnostic = result["memory"][-1]
+    assert diagnostic["status"] == "not_executed"
+    assert diagnostic["requests"] == requests[1:]
+    assert diagnostic["action_budgets"]["acquisitions"] == {
+        "limit": 1,
+        "used": 1,
+        "remaining": 0,
+    }
+
+
 def test_feedback_is_on_disk_before_next_decision_and_resume(tmp_path):
     actions = [
         {"action": "test", "candidates": [{"name": "one", "metric": 3}]},

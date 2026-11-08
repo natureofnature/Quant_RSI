@@ -90,6 +90,17 @@ def run_discovery(
     baseline_contract = deepcopy(context.get("experiment_contract", {}))
     stop_reason = "decision_budget_exhausted"
 
+    def action_budgets():
+        return {
+            key: {"limit": limit, "used": counts[key], "remaining": max(0, limit - counts[key])}
+            for key, limit in (
+                ("decisions", decision_budget),
+                ("surveys", survey_budget),
+                ("acquisitions", acquisition_budget),
+                ("fits", fit_budget),
+            )
+        }
+
     def persist(name, value):
         def create():
             record = deepcopy(value) | {"created_at": now(), "partition": "development"}
@@ -179,6 +190,7 @@ def run_discovery(
             "input_bundles": deepcopy(bundles),
             "policy": deepcopy(policy),
             "counts": deepcopy(counts),
+            "action_budgets": action_budgets(),
             "remaining_fits": fit_budget - counts["fits"],
         }
         current["visible_candidates"] = _visible_candidates(current["memory"])
@@ -265,6 +277,17 @@ def run_discovery(
             for index, request in enumerate(requests):
                 if counts[counter] >= limit:
                     stop_reason = counter + "_budget_exhausted"
+                    persist(
+                        f"budget_{iteration}_{index}",
+                        {
+                            "kind": "diagnostic",
+                            "status": "not_executed",
+                            "reason": stop_reason,
+                            "operation": kind,
+                            "requests": deepcopy(requests[index:]),
+                            "action_budgets": action_budgets(),
+                        },
+                    )
                     break
                 inputs = {"request": request, "policy_identity": policy["identity"]}
                 result = operation(
