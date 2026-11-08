@@ -32,6 +32,7 @@ CONTEXT_FIELDS = {
     "forecast_target",
     "preparation_only",
     "counts",
+    "action_budgets",
     "remaining_fits",
     "evidence",
 }

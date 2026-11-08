@@ -167,6 +167,21 @@ def test_unresolved_column_and_missing_acquisition_receipt_do_not_claim_readines
         assert "Full frozen population ready" not in document
 
 
+def test_budget_refusal_remains_visible_after_researcher_stops():
+    value = report_result()
+    value["discovery"]["stop_reason"] = "stop"
+    value["discovery"]["memory"].append(
+        {
+            "kind": "diagnostic",
+            "status": "not_executed",
+            "reason": "surveys_budget_exhausted",
+            "ref": "budget-refusal",
+        }
+    )
+    for document in visible(value):
+        assert "not_executed: surveys_budget_exhausted" in document
+
+
 def test_normal_report_without_preparation_mode_preserves_existing_comparison_sections():
     value = report_result()
     value["discovery"].pop("mode")
