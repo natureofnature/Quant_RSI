@@ -435,7 +435,8 @@ def _mops_literal_unit(value, unit, excerpt, source_text):
             # Validate the amount at its original source boundaries, not only in
             # the selected substring. Ambiguous repeated quotes remain a gap.
             if unit in {"percent", "%"}:
-                if start and source_text[start - 1] in "0123456789.,+-−(（負负":
+                prefix = source_text[:start].rstrip()
+                if prefix and prefix[-1] in "0123456789.,+-−－﹣(（負负":
                     return False
             elif re.match(
                 r"[\s，,]*(?:又|零)?\s*\d[\d,.]*\s*(?:[億亿萬万千仟百]+元?|元)",

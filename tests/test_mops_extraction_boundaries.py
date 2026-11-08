@@ -117,6 +117,11 @@ def test_mops_rejects_compound_conversions_and_unbound_units(quote, value, unit)
         ("新台幣5億元，9000萬元", "新台幣5億元", 5, "TWD hundred million"),
         ("年增12.3%", "2.3%", 2.3, "percent"),
         ("年增-12.3%", "12.3%", 12.3, "percent"),
+        ("年增- 12.3%", "12.3%", 12.3, "percent"),
+        ("年增− 12.3%", "12.3%", 12.3, "percent"),
+        ("年增－ 12.3%", "12.3%", 12.3, "percent"),
+        ("年增（ 12.3%）", "12.3%", 12.3, "percent"),
+        ("年增(\t12.3%)", "12.3%", 12.3, "percent"),
     ],
 )
 def test_mops_cannot_truncate_original_amount_boundaries(amount, quote, value, unit):
