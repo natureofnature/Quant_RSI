@@ -9,6 +9,7 @@ import zlib
 from copy import deepcopy
 from datetime import UTC, date, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from quant_rsi.core.artifacts import canonical, digest
@@ -18,6 +19,18 @@ HOST = "mops.twse.com.tw"
 LIST_URL = f"https://{HOST}/mops/api/t05st01"
 DETAIL_URL = f"https://{HOST}/mops/api/t05st01_detail"
 MAX_RECORDS = 256
+
+
+def is_post_endpoint(url):
+    """Recognize only fixed structured paths, including mistaken query-string links."""
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False  # The ordinary reader retains ownership of malformed URL rejection.
+    return parsed.hostname == HOST and parsed.path in {
+        urlsplit(LIST_URL).path,
+        urlsplit(DETAIL_URL).path,
+    }
 
 
 class _Invalid(ValueError):

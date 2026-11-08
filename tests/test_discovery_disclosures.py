@@ -199,6 +199,8 @@ def test_unknown_id_wrong_issuer_and_shared_post_url_never_trigger_fallback_sear
         measurement(source_ids=["unknown-source"]),
         measurement(source_ids=[selected["id"]], symbol="KO"),
         measurement(source_urls=[mops_source.DETAIL_URL]),
+        measurement(source_urls=[mops_source.DETAIL_URL + "?companyId=2330"]),
+        measurement(source_urls=[mops_source.LIST_URL + "#announcement"]),
     ]
     # Source URLs are not usable identities for a structured POST disclosure.
     for request in requests:
@@ -207,6 +209,25 @@ def test_unknown_id_wrong_issuer_and_shared_post_url_never_trigger_fallback_sear
         assert result["status"] == "needs_data" and result["observations"] == []
         assert len(archive.calls) == before
     assert engine.counts["extract"] == 0
+
+
+def test_structured_search_link_is_not_read_as_get_but_normal_pages_are(tmp_path, archive):
+    engine = source(tmp_path)
+    assert not mops_source.is_post_endpoint("https://[broken")
+    rejected = engine._read(mops_source.DETAIL_URL + "?companyId=2330")
+    assert rejected["reason"] == "structured_disclosure_requires_source_ids"
+    assert rejected["fetch_attempted"] is False
+    assert engine.counts["read"] == 0 and archive.calls == []
+    calls = []
+
+    def reader(url):
+        calls.append(url)
+        return {"url": url, "status": "available", "text": "Ordinary article body"}
+
+    engine.reader = reader
+    url = "https://mops.twse.com.tw/ordinary-article.html"
+    assert engine._read(url)["status"] == "available"
+    assert calls == [url] and engine.counts["read"] == 1
 
 
 @pytest.mark.parametrize(

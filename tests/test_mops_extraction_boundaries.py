@@ -108,6 +108,39 @@ def test_mops_rejects_compound_conversions_and_unbound_units(quote, value, unit)
 
 
 @pytest.mark.parametrize(
+    "amount,quote,value,unit",
+    [
+        ("新台幣5億元9000萬元", "新台幣5億元", 5, "TWD hundred million"),
+        ("新台幣5億元 9000萬元", "新台幣5億元 9000萬元", 5, "TWD hundred million"),
+        ("新台幣5億元\n9000萬元", "新台幣5億元", 5, "TWD hundred million"),
+        ("新台幣5億元又9000萬", "新台幣5億元", 5, "TWD hundred million"),
+        ("新台幣5億元，9000萬元", "新台幣5億元", 5, "TWD hundred million"),
+        ("年增12.3%", "2.3%", 2.3, "percent"),
+        ("年增-12.3%", "12.3%", 12.3, "percent"),
+    ],
+)
+def test_mops_cannot_truncate_original_amount_boundaries(amount, quote, value, unit):
+    observations, reasons = validate(
+        *records("2026年9月營收" + amount + "。", quote=quote, value=value, unit=unit)
+    )
+    assert observations == []
+    assert reasons == ["unverified_literal_value_or_unit"]
+
+
+def test_mops_complete_amount_before_an_independent_value_is_eligible():
+    observations, reasons = validate(
+        *records(
+            "2026年9月營收新台幣5億元，營業利益新台幣9000萬元。",
+            quote="新台幣5億元",
+            value=5,
+            unit="TWD hundred million",
+        )
+    )
+    assert reasons == []
+    assert observations[0]["value"] == 5
+
+
+@pytest.mark.parametrize(
     "body",
     [
         "2026年9月營收報告\n累計營收\n新台幣51元。",

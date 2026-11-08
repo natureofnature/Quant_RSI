@@ -405,7 +405,7 @@ def _literal_number(value, excerpt):
     return False
 
 
-def _mops_literal_unit(value, unit, excerpt):
+def _mops_literal_unit(value, unit, excerpt, source_text):
     """Admit only explicit number/unit pairs; never convert compound Chinese amounts."""
     number = r"(?P<amount>[+-]?\d[\d,]*(?:\.\d+)?)"
     if unit in {"percent", "%"}:
@@ -423,10 +423,27 @@ def _mops_literal_unit(value, unit, excerpt):
             rf"(?:新[台臺]幣|NT\$|TWD)\s*{number}\s*{scales[unit]}"
             r"(?![\d萬万億亿])"
         )
-    return any(
-        _literal_number(value, match.group("amount"))
-        for match in re.finditer(pattern, excerpt.replace("−", "-"), re.I)
-    )
+    for match in re.finditer(pattern, excerpt.replace("−", "-"), re.I):
+        if not _literal_number(value, match.group("amount")):
+            continue
+        quotes = list(re.finditer(re.escape(excerpt), source_text))
+        if not quotes:
+            return False
+        for quote in quotes:
+            start, end = quote.start() + match.start(), quote.start() + match.end()
+            # An LLM may quote just the first component or truncate a sign/digit.
+            # Validate the amount at its original source boundaries, not only in
+            # the selected substring. Ambiguous repeated quotes remain a gap.
+            if unit in {"percent", "%"}:
+                if start and source_text[start - 1] in "0123456789.,+-−(（負负":
+                    return False
+            elif re.match(
+                r"[\s，,]*(?:又|零)?\s*\d[\d,.]*\s*(?:[億亿萬万千仟百]+元?|元)",
+                source_text[end:],
+            ):
+                return False
+        return True
+    return False
 
 
 def eligible_articles(articles, *, information_mode, research_cutoff):
@@ -726,6 +743,8 @@ class DiscoverySources:
         return admitted[:limit], excluded
 
     def _read(self, url):
+        from quant_rsi.research.mops_source import is_post_endpoint
+
         existing = next(
             (
                 a
@@ -747,7 +766,18 @@ class DiscoverySources:
                 r.get("url") == url and r.get("status") == "available" for r in self.access_receipts
             )
         )
-        if host in avoid_hosts and not replay_only:
+        if is_post_endpoint(url):
+            article = {
+                "url": url,
+                "status": "unavailable",
+                "reason": "structured_disclosure_requires_source_ids",
+                "text": "",
+                "content_sha256": None,
+                "content_extent": "not_read",
+                "fetch_attempted": False,
+                "http_requests": 0,
+            }
+        elif host in avoid_hosts and not replay_only:
             previous = next(
                 (
                     r
@@ -1107,10 +1137,10 @@ class DiscoverySources:
                 acquisition_gaps.append(str(exc))
             searches.append(search)
             urls = [item["url"] for item in search["results"]]
-        from quant_rsi.research.mops_source import DETAIL_URL, LIST_URL
+        from quant_rsi.research.mops_source import is_post_endpoint
 
         for url in urls:
-            if url in {DETAIL_URL, LIST_URL} or any(
+            if is_post_endpoint(url) or any(
                 a.get("provider") == "mops" and a.get("url") == url for a in self.articles
             ):
                 acquisition_gaps.append("structured_disclosure_requires_source_ids")
@@ -1339,7 +1369,7 @@ def validate_extraction(
                 or not _literal_number(item.value, item.excerpt)
                 or (
                     article.get("provider") == "mops"
-                    and not _mops_literal_unit(item.value, item.unit, item.excerpt)
+                    and not _mops_literal_unit(item.value, item.unit, item.excerpt, text)
                 )
             ):
                 raise ValueError("unverified_literal_value_or_unit")
