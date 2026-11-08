@@ -256,6 +256,11 @@ def run_discovery(
                         "query": action.get("query"),
                         "reason": action.get("reason", ""),
                         **(
+                            {"disclosure_query": action["disclosure_query"]}
+                            if action.get("disclosure_query") is not None
+                            else {}
+                        ),
+                        **(
                             {"symbol": action["survey_symbol"]}
                             if action.get("survey_symbol")
                             else {}
@@ -310,6 +315,7 @@ def run_discovery(
                         "guard": guard,
                         "counts": result.get("counts", {}),
                         "operations": result.get("operations", []),
+                        "access_receipts": result.get("access_receipts", []),
                         "gaps": result.get("gaps", []),
                         "search": result.get("search", {}),
                         "excluded": result.get("excluded", []),

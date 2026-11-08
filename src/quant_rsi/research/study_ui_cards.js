@@ -57,10 +57,12 @@ const StudyCards = (() => {
   }
   function article(item) {
     const card = el('article', 'news-card');
-    const head = el('div', 'news-meta'), source = link(item.url);
+    const head = el('div', 'news-meta'), source = item.method === 'POST'
+      ? el('span', '', `POST · ${item.url || 'Structured disclosure'}`) : link(item.url);
     head.append(source || el('span', '', 'Source URL not provided'));
     if (item.status) head.append(badge(item.status, item.status === 'available' ? 'good' : 'caution'));
     card.append(head, el('h3', '', item.title || item.symbol || 'Retained news item'));
+    if (item.method === 'POST') card.append(note('Structured disclosure: the endpoint is not an article link. The retained trace records the request, source ID and original response.'));
     if (item.reason) card.append(note(`Read result · ${title(item.reason)}${item.fetch_attempted === false ? ' · No request sent' : ''}`));
     if (item.final_url && item.final_url !== item.url) {
       const destination = link(item.final_url, 'Final requested URL');

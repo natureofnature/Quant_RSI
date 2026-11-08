@@ -30,6 +30,85 @@ No receipt or historical news snapshot is invented. Failures from a configured t
 RSS feed still stop the run. Legacy, incremental and non-active discovery retain their
 existing configuration requirements.
 
+Discovery keeps access failures as run-scoped feedback for later searches and preserves
+them on resume. Hosts that deny access, rate-limit requests or resolve to non-public
+addresses are avoided. An interrupted survey or acquisition replays its frozen search
+context and completed reads; later source operations use the accumulated feedback.
+Avoidance includes redirect destinations. Skipping a known denied host
+before a read uses no additional read allowance; a read that encounters a denied
+redirect still uses its existing allowance and records preceding HTTP requests.
+Access receipts are transport metadata, not source evidence. This feedback neither
+increases source budgets nor relaxes SSRF checks or access restrictions.
+
+Native discovery binds each source operation to its frozen decision iteration, operation
+kind and complete request. It can replay completed source work when writing the outer
+checkpoint fails. Identical requests within one batch share the inner source operation;
+each still consumes its existing outer acquisition slot. External orchestration that
+wraps `DiscoverySources.survey` or `acquire` in an outer checkpoint must supply the
+existing checkpoint callback and a stable `context.operation_id`, reuse that identity
+on resume, and change it for a new logical operation.
+Without that caller identity, a call after successful completion is a new investigation.
+
+## Official structured disclosures
+
+For configured issuers, active discovery can investigate official MOPS disclosures
+without inventing an article URL for a POST-only API. TSM's
+[`disclosures.json`](../instruments/US/TSM/disclosures.json) explicitly maps the ADS
+to Taiwan company 2330. Other issuers need a verified mapping before using this
+provider; ordinary web research remains available. This adapter currently supports
+the listed-company (`sii`) archive only.
+
+The existing decision loop remains in charge:
+
+1. The decision selects `disclosure_query: {"provider": "mops", "year": 2026,
+   "month": 10}` on a survey. Years are Gregorian; the adapter converts the query
+   to the provider's ROC calendar. No month is automatically searched.
+2. The official monthly announcement list is retained. A recorded LLM selection
+   chooses relevant `document_refs`, including an empty selection if appropriate.
+   Titles are leads, not numerical evidence.
+3. The adapter reads the selected bodies through the fixed official detail
+   endpoint. Existing survey analysis can propose mechanisms and measurements
+   from those bodies, including candidates absent from the catalog.
+4. A data request uses exact `source_ids` from those retained snapshots, or a new
+   `disclosure_query` for missing history. `source_ids`, `source_urls` and
+   `disclosure_query` are mutually exclusive. Unknown IDs, mismatched issuers and
+   a POST endpoint supplied as an ordinary article URL produce explicit gaps.
+5. Existing extraction, input alignment and candidate preparation determine which
+   prediction rows have usable inputs. Missing history is not filled or silently
+   replaced with a price factor. A prepared column may remain partially covered
+   and therefore ineligible for training on the frozen sample.
+
+One list query consumes an existing search allowance, each detail consumes a read
+allowance, and document selection is recorded as an LLM analysis call. Exact
+snapshot extraction consumes extraction allowance without fetching the body again.
+Interrupted operations reuse the existing checkpoints and frozen selection context.
+The default two searches and six reads cannot establish arbitrary historical
+coverage. This is a source adapter, not a new scheduler or an expanded budget.
+
+Documents sharing the same API URL remain distinct: the request identity includes
+the POST selector; the source snapshot ID also includes the original response hash.
+The raw response is retained under `discovery/disclosures/raw/`, with its locator
+and hash in the receipt. The UI labels POST locators rather than presenting them as
+clickable article links. Requests retain the existing public-address checks and
+response limits; this provider rejects redirects and performs no implicit retry.
+
+Announcement date/time is parsed from the official ROC fields in `Asia/Taipei`.
+Publication, actual receipt and current-version availability remain separate.
+Retrospective extraction can reconstruct publication availability but does not
+establish a historical version or point-in-time archive. Retained mode does not
+query the current archive, and snapshots received after its cutoff are ineligible.
+
+Numerical admission is deliberately narrow: literal `percent`/`%`, `TWD`,
+`TWD thousand`, `TWD million` and `TWD hundred million` are supported with matching
+number/unit evidence. Compound Chinese amounts such as `5118億5700萬元`, unknown
+units and ambiguous scopes stay as raw evidence and data gaps; there is no implicit
+currency or scale conversion. A calendar-month request must cite a complete month;
+cumulative, year-to-date and partial-month values cannot substitute for it.
+The LLM still has to identify the requested measurement correctly. These checks
+do not establish economic relevance or predictive value.
+
+## Offline wiring example
+
 For an offline wiring example with simulated evidence, decisions and acquisition,
 while retaining actual numerical feature calculation and model fitting:
 

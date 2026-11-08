@@ -288,6 +288,39 @@ def test_failed_redirect_retains_actual_host_for_source_recovery(transport):
     result = reader.read_article("https://gateway.test/story")
     assert result["reason"] == "http_403"
     assert result["final_url"] == "https://publisher.test/story"
+    assert result["fetch_attempted"] is True and result["http_requests"] == 2
+
+
+def test_denied_initial_host_is_skipped_without_resolution_or_receipt(transport):
+    result = reader.read_article(
+        "https://PUBLISHER.test./story", avoid_hosts={"publisher.test": "http_403"}
+    )
+    assert result["reason"] == "skipped_denied_host" and result["host_failure"] == "http_403"
+    assert result["fetch_attempted"] is False and result["http_requests"] == 0
+    assert result["received_at"] is None
+    assert not transport["dns"] and not transport["connect"] and not transport["request"]
+
+
+def test_denied_redirect_host_is_skipped_but_prior_request_is_counted(transport):
+    transport["responses"].append(Response(status=302, Location="https://publisher.test/story"))
+    result = reader.read_article(
+        "https://gateway.test/story", avoid_hosts={"publisher.test": "http_403"}
+    )
+    assert result["reason"] == "skipped_denied_host"
+    assert result["final_url"] == "https://publisher.test/story"
+    assert result["fetch_attempted"] is True and result["http_requests"] == 1
+    assert result["received_at"] is not None and result["text"] == ""
+    assert transport["dns"] == [("gateway.test", 443)]
+    assert len(transport["request"]) == 1
+
+
+def test_avoidance_does_not_allow_private_redirects_or_count_dns_as_http(transport):
+    transport["responses"].append(Response(status=302, Location="https://private.test/story"))
+    result = reader.read_article(
+        "https://gateway.test/story", avoid_hosts={"unrelated.test": "http_403"}
+    )
+    assert result["reason"] == "non_public_address" and result["http_requests"] == 1
+    assert len(transport["connect"]) == len(transport["request"]) == 1
 
 
 def test_network_failure_is_reported_without_exception_details(monkeypatch, transport):

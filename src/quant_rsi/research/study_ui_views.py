@@ -27,6 +27,7 @@ def _news(items):
                 "id",
                 "title",
                 "url",
+                "method",
                 "published_at",
                 "published_date",
                 "received_at",

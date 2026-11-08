@@ -5,6 +5,7 @@ import hashlib
 import http.client
 import io
 import ipaddress
+import json
 import socket
 import ssl
 import zlib
@@ -19,7 +20,7 @@ MAX_REDIRECTS = 3
 
 
 class _Unavailable(ValueError):
-    pass
+    http_requests = 0
 
 
 def _url(value):
@@ -55,11 +56,19 @@ def _public_target(parsed):
     return min(addresses, key=lambda item: item[0] != socket.AF_INET)
 
 
-def _fetch(url):
+def _fetch(url, *, json_body=None):
+    payload = None
+    if json_body is not None:
+        if not isinstance(json_body, dict):
+            raise _Unavailable("invalid_json_request")
+        payload = json.dumps(json_body, allow_nan=False, separators=(",", ":")).encode()
+        if len(payload) > 16_384:
+            raise _Unavailable("request_too_large")
     parsed = _url(url)
     family, kind, protocol, _, address = _public_target(parsed)
     connection = http.client.HTTPConnection(parsed.hostname, address[1], timeout=TIMEOUT)
     sock = socket.socket(family, kind, protocol)
+    http_requests = 0
     try:
         sock.settimeout(TIMEOUT)
         sock.connect(address)
@@ -67,25 +76,36 @@ def _fetch(url):
             sock = ssl.create_default_context().wrap_socket(sock, server_hostname=parsed.hostname)
         connection.sock = sock
         path = urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
-        connection.request(
-            "GET",
-            path,
-            headers={
-                "User-Agent": "QuantRSI/0.1 (public research article reader)",
-                "Accept": "text/html,text/plain,application/xhtml+xml",
-                "Accept-Encoding": "gzip, identity",
-            },
-        )
+        http_requests = 1
+        headers = {
+            "User-Agent": "QuantRSI/0.1 (public research article reader)",
+            "Accept": "application/json"
+            if payload is not None
+            else "text/html,text/plain,application/xhtml+xml",
+            "Accept-Encoding": "gzip, identity",
+        }
+        kwargs = {"headers": headers}
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
+            kwargs["body"] = payload
+        connection.request("POST" if payload is not None else "GET", path, **kwargs)
         response = connection.getresponse()
         if response.status in {301, 302, 303, 307, 308}:
+            if payload is not None:
+                raise _Unavailable("redirect_not_allowed")
             return response.status, response.headers, b""
         if response.status != 200:
             raise _Unavailable(f"http_{response.status}")
-        if response.headers.get_content_type() not in {
-            "text/html",
-            "text/plain",
-            "application/xhtml+xml",
-        }:
+        content_types = (
+            {"application/json"}
+            if payload is not None
+            else {
+                "text/html",
+                "text/plain",
+                "application/xhtml+xml",
+            }
+        )
+        if response.headers.get_content_type() not in content_types:
             raise _Unavailable("unsupported_content_type")
         if response.headers.get("Content-Encoding", "identity").lower() not in {"identity", "gzip"}:
             raise _Unavailable("unsupported_content_encoding")
@@ -93,6 +113,10 @@ def _fetch(url):
         if len(body) > MAX_BYTES:
             raise _Unavailable("response_too_large")
         return response.status, response.headers, body
+    except (OSError, http.client.HTTPException, ValueError) as exc:
+        failure = exc if isinstance(exc, _Unavailable) else _Unavailable("request_failed")
+        failure.http_requests = http_requests
+        raise failure from None
     finally:
         connection.close()
         sock.close()
@@ -184,11 +208,13 @@ class _ArticleText(HTMLParser):
         return ""
 
 
-def read_article(url):
+def read_article(url, *, avoid_hosts=None):
     """Read at most one bounded public page, following at most three checked redirects.
 
     An available page is extracted text, not proof of completeness, publication
     time, source accuracy, or a verified relationship. No browser/JS or paywall bypass.
+    ``avoid_hosts`` blocks every hop before resolution/connection. ``http_requests``
+    counts dispatched HTTP requests (including failed requests), not DNS lookups.
     """
     result = {
         "url": None,
@@ -198,15 +224,24 @@ def read_article(url):
         "text_truncated": False,
         "content_sha256": None,
         "content_extent": "bounded_public_page_text_not_verified_full_article",
+        "fetch_attempted": False,
+        "http_requests": 0,
     }
     try:
         _url(url)
         result["url"] = url
         current = url
         for redirects in range(MAX_REDIRECTS + 1):
-            _url(current)
+            parsed = _url(current)
             result["final_url"] = current
+            host = parsed.hostname.rstrip(".").lower().encode("idna").decode()
+            if host in (avoid_hosts or {}):
+                result["host_failure"] = avoid_hosts[host]
+                result["content_extent"] = "not_read"
+                raise _Unavailable("skipped_denied_host")
+            result["fetch_attempted"] = True
             status, headers, body = _fetch(current)
+            result["http_requests"] += 1
             if status in {301, 302, 303, 307, 308}:
                 if redirects == MAX_REDIRECTS:
                     raise _Unavailable("redirect_limit")
@@ -248,7 +283,12 @@ def read_article(url):
             break
     except _Unavailable as exc:
         result["reason"] = str(exc)
+        result["http_requests"] += exc.http_requests
     except (OSError, http.client.HTTPException, ValueError):
         result["reason"] = "request_failed"
-    result["received_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    result["received_at"] = (
+        None
+        if result.get("reason") == "skipped_denied_host" and not result["http_requests"]
+        else datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
     return result

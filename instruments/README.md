@@ -17,6 +17,16 @@ ownership, examples and the remaining execution boundary.
 
 ## Tracked Profiles
 
+### Structured disclosure issuers
+
+[`US/TSM/disclosures.json`](US/TSM/disclosures.json) binds the US-listed TSM ADS to
+Taiwan issuer 2330 for official MOPS announcement queries. The profile identifies
+the source issuer and the official page supporting that identity; it does not
+choose investigation months, announcements, measurements or factor formulas.
+Active discovery loads these profiles only with `--news-research`. A missing
+mapping produces a data gap rather than guessing a company ID. See
+[structured disclosures](../docs/news_driven_discovery.md#official-structured-disclosures).
+
 ### Rolling research windows
 
 [`US/SOXX/rolling.json`](US/SOXX/rolling.json) configures the SOXX rolling study:

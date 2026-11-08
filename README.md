@@ -55,6 +55,12 @@ latest guidance issued before a designated original earnings release, instead of
 mixing actuals with next-quarter guidance. Missing history still blocks training
 on the unchanged sample.
 
+TSM discovery can also investigate the official MOPS announcement archive through
+its [issuer mapping](instruments/US/TSM/disclosures.json). The LLM chooses months
+and documents, then requests measurements from retained source IDs; the mapping
+does not prescribe a factor. See [structured disclosures](docs/news_driven_discovery.md#official-structured-disclosures)
+for source budgets, supported units and historical-version limits.
+
 For an explicit Codex model and effort, add
 `--llm-model gpt-6.1-sol --llm-reasoning-effort high` to `research-study --llm codex`.
 The effort applies to hypotheses, news searches and numerical extraction, and is retained
