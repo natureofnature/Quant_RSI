@@ -329,6 +329,23 @@ def run_discovery(
             validation = {}
             if validate_candidate is not None:
                 validation = validate_candidate(deepcopy(candidate), deepcopy(bundles))
+            if fit_budget == 0:
+                # Preparation is an explicit product: keep executable column evidence
+                # and gaps even though no baseline or candidate fit may be started.
+                if validate_candidate is None:
+                    validation = {
+                        "status": "needs_data",
+                        "reason": "preparation_validator_unavailable",
+                    }
+                persist(
+                    f"preparation_{iteration}_{index}",
+                    {"kind": "preparation", "candidate": candidate, "result": validation},
+                )
+                if validation.get("status") == "ready":
+                    executable.add(discovery_identity)
+                    counts["executable"] = len(executable)
+                continue
+            if validate_candidate is not None:
                 if validation.get("status") not in {"ready", "completed", "pass"}:
                     persist(
                         f"invalid_{iteration}_{index}",
@@ -432,6 +449,11 @@ def run_discovery(
             "Development selection within each experiment; incompatible groups are not ranked."
         ),
     }
+    if fit_budget == 0:
+        output["mode"] = "preparation_only"
+        output["selection_note"] = (
+            "Preparation only: no fitting, predictions or outcome evaluation."
+        )
     atomic_write(root / "discovery" / "result.json", canonical(output))
     return output
 

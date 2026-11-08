@@ -286,7 +286,7 @@ then runs the normal two-fit/revision flow with the same options.
 
 ### Choose the prediction target
 
-The study supports one target horizon per run: 5 (default), 20 or 60 **trading
+The study supports one target horizon per run: 3, 5 (default), 20 or 60 **trading
 sessions**. The workbench form, saved templates and task history expose the same
 setting. For example:
 
@@ -302,7 +302,15 @@ The target is still close-to-close log return; changing the prediction horizon
 does not change factor lookback windows or make the strategy hold each trade for
 exactly that many sessions. Trades follow the existing next-open signal policy.
 
-Fresh daily collections retain 120, 165 or 285 completed sessions respectively.
+For `--horizon-sessions 3`, the model label is `log(close[t+3] / close[t])`,
+where each step is a trading session. For example, a Tuesday June 30, 2026 close
+targets Monday July 6: July 3 is an exchange holiday, and weekends do not count.
+This differs from an event experiment using the entry-session open to the third
+session's close; that experiment's target and results are not interchangeable
+with this native study. No automatic horizon search or extra comparison is added.
+
+Fresh daily collections retain 120 sessions for horizons 3 and 5, 165 for 20,
+or 285 for 60.
 The extra history preserves the training allowance while separating training,
 development and terminal label intervals. Longer studies request two years of
 source bars and require a published exchange calendar covering the full future
@@ -390,8 +398,8 @@ factor search, threshold changes or selection feedback occur in this stage.
 Each window contains the configured `--evaluation-sessions` origins (20 by
 default). The previous window's last target precedes the next window's first
 origin; overlapping labels within each window remain dependent. With three
-windows the run retains 170/245/445 price sessions for a 5/20/60-session horizon,
-respectively. Two windows require 145/205/365 sessions. The extra older history
+windows the run retains 166/170/245/445 price sessions for a 3/5/20/60-session horizon,
+respectively. Two windows require 143/145/205/365 sessions. The extra older history
 is excluded from the original research training allowance: with the same retained
 recent prices, enabling this diagnostic does not itself change the research fit.
 The diagnostic refits explicitly use the longer, expanding history.

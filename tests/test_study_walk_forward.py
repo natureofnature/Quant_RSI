@@ -16,7 +16,7 @@ from quant_rsi.research.study_ui import read_state
 from quant_rsi.research.study_ui_views import visual_output
 
 
-@pytest.mark.parametrize("horizon", [5, 20, 60])
+@pytest.mark.parametrize("horizon", [3, 5, 20, 60])
 @pytest.mark.parametrize("estimator", ["ridge", "lightgbm"])
 def test_selected_recipe_is_refitted_on_three_disjoint_windows(tmp_path, horizon, estimator):
     root = tmp_path / "study"

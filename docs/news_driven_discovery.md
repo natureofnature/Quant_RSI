@@ -22,6 +22,14 @@ uses the existing `--llm api --llm-model MODEL` configuration. Optional `--finan
 and `--external-drivers` make their existing inputs available as well; they are not
 the only possible candidate vocabulary.
 
+In active discovery (`--research-mode discovery --news-research`, without retained
+information mode), an instrument such as TSM does not need a configured relationship
+profile or issuer RSS feed to begin. Missing seeds are recorded as `not_configured`,
+with empty relationships and news; the researcher can search for evidence itself.
+No receipt or historical news snapshot is invented. Failures from a configured target
+RSS feed still stop the run. Legacy, incremental and non-active discovery retain their
+existing configuration requirements.
+
 For an offline wiring example with simulated evidence, decisions and acquisition,
 while retaining actual numerical feature calculation and model fitting:
 
@@ -44,6 +52,52 @@ fits. A survey, unavailable input or invalid candidate need not consume a fit. A
 new inputs after an experiment can require a linked experiment and another baseline;
 declare enough fit budget for that pair before execution. Four fits can cover
 `B₁ → B₁+H₁ → B₂ → B₂+H₂`. There is no requirement for a candidate to improve the score.
+
+### Prepare factors without fitting a model
+
+For native discovery, `--max-fits 0` prepares evidence, inputs and candidate columns
+while retaining the normal decision, search and acquisition limits. For example:
+
+```bash
+quant-rsi research-study KO --research-mode discovery \
+  --llm codex --llm-model gpt-6.1-sol --llm-reasoning-effort high \
+  --news-research --historical-sessions 252 --horizon-sessions 3 \
+  --max-fits 0 --rounds 6 \
+  --question "Which operating disclosures justify a testable three-session return hypothesis?" \
+  --output /tmp/ko-discovery-preparation
+```
+
+This is a **preparation-only** run: no baseline or candidate model is fitted, no
+prediction or trading result is published, and no accuracy or predictive improvement
+is evaluated. Data retrieval and LLM calls can still consume service usage. The
+three-session setting describes this native study's close-to-close forecast target;
+it does not reproduce another experiment's next-open entry target merely because
+both use three sessions.
+
+Preparation skips prior experiment feedback and forecast outcome observation. Its own
+input gaps and validation results still inform later actions and survive resume.
+This is not a complete model-feedback RSI experiment.
+
+The report keeps three states distinct:
+
+| State | What the retained evidence establishes |
+| --- | --- |
+| Inputs acquired | A source-bound acquisition receipt exists for an input used by the candidate; inspect source providers to distinguish actual disclosures from fixtures |
+| Some rows computable | The expression produces values for some required dates, but coverage can still be incomplete |
+| Full frozen population ready | Validation passes and every required training and development row is computable; this does not mean a model was trained or the factor is useful |
+
+Preparation records preserve the candidate and recipe references, used input bindings,
+acquisition and numerical source references, column identity and row coverage. The
+evidence JSON retains computed values or explicit `null` values on the frozen training
+and development population, with each row's prediction time. It does not add labels,
+targets or reserved terminal rows to the preparation table. Semantic or schema
+rejections may have no computed column: their reason remains visible rather than
+being represented as a zero-valued factor. Missing values are never replaced with zero
+just to claim readiness.
+
+Use a separate fresh study with a positive fit budget when ready to test a candidate.
+Keep the preparation artifacts intact; preparation does not establish a matched
+baseline comparison, a selected model or the outcome of a later experiment.
 
 ## Modules and ownership
 

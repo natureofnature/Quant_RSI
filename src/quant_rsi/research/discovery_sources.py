@@ -483,6 +483,8 @@ class DiscoverySources:
             "provider": getattr(self.llm, "mode", "injected_provider"),
             "model": getattr(self.llm, "model", None),
         }
+        if (effort := getattr(self.llm, "reasoning_effort", None)) is not None:
+            payload["reasoning_effort"] = effort
         identity = digest(canonical([kind, payload]))
 
         def dispatch():
@@ -1031,8 +1033,13 @@ def discovery_decision(llm, context):
         candidates: tuple[DiscoveryFactor, ...] = Field(max_length=8)
 
     prompt = _prompt(
-        "Choose the next research action using evidence and measured feedback. The catalog is "
-        "reference knowledge, not a vocabulary limit. Create a meaningful typed DSL candidate from "
+        "Choose the next research action using evidence and measured feedback. "
+        "When context.preparation_only is true, test/revise only prepare and validate feature "
+        "columns; no fits or outcome scores are available. Use preparation records and gaps to "
+        "guide further investigation within the stated allowances, then stop. Never invent "
+        "performance feedback. "
+        "The catalog is reference knowledge, not a vocabulary limit. Create a typed DSL candidate "
+        "from "
         "news mechanisms, including supported parameterized lags/windows when appropriate. "
         "Actively investigate relevant customers and downstream payers using evidence; do not "
         "assume a fixed company list or adopt related-company leads as established relationships. "
@@ -1221,6 +1228,18 @@ def simulated_discovery_sources(prediction_times, *, call=None, usage_path=None)
 def simulated_discovery_decision(context):
     """Deterministic engineering trajectory, explicitly not autonomous discovery evidence."""
     from quant_rsi.research.discovery_factors import DiscoveryFactor
+
+    if context.get("preparation_only") and any(
+        row.get("kind") == "preparation" for row in context.get("memory", [])
+    ):
+        return {
+            "action": "stop",
+            "reason": "Simulated preparation completed; no model or outcome evaluation requested.",
+            "candidates": [],
+            "data_requests": [],
+            "query": None,
+            "provider": "simulated_discovery_decision",
+        }
 
     evidence_ids = [a["id"] for a in context.get("evidence", []) if a.get("id")][:8]
     prior = [

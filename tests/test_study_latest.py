@@ -17,7 +17,7 @@ from quant_rsi.research.study_ui import read_state
 
 
 @pytest.mark.parametrize("estimator", ["ridge", "lightgbm"])
-@pytest.mark.parametrize("horizon", [5, 20, 60])
+@pytest.mark.parametrize("horizon", [3, 5, 20, 60])
 def test_publication_uses_mature_labels_and_leaves_research_fits_frozen(estimator, horizon):
     model = LightGBMDemo(
         demo.load_catalog(CATALOG),

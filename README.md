@@ -55,6 +55,14 @@ latest guidance issued before a designated original earnings release, instead of
 mixing actuals with next-quarter guidance. Missing history still blocks training
 on the unchanged sample.
 
+For an explicit Codex model and effort, add
+`--llm-model gpt-6.1-sol --llm-reasoning-effort high` to `research-study --llm codex`.
+The effort applies to hypotheses, news searches and numerical extraction, and is retained
+in the study configuration for resume. Codex runs with `--ignore-user-config`, so an effort
+set only in your personal Codex settings does not apply. Omitting the option preserves the
+Codex runtime default; accepted effort levels depend on the selected model and CLI version.
+This option is Codex-only; other providers reject it. The browser currently uses the default.
+
 
 To start studies from the browser and return to previous tasks, open the local workbench:
 
@@ -157,7 +165,7 @@ each hypothesis and distinguish **fitted**, **not selected**, and **unavailable*
 Citations explain the research rationale, not the size of a source's effect on prediction.
 Current articles are never backdated into historical features.
 
-Choose a prediction horizon with `--horizon-sessions 5`, `20` or `60` (trading
+Choose a prediction horizon with `--horizon-sessions 3`, `5`, `20` or `60` (trading
 sessions; default: 5). The workbench provides the same selector. Each run keeps one
 horizon through prediction, strategy evaluation and later observation; history
 feedback is separated by horizon. Longer runs collect additional price history and

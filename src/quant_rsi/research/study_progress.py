@@ -42,6 +42,11 @@ class StudyProgress:
         self.usage_records.append(
             {"mode": event["mode"]}
             | {
+                key: value
+                for key in ("requested_model", "requested_reasoning_effort")
+                if isinstance(value := event.get(key), str)
+            }
+            | {
                 key: value if type(value := event.get(key)) is int and value >= 0 else None
                 for key in ("input_tokens", "cached_input_tokens", "output_tokens")
             }

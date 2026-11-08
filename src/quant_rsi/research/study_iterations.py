@@ -5,8 +5,10 @@ from copy import deepcopy
 from quant_rsi.research.demo_proposals import extend_library
 
 
-def validate_limits(rounds, fit_budget, patience):
+def validate_limits(rounds, fit_budget, patience, *, allow_zero_fits=False):
     for name, value in (("rounds", rounds), ("fit_budget", fit_budget)):
+        if name == "fit_budget" and allow_zero_fits and type(value) is int and value == 0:
+            continue
         if type(value) is not int or not 2 <= value <= 10:
             raise ValueError(f"{name} must be an integer from 2 through 10")
     if patience is not None and (type(patience) is not int or not 1 <= patience <= 10):

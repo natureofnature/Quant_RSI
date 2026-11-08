@@ -13,9 +13,9 @@ from quant_rsi.market.market_data import parse_csv
 
 
 def load_daily_prices(symbol, directory, *, horizon_sessions=5, historical_sessions=None):
-    if type(horizon_sessions) is not int or horizon_sessions not in (5, 20, 60):
-        raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
-    required = HISTORY_SESSIONS + 3 * (horizon_sessions - 5)
+    if type(horizon_sessions) is not int or horizon_sessions not in (3, 5, 20, 60):
+        raise ValueError("Prediction horizon must be 3, 5, 20 or 60 trading sessions")
+    required = HISTORY_SESSIONS + 3 * max(0, horizon_sessions - 5)
     if historical_sessions is not None:
         if type(historical_sessions) is not int or not required <= historical_sessions <= 445:
             raise ValueError("Historical sessions must cover the horizon and not exceed 445")

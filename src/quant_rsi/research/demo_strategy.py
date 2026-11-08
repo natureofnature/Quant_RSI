@@ -25,8 +25,8 @@ def evaluate_strategy(
     if symbol not in data.instruments or not predictions or not math.isfinite(threshold):
         raise ValueError("A supported symbol, predictions and finite threshold are required")
     column = data.instruments.index(symbol)
-    if type(horizon_sessions) is not int or horizon_sessions not in (5, 20, 60):
-        raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
+    if type(horizon_sessions) is not int or horizon_sessions not in (3, 5, 20, 60):
+        raise ValueError("Prediction horizon must be 3, 5, 20 or 60 trading sessions")
     signals = _signals(data, column, predictions, horizon_sessions)
     return _evaluate_signals(
         data,

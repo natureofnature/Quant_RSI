@@ -29,7 +29,7 @@ class RelationshipProfile(StrictModel):
         return self
 
 
-def profile_related(symbol):
+def profile_related(symbol, *, allow_missing=False):
     """Read checked-in relationships; no network discovery or return correlation."""
     TypeAdapter(InstrumentId).validate_python(symbol)
     path = (
@@ -38,6 +38,15 @@ def profile_related(symbol):
     try:
         profile = RelationshipProfile.model_validate_json(path.read_bytes())
     except FileNotFoundError:
+        if allow_missing:
+            return {
+                "provider": "instrument_relationship_profile",
+                "status": "not_configured",
+                "stocks": [],
+                "relationships": [],
+                "selection": "no_configured_seed",
+                "reason": f"No relationship profile for {symbol}; source discovery is required.",
+            }
         raise ValueError(
             f"No relationship profile for {symbol}; "
             f"configure instruments/US/{symbol}/relationships.json"

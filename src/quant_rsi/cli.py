@@ -80,6 +80,15 @@ def main(argv: list[str] | None = None) -> int:
             "(DeepSeek default: deepseek-chat)",
         )
         demo.add_argument("--llm-timeout", type=float, default=180, help="seconds per LLM call")
+        if study:
+            from quant_rsi.research.llm import REASONING_EFFORTS
+
+            demo.add_argument(
+                "--llm-reasoning-effort",
+                choices=REASONING_EFFORTS,
+                help="explicit Codex reasoning effort; model/client support varies; "
+                "requires --llm codex (default: Codex runtime default)",
+            )
         demo.add_argument(
             "--cursor-dir",
             type=Path,
@@ -238,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
                 "--horizon-sessions",
                 type=int,
                 default=5,
-                choices=(5, 20, 60),
+                choices=(3, 5, 20, 60),
                 help="prediction target in trading sessions (default: 5)",
             )
             demo.add_argument(
@@ -259,8 +268,8 @@ def main(argv: list[str] | None = None) -> int:
             demo.add_argument(
                 "--max-fits",
                 type=int,
-                choices=range(2, 11),
-                help="fit allowance; discovery defaults to 3, other modes to --rounds",
+                choices=(0, *range(2, 11)),
+                help="fit allowance; discovery defaults to 3; 0 prepares discovery without fitting",
             )
             demo.add_argument(
                 "--patience",

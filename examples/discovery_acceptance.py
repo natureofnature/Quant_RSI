@@ -29,6 +29,8 @@ CONTEXT_FIELDS = {
     "survey_candidates",
     "policy",
     "experiment_contract",
+    "forecast_target",
+    "preparation_only",
     "counts",
     "remaining_fits",
     "evidence",

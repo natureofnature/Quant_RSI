@@ -140,7 +140,7 @@ def register_study(directory, run_root, result, snapshot=None):
                 i for i, s in enumerate(calendar) if s["session_id"] == forecast["origin_session"]
             )
             horizon = forecast["horizon_sessions"]
-            if type(horizon) is not int or horizon not in (5, 20, 60):
+            if type(horizon) is not int or horizon not in (3, 5, 20, 60):
                 raise ValueError("Unsupported forecast horizon")
             sessions = calendar[index : index + horizon + 1]
             if (
