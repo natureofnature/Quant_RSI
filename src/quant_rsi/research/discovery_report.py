@@ -56,6 +56,8 @@ def render_discovery(result):
     )
     candidates = []
     revisions = []
+    hypotheses = []
+    relationships = []
     for m in decisions:
         for index, c in enumerate(m["decision"].get("candidates", [])):
             try:
@@ -81,6 +83,33 @@ def render_discovery(result):
                     ),
                 ]
             )
+            hypothesis = view.get("hypothesis")
+            if hypothesis:
+                hypotheses.append(
+                    [
+                        view["name"],
+                        hypothesis.get("operating_mechanism"),
+                        hypothesis.get("measurement_horizon"),
+                        hypothesis.get("forecast_channel") or "Unspecified — needs data",
+                        hypothesis.get("forecast_horizon_sessions"),
+                    ]
+                )
+                relationships.extend(
+                    [
+                        view["name"],
+                        *[
+                            relation.get(key)
+                            for key in (
+                                "from_entity",
+                                "to_entity",
+                                "relationship",
+                                "source_id",
+                                "excerpt",
+                            )
+                        ],
+                    ]
+                    for relation in hypothesis.get("relationships", [])
+                )
             lineage = m.get("candidate_lineage", [])
             row = lineage[index] if index < len(lineage) else {}
             recipe_ref = row.get("recipe_ref")
@@ -115,6 +144,86 @@ def render_discovery(result):
         ["Candidate", "Recipe reference", "Parent recipe references", "Lineage status", "Reason"],
         revisions,
     )
+    if hypotheses:
+        table(
+            "Operating mechanism and proposed forecast channel — hypotheses, not proven effects",
+            [
+                "Candidate",
+                "Operating mechanism",
+                "Measurement horizon",
+                "Proposed forecast channel",
+                "Forecast horizon (sessions)",
+            ],
+            hypotheses,
+        )
+    surveys = [m for m in records if m.get("kind") == "survey"]
+    if surveys:
+        table(
+            "Survey requests and source coverage",
+            ["Source entity / symbol", "Search question", "Search status", "Search limitation"],
+            [
+                [
+                    m.get("request", {}).get("symbol"),
+                    m.get("request", {}).get("query")
+                    or m.get("result", {}).get("search", {}).get("query"),
+                    m.get("result", {}).get("search", {}).get("status", "Not recorded"),
+                    m.get("result", {}).get("search", {}).get("reason", "None recorded"),
+                ]
+                for m in surveys
+            ],
+        )
+        findings = []
+        for m in surveys:
+            for finding in m.get("result", {}).get("findings", []):
+                findings.append(
+                    [
+                        m.get("request", {}).get("symbol"),
+                        finding.get("mechanism"),
+                        "; ".join(finding.get("measurements", [])),
+                        finding.get("uncertainty"),
+                        ", ".join(finding.get("evidence_ids", [])),
+                    ]
+                )
+                relationships.extend(
+                    [
+                        "Survey finding",
+                        *[
+                            relation.get(key)
+                            for key in (
+                                "from_entity",
+                                "to_entity",
+                                "relationship",
+                                "source_id",
+                                "excerpt",
+                            )
+                        ],
+                    ]
+                    for relation in finding.get("relationships", [])
+                )
+        table(
+            "Survey findings — proposed mechanisms and measurements",
+            [
+                "Source entity / symbol",
+                "Mechanism",
+                "Suggested measurements",
+                "Uncertainty",
+                "Evidence",
+            ],
+            findings,
+        )
+    if relationships:
+        table(
+            "Proposed relationships — quoted evidence, not verified links",
+            [
+                "Origin",
+                "From entity",
+                "To entity",
+                "Proposed relationship",
+                "Source ID",
+                "Retained supporting quote",
+            ],
+            relationships,
+        )
     acquisitions = [m for m in records if m.get("kind") == "acquire"]
     bundles = {
         m["result"]["identity"]: m["result"]
@@ -125,6 +234,7 @@ def render_discovery(result):
         "Acquired input coverage",
         [
             "Input",
+            "Source entity / symbol",
             "Measurement / unit",
             "Status",
             "Distinct observations / values",
@@ -134,6 +244,7 @@ def render_discovery(result):
         [
             [
                 m.get("request", {}).get("input_id"),
+                m.get("request", {}).get("symbol"),
                 str(m.get("request", {}).get("measurement", ""))
                 + " / "
                 + str(m.get("request", {}).get("unit", "")),
@@ -148,11 +259,17 @@ def render_discovery(result):
         ],
     )
     observations = []
+    requests = {
+        m["result"]["identity"]: m.get("request", {})
+        for m in acquisitions
+        if m.get("result", {}).get("identity")
+    }
     for bundle in bundles.values():
         for observation in bundle.get("observations", [])[:20]:
             observations.append(
                 [
                     observation.get("input_id"),
+                    requests[bundle["identity"]].get("symbol"),
                     observation.get("period_end"),
                     str(observation.get("value")) + " " + str(observation.get("unit", "")),
                     observation.get("source_url"),
@@ -165,6 +282,7 @@ def render_discovery(result):
         "Source observations — first 20 per acquired input",
         [
             "Input",
+            "Source entity / symbol",
             "Measurement period",
             "Value / unit",
             "Source",
@@ -236,6 +354,11 @@ def render_discovery(result):
         for m in records
         if m.get("kind") in {"diagnostic", "failure"}
     ]
+    gaps.extend(
+        ["survey", gap, m.get("ref", "")[:12]]
+        for m in surveys
+        for gap in m.get("result", {}).get("gaps", [])
+    )
     table("Gaps and failures", ["Kind", "Reason", "Reference"], gaps)
     selected = discovery.get("selected")
     table(

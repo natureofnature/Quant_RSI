@@ -14,6 +14,7 @@ from quant_rsi.research.discovery_factors import (
     compute_factor,
     execute_survey,
 )
+from quant_rsi.research.discovery_hypotheses import hypothesis_gap
 from quant_rsi.research.study_incremental import freeze_plan
 
 
@@ -86,6 +87,8 @@ class DiscoveryExperimentRunner:
                 )
         self.attempts = []
         self.evidence_ids = set()
+        self.evidence_articles = {}
+        self.target_symbol = getattr(args, "symbol", None)
 
     def inputs(self, bundles):
         definitions, columns = deepcopy(self.definitions), dict(self.columns)
@@ -144,6 +147,15 @@ class DiscoveryExperimentRunner:
             evidence_ids = candidate.get("evidence_ids", [])
             if not evidence_ids or not set(evidence_ids) <= self.evidence_ids:
                 return {"status": "rejected", "reason": "candidate_requires_admitted_evidence"}
+            parsed = DiscoveryFactor.model_validate_json(canonical(candidate))
+            if gap := hypothesis_gap(
+                parsed,
+                bundles,
+                target_symbol=self.target_symbol,
+                horizon=self.model.horizon,
+                articles=self.evidence_articles,
+            ):
+                return {"status": "needs_data", "reason": gap}
             definition, values, _ = self.prepare(candidate, bundles)
             required = np.concatenate((self.model.train, self.model.origins))
             if values is None:

@@ -239,7 +239,17 @@ def run_discovery(
             requests = (
                 action.get("data_requests", [])
                 if kind == "acquire"
-                else [{"query": action.get("query"), "reason": action.get("reason", "")}]
+                else [
+                    {
+                        "query": action.get("query"),
+                        "reason": action.get("reason", ""),
+                        **(
+                            {"symbol": action["survey_symbol"]}
+                            if action.get("survey_symbol")
+                            else {}
+                        ),
+                    }
+                ]
             )
             counter, limit, provider = (
                 ("acquisitions", acquisition_budget, acquire)
@@ -277,6 +287,9 @@ def run_discovery(
                         "guard": guard,
                         "counts": result.get("counts", {}),
                         "operations": result.get("operations", []),
+                        "gaps": result.get("gaps", []),
+                        "search": result.get("search", {}),
+                        "excluded": result.get("excluded", []),
                         "findings": [
                             f
                             for f in result.get("findings", [])
