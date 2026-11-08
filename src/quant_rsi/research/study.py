@@ -24,7 +24,7 @@ from quant_rsi.research.demo_prices import load_daily_prices
 from quant_rsi.research.demo_proposals import FactorProposal
 from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_strategy
-from quant_rsi.research.llm import LLMHypothesizer
+from quant_rsi.research.llm import LLMHypothesizer, validate_reasoning_effort
 from quant_rsi.research.study_cost_stress import MULTIPLIERS, evaluate_cost_stress
 from quant_rsi.research.study_estimators import model_configuration
 from quant_rsi.research.study_factor_profiles import load_study_catalog
@@ -106,6 +106,7 @@ def _configuration(args):
     from quant_rsi.research.demo import research_question
     from quant_rsi.research.study_walk_forward import price_history_sessions
 
+    validate_reasoning_effort(args.llm, getattr(args, "llm_reasoning_effort", None))
     args.question = research_question(getattr(args, "question", ""))
     discovery_mode = getattr(args, "research_mode", "legacy") == "discovery"
     incremental = getattr(args, "research_mode", "legacy") in {"incremental", "discovery"}
@@ -176,7 +177,7 @@ def _configuration(args):
 
         require_qlib()
     fit_budget = (3 if discovery_mode else args.rounds) if args.max_fits is None else args.max_fits
-    validate_limits(args.rounds, fit_budget, args.patience)
+    validate_limits(args.rounds, fit_budget, args.patience, allow_zero_fits=discovery_mode)
     if args.prices == "synthetic" and args.prices_dir is not None:
         raise ValueError("--prices-dir requires --prices daily")
     if args.related_prices_dir and (args.prices != "daily" or not args.related_prices):
@@ -217,6 +218,8 @@ def _configuration(args):
         key: str(value.resolve()) if isinstance(value, Path) else value
         for key, value in vars(args).items()
     }
+    if configuration.get("llm_reasoning_effort") is None:
+        configuration.pop("llm_reasoning_effort", None)
     configuration.update(
         symbol=symbol,
         model_configuration=estimator_configuration,
@@ -302,6 +305,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             args.llm_timeout,
             on_usage=progress.usage,
             handoff_dir=getattr(args, "cursor_dir", None) or root / "cursor-llm",
+            reasoning_effort=getattr(args, "llm_reasoning_effort", None),
         )
     )
     SideCosts(commission_bps=args.commission_bps, slippage_bps=args.slippage_bps, tax_bps="0")
@@ -403,11 +407,16 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         collection_snapshot(
             symbol, prices[1]["collection_directory"], horizon_sessions=model.horizon
         )
-        if args.history_dir and prices
+        if args.history_dir and prices and configuration["fit_budget"] != 0
         else None
     )
     prior_outcomes = None
-    if args.history_dir and not restricted and not getattr(args, "check_inputs", False):
+    if (
+        args.history_dir
+        and not restricted
+        and not getattr(args, "check_inputs", False)
+        and configuration["fit_budget"] != 0
+    ):
         progress.start("observe_prior_forecasts")
         if history_prices:
             observe_prices(args.history_dir, symbol, history_prices)
@@ -432,10 +441,15 @@ def _run(args, symbol, root, configuration, record, progress, cache):
             },
         )
     progress.start("collect_news_context")
+    allow_missing_seeds = discovery_mode and args.news_research and not restricted
     related = cache.call(
         "related",
         symbol,
-        lambda: (profile_related if args.related == "profile" else simulated_related)(symbol),
+        lambda: (
+            profile_related(symbol, allow_missing=allow_missing_seeds)
+            if args.related == "profile"
+            else simulated_related(symbol)
+        ),
     )
     news_context = {"symbol": symbol, "related": related}
     snapshot_path = getattr(args, "news_snapshot", None)
@@ -451,7 +465,9 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         if snapshot_path:
             return load_snapshot(snapshot_path, symbol, limit=args.news_limit)
         if args.news == "issuer-rss":
-            return issuer_news(news_context, limit=args.news_limit)
+            return issuer_news(
+                news_context, limit=args.news_limit, allow_missing=allow_missing_seeds
+            )
         return simulated_news(news_context)
 
     current_news = cache.call(
@@ -479,8 +495,9 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         ):
             raise ValueError("Simulated news history cannot enter a daily-price study")
         if args.news == "issuer-rss" and not restricted:
-            retain_snapshot(archive, current_news)
-            snapshots = load_archive(archive)
+            if current_news.get("status") != "not_configured":
+                retain_snapshot(archive, current_news)
+                snapshots = load_archive(archive)
         elif args.prices == "synthetic" and not snapshots and not restricted:
             snapshots = simulated_history(model.data, symbol, guidance=args.news_research)
         return snapshots
@@ -1350,7 +1367,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
 def _finish_study(args, symbol, root, result, history_prices, progress):
     from quant_rsi.research.study_report import render_study
 
-    if args.history_dir:
+    if args.history_dir and result["configuration"]["fit_budget"] != 0:
         register_study(args.history_dir, root, result, history_prices)
         result["study"]["history"] = history_view(args.history_dir, symbol)
     if not (root / "trace.jsonl").exists():

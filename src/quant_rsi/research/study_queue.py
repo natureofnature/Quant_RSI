@@ -73,8 +73,13 @@ def study_options(options):
     ):
         if not isinstance(result[key], str) or result[key] not in allowed:
             raise ValueError("Unsupported provider, model, data mode or selection metric")
-    if type(result["horizon_sessions"]) is not int or result["horizon_sessions"] not in (5, 20, 60):
-        raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
+    if type(result["horizon_sessions"]) is not int or result["horizon_sessions"] not in (
+        3,
+        5,
+        20,
+        60,
+    ):
+        raise ValueError("Prediction horizon must be 3, 5, 20 or 60 trading sessions")
     if type(result["walk_forward_folds"]) is not int or result["walk_forward_folds"] not in (
         0,
         2,

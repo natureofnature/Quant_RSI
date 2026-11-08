@@ -4,13 +4,17 @@ import json
 from copy import deepcopy
 from datetime import date, datetime, time, timedelta
 
+import numpy as np
 import pytest
 from test_daily_data import CALENDAR, EASTERN, HOLIDAYS, NASDAQ_CALENDAR, Response, chart, install
+from test_research_study_model import CATALOG, proposed
 
 from quant_rsi.cli import main
 from quant_rsi.market import daily_data, market_contracts
-from quant_rsi.research import study, study_history
+from quant_rsi.research import demo, study, study_history
+from quant_rsi.research.demo_model import LightGBMDemo
 from quant_rsi.research.demo_prices import load_daily_prices
+from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.study_queue import study_arguments, study_options
 from quant_rsi.research.study_workbench import Workbench
 
@@ -37,7 +41,7 @@ def command(root, horizon, *, model="ridge"):
     ]
 
 
-@pytest.mark.parametrize("horizon", [5, 20, 60])
+@pytest.mark.parametrize("horizon", [3, 5, 20, 60])
 @pytest.mark.parametrize("model", ["ridge", "lightgbm"])
 def test_connected_loop_uses_one_horizon_through_both_fits_and_accounts(
     tmp_path, monkeypatch, horizon, model
@@ -76,6 +80,41 @@ def test_connected_loop_uses_one_horizon_through_both_fits_and_accounts(
         < terminal["evaluation"]["rows"][0]["origin_session"]
     )
     assert f"{horizon}-session labels" in (root / "report.html").read_text()
+
+
+def test_three_session_labels_are_close_to_close_and_strategy_enters_next_open():
+    model = LightGBMDemo(
+        demo.load_catalog(CATALOG),
+        horizon_sessions=3,
+        evaluation_sessions=20,
+        terminal_sessions=10,
+        estimator="ridge",
+    )
+    prediction = model.predict({}, [proposed("momentum", 10)], {})
+    np.testing.assert_allclose(
+        model._fits[0][2],
+        np.log(model.data.closes[model.train + 3, 0] / model.data.closes[model.train, 0]),
+    )
+    assert model.model_configuration["target"] == "3_session_close_log_return"
+    rows = prediction["development"]["rows"]
+    assert [row["target_session"] for row in rows] == [
+        model.data.dates[i + 3] for i in model.origins
+    ]
+    assert prediction["last_training_label_session"] < rows[0]["origin_session"]
+    # Force a positive signal to verify execution timing independently of model quality.
+    first = rows[0] | {
+        "predicted_log_return": 0.1,
+        "predicted_price": rows[0]["reference_price"] * np.exp(0.1),
+    }
+    account = evaluate_strategy(model.data, model.data.instruments[0], [first], horizon_sessions=3)
+    assert (
+        account["strategy"]["orders"][0]["target_session"] == model.data.dates[model.origins[0] + 1]
+    )
+    assert account["period"]["end"] == first["target_session"]
+    terminal = model.evaluate_terminal(1)
+    assert terminal["refitted"] is False
+    assert rows[-1]["target_session"] < terminal["evaluation"]["rows"][0]["origin_session"]
+    assert len(model._fits) == 1
 
 
 HOLIDAYS_2025 = {
@@ -171,17 +210,21 @@ def long_collection(
     )
 
 
-@pytest.mark.parametrize("horizon", [20, 60])
-@pytest.mark.parametrize("archived", [False, True])
+@pytest.mark.parametrize(
+    ("horizon", "archived"), [(3, False), (20, False), (60, False), (20, True), (60, True)]
+)
 def test_long_daily_calendar_publication_and_mature_observation(
     tmp_path, monkeypatch, horizon, archived
 ):
     prices = tmp_path / "prices"
     snapshot = long_collection(prices, monkeypatch, "2026-06-30", horizon, archived=archived)
-    assert len(snapshot["dates"]) == 120 + 3 * (horizon - 5)
+    assert len(snapshot["dates"]) == 120 + 3 * max(0, horizon - 5)
     calendar = snapshot["contract"]["calendar"]["sessions"]
     assert len(calendar) == len(snapshot["dates"]) + horizon
     assert snapshot["info"]["latest_target_session"] == calendar[-1]["session_id"]
+    if horizon == 3:
+        # July 3 is an exchange holiday; the weekend is not part of the horizon.
+        assert snapshot["info"]["latest_target_session"] == "2026-07-06"
     if archived:
         evidence = json.loads((prices / "calendar_evidence.json").read_bytes())
         assert evidence["historical_sources"][0]["year"] == 2025
@@ -230,14 +273,16 @@ def test_workbench_rejects_unsupported_horizons(horizon):
         study_options({"horizon_sessions": horizon})
 
 
-def test_workbench_arguments_preserve_horizon(tmp_path):
-    options = study_options({"horizon_sessions": 60})
+@pytest.mark.parametrize("horizon", [3, 60])
+def test_workbench_arguments_preserve_horizon(tmp_path, horizon):
+    options = study_options({"horizon_sessions": horizon})
     args = study_arguments(tmp_path / "task", tmp_path, "KO", options)
-    assert args[args.index("--horizon-sessions") + 1] == "60"
+    assert args[args.index("--horizon-sessions") + 1] == str(horizon)
     assert study_options({})["horizon_sessions"] == 5
 
 
-def test_saved_template_keeps_horizon_after_restart(tmp_path):
+@pytest.mark.parametrize("horizon", [3, 60])
+def test_saved_template_keeps_horizon_after_restart(tmp_path, horizon):
     workbench = Workbench(tmp_path)
     plan = workbench.save_plan(
         {
@@ -245,17 +290,17 @@ def test_saved_template_keeps_horizon_after_restart(tmp_path):
             "symbols": ["KO"],
             "interval_hours": 24,
             "enabled": False,
-            "options": {"horizon_sessions": 60},
+            "options": {"horizon_sessions": horizon},
         }
     )
     restarted = Workbench(tmp_path)
     batch = restarted.run_plan(plan["id"])
     task = restarted.task(batch["tasks"][1]["id"])
     manifest = json.loads((task / "task.json").read_bytes())
-    assert manifest["horizon_sessions"] == 60
+    assert manifest["horizon_sessions"] == horizon
     args = manifest["arguments"]
-    assert args[args.index("--horizon-sessions") + 1] == "60"
-    assert restarted.overview()["tasks"][1]["horizon_sessions"] == 60
+    assert args[args.index("--horizon-sessions") + 1] == str(horizon)
+    assert restarted.overview()["tasks"][1]["horizon_sessions"] == horizon
 
 
 def test_long_horizon_keeps_news_and_business_factor_path_runnable(tmp_path):

@@ -22,6 +22,12 @@ def news_plan():
             "source_limits": {"searches": 2, "reads": 3, "extractions": 4},
             "requested_data_period": {"start": "2026-01-01", "end": "2026-09-01"},
             "iteration": 1,
+            "forecast_target": {
+                "symbol": "KO",
+                "horizon_sessions": 3,
+                "target": "close_log_return",
+            },
+            "preparation_only": True,
             "catalog": [],
             "evidence": [
                 {"id": "demand", "text": "Unit sales decreased."},
@@ -42,7 +48,13 @@ def test_plan_and_cleaned_inputs_precede_any_call_and_all_pairs_retained(tmp_pat
         assert (root / "plan.json").exists()
         assert context["memory"] == []
         assert "summary" not in context and "cache" not in context
-        for field in ("source_limits", "requested_data_period", "iteration"):
+        for field in (
+            "source_limits",
+            "requested_data_period",
+            "iteration",
+            "forecast_target",
+            "preparation_only",
+        ):
             assert context[field] == news_plan()["context"][field]
         seen.append(context)
         return {

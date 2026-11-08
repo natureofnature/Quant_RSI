@@ -117,6 +117,7 @@ def run_connected_discovery(
             args.llm_timeout,
             on_usage=progress.usage,
             handoff_dir=getattr(args, "cursor_dir", None) or root / "cursor-llm",
+            reasoning_effort=getattr(args, "llm_reasoning_effort", None),
         )
     )
     sources = (
@@ -141,18 +142,25 @@ def run_connected_discovery(
     atomic_write(root / "discovery_catalog.json", canonical(catalog))
     from quant_rsi.research.study_history import history_view
 
-    prior_memory = cache.call(
-        "discovery_prior_memory",
-        {
-            "symbol": configuration["symbol"],
-            "question": configuration["question"],
-            "horizon": model.horizon,
-            "mode": mode,
-        },
-        lambda: _prior_memory(
-            history_view(args.history_dir, configuration["symbol"]) if args.history_dir else None,
-            mode,
-        ),
+    preparation_only = configuration["fit_budget"] == 0
+    prior_memory = (
+        []
+        if preparation_only
+        else cache.call(
+            "discovery_prior_memory",
+            {
+                "symbol": configuration["symbol"],
+                "question": configuration["question"],
+                "horizon": model.horizon,
+                "mode": mode,
+            },
+            lambda: _prior_memory(
+                history_view(args.history_dir, configuration["symbol"])
+                if args.history_dir
+                else None,
+                mode,
+            ),
+        )
     )
     context = {
         "symbol": configuration["symbol"],
@@ -193,6 +201,12 @@ def run_connected_discovery(
             "horizon_sessions": model.horizon,
         },
     }
+    if news.get("status") == "not_configured":
+        context["news_seed"] = {
+            key: deepcopy(news[key]) for key in ("provider", "status", "coverage", "reason")
+        }
+    if preparation_only:
+        context["preparation_only"] = True
     atomic_write(root / "discovery_context.json", canonical(context))
 
     def decide(value):
@@ -251,7 +265,11 @@ def run_connected_discovery(
         cache=cache,
         decide=decide,
         run_experiment=engine,
-        validate_candidate=engine.validate,
+        validate_candidate=(
+            lambda candidate, bundles: engine.validate(candidate, bundles, include_preparation=True)
+        )
+        if preparation_only
+        else engine.validate,
         on_context=restore_sources,
         acquire=lambda request: source_operation("acquire", request),
         survey=lambda request: source_operation("survey", request),
@@ -280,6 +298,15 @@ def run_connected_discovery(
         )
         + "Development results do not establish independent predictive gain."
     )
+    preparations = [m for m in discovery["memory"] if m.get("kind") == "preparation"]
+    if preparation_only:
+        ready = sum(m["result"].get("status") == "ready" for m in preparations)
+        conclusion = (
+            f"{configuration['symbol']}: preparation only; {len(preparations)} candidate checks, "
+            f"{ready} with complete required feature coverage. No model fits, predictions or "
+            f"outcome evaluation. Stopped: {discovery['stop_reason']}. "
+            "Computability is not evidence of predictive value."
+        )
     result = {
         "symbol": configuration["symbol"],
         "target": configuration["symbol"],
@@ -290,7 +317,11 @@ def run_connected_discovery(
             if transport is None
             else "real LLM/source providers"
         )
-        + f" and actual {model.model_label} fits on {model.price_provider}. "
+        + (
+            f"; feature preparation on {model.price_provider}, without model fitting. "
+            if preparation_only
+            else f" and actual {model.model_label} fits on {model.price_provider}. "
+        )
         + "Inspect source receipts and reconstructed public-availability assumptions.",
         "trace": trace,
         "discovery": discovery,
@@ -311,6 +342,13 @@ def run_connected_discovery(
             "selection": {"selected_round": chosen, "reason": discovery["selection_note"]},
         },
     }
+    if preparation_only:
+        result["preparation"] = {
+            "forecast_target": context["forecast_target"],
+            "records": preparations,
+            "notice": "Feature values only; no training labels, terminal rows or outcomes.",
+        }
+        atomic_write(root / "preparation.json", canonical(result["preparation"]))
     if chosen:
         prediction = engine.attempts[chosen - 1]["prediction"]
         result["summary"].update(

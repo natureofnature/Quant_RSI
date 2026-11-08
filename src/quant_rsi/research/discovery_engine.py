@@ -142,7 +142,7 @@ class DiscoveryExperimentRunner:
         values = compute_factor(definition, columns, definitions, input_evidence=input_evidence)
         return definition, values, definitions
 
-    def validate(self, candidate, bundles):
+    def validate(self, candidate, bundles, *, include_preparation=False):
         try:
             evidence_ids = candidate.get("evidence_ids", [])
             if not evidence_ids or not set(evidence_ids) <= self.evidence_ids:
@@ -159,23 +159,73 @@ class DiscoveryExperimentRunner:
             definition, values, _ = self.prepare(candidate, bundles)
             required = np.concatenate((self.model.train, self.model.origins))
             if values is None:
-                return {"status": "needs_data", "definition": definition}
-            missing = [self.model.data.dates[i] for i in required if not np.isfinite(values[i])]
-            if missing:
-                return {
-                    "status": "needs_data",
-                    "reason": "incomplete_frozen_population",
-                    "missing_sessions": missing,
-                    "definition": definition,
-                }
-            return {
-                "status": "ready",
-                "recipe_ref": DiscoveryFactor.model_validate_json(canonical(candidate)).recipe_ref,
-                "definition": definition,
-                "distinct_training_values": len(np.unique(values[self.model.train])),
-            }
+                result = {"status": "needs_data", "definition": definition}
+            else:
+                missing = [self.model.data.dates[i] for i in required if not np.isfinite(values[i])]
+                result = (
+                    {
+                        "status": "needs_data",
+                        "reason": "incomplete_frozen_population",
+                        "missing_sessions": missing,
+                        "definition": definition,
+                    }
+                    if missing
+                    else {
+                        "status": "ready",
+                        "recipe_ref": parsed.recipe_ref,
+                        "definition": definition,
+                        "distinct_training_values": len(np.unique(values[self.model.train])),
+                    }
+                )
+            if include_preparation:
+                result["preparation"] = self.preparation_record(
+                    candidate, parsed, definition, values, bundles
+                )
+            return result
         except (ValueError, TypeError, KeyError) as exc:
             return {"status": "rejected", "reason": str(exc)}
+
+    def preparation_record(self, candidate, parsed, definition, values, bundles):
+        """Retain actual feature execution on required rows, never labels or terminal rows."""
+        rows = []
+        coverage = {}
+        for partition, indices in (
+            ("train", self.model.train),
+            ("development", self.model.origins),
+        ):
+            column = serial_column(values[indices]) if values is not None else [None] * len(indices)
+            prefix = "training" if partition == "train" else "development"
+            coverage[prefix + "_rows"] = len(indices)
+            coverage["computed_" + prefix + "_rows"] = sum(v is not None for v in column)
+            rows.extend(
+                {
+                    "session": self.model.data.dates[i],
+                    "prediction_time": self.cutoffs[i],
+                    "partition": partition,
+                    "value": value,
+                }
+                for i, value in zip(indices, column, strict=True)
+            )
+        coverage.update(
+            required_rows=len(rows),
+            computed_rows=sum(r["value"] is not None for r in rows),
+            missing_rows=sum(r["value"] is None for r in rows),
+        )
+        used = {item.factor_id for item in parsed.inputs}
+        used_bundles = [b for b in bundles if b.get("request", {}).get("input_id") in used]
+        return {
+            "candidate_ref": digest(canonical(candidate)),
+            "recipe_ref": parsed.recipe_ref,
+            "definition_ref": digest(canonical(definition)),
+            "input_bindings": [item.model_dump(mode="json") for item in parsed.inputs],
+            "input_bundle_refs": [b["identity"] for b in used_bundles],
+            "source_ids": sorted(
+                {o["source_id"] for b in used_bundles for o in b.get("observations", [])}
+            ),
+            "column_ref": digest(canonical(rows)),
+            "rows": rows,
+            "coverage": coverage,
+        }
 
     def __call__(self, spec):
         number = len(self.model._fits) + 1

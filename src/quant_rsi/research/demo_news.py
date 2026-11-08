@@ -17,7 +17,7 @@ class _Text(HTMLParser):
         self.parts.append(data)
 
 
-def issuer_news(context, *, limit=5):
+def issuer_news(context, *, limit=5, allow_missing=False):
     """Read target news and disclose coverage of configured business relationships."""
     if type(limit) is not int or not 1 <= limit <= 20:
         raise ValueError("--news-limit must be an integer between 1 and 20")
@@ -25,6 +25,16 @@ def issuer_news(context, *, limit=5):
     try:
         source = news_feed.source_for(symbol)
     except FileNotFoundError:
+        if allow_missing:
+            return {
+                "provider": "issuer_rss",
+                "status": "not_configured",
+                "content_extent": "no_configured_seed",
+                "coverage_status": "not_configured",
+                "coverage": [{"symbol": symbol, "status": "not_configured", "selected_items": 0}],
+                "items": [],
+                "reason": f"No registered issuer RSS feed for {symbol}; active search is required.",
+            }
         raise ValueError(
             f"No registered issuer RSS feed for {symbol}; "
             f"configure instruments/US/{symbol}/news_feed.json"

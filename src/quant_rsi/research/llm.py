@@ -61,6 +61,17 @@ class IncrementalHypothesis(StudyHypothesis):
     proposed_factors: list[FactorProposal] = Field(max_length=0)
 
 
+REASONING_EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
+
+
+def validate_reasoning_effort(mode, effort):
+    if effort is not None:
+        if mode != "codex":
+            raise ValueError("--llm-reasoning-effort requires --llm codex")
+        if effort not in REASONING_EFFORTS:
+            raise ValueError("Unsupported Codex reasoning effort")
+
+
 @dataclass(frozen=True)
 class LLMHypothesizer:
     """Use CLI login or an API key; every revision receives its inputs explicitly."""
@@ -70,8 +81,10 @@ class LLMHypothesizer:
     timeout: float = 180
     on_usage: Callable[[dict], None] | None = field(default=None, repr=False, compare=False)
     handoff_dir: Path | None = None
+    reasoning_effort: str | None = None
 
     def __post_init__(self):
+        validate_reasoning_effort(self.mode, self.reasoning_effort)
         if self.mode not in {"codex", "api", "deepseek", "cursor"}:
             raise ValueError("LLM mode must be codex, api, deepseek or cursor")
         if not math.isfinite(self.timeout) or self.timeout <= 0:
@@ -338,6 +351,11 @@ class LLMHypothesizer:
                 "cursor": "cursor_handoff",
             }[self.mode],
             "requested_model": self.model,
+            **(
+                {"requested_reasoning_effort": self.reasoning_effort}
+                if self.reasoning_effort is not None
+                else {}
+            ),
             "previous_factor_ids": deepcopy(previous["factor_ids"]) if previous else [],
             "feedback_used": deepcopy(feedback),
         }
@@ -408,6 +426,10 @@ class LLMHypothesizer:
                 command.append("--json")
             if self.model:
                 command.extend(["--model", self.model])
+            if self.reasoning_effort is not None:
+                command.extend(
+                    ["-c", "model_reasoning_effort=" + json.dumps(self.reasoning_effort)]
+                )
             command.append("-")
             try:
                 # CLI diagnostics stay off the report and may contain account information.
@@ -615,6 +637,14 @@ class LLMHypothesizer:
         }
         self.on_usage(
             {"mode": self.mode}
+            | (
+                {
+                    "requested_model": self.model,
+                    "requested_reasoning_effort": self.reasoning_effort,
+                }
+                if self.reasoning_effort is not None
+                else {}
+            )
             | {
                 key: value if type(value) is int and value >= 0 else None
                 for key, value in values.items()

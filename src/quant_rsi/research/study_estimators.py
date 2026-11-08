@@ -8,8 +8,8 @@ from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
 
 
 def model_configuration(name="lightgbm", ridge_alpha=None, *, horizon_sessions=5):
-    if type(horizon_sessions) is not int or horizon_sessions not in (5, 20, 60):
-        raise ValueError("Prediction horizon must be 5, 20 or 60 trading sessions")
+    if type(horizon_sessions) is not int or horizon_sessions not in (3, 5, 20, 60):
+        raise ValueError("Prediction horizon must be 3, 5, 20 or 60 trading sessions")
     if name not in {"lightgbm", "ridge"}:
         raise ValueError("Study model must be lightgbm or ridge")
     if name != "ridge" and ridge_alpha is not None:

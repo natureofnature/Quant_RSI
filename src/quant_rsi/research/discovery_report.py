@@ -3,13 +3,14 @@
 import json
 from html import escape
 
-from quant_rsi.core.artifacts import canonical
+from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.discovery_report_comparisons import append_comparisons
 
 
 def render_discovery(result):
     discovery = result["discovery"]
+    preparation_only = discovery.get("mode") == "preparation_only"
     markdown = [f"# {result['symbol']} — news-driven factor discovery", result["notice"]]
     parts = [
         f"<h1>{escape(result['symbol'])} · Factor discovery</h1>",
@@ -39,7 +40,21 @@ def render_discovery(result):
         [[result["configuration"]["question"], result["study"]["conclusion"]]],
     )
     table("Operations", ["Operation", "Count"], list(discovery["counts"].items()))
-    append_comparisons(discovery, table, parts)
+    if preparation_only:
+        table(
+            "Preparation only — no model fitting",
+            ["Scope", "Evidence boundary"],
+            [
+                [
+                    "Acquire source inputs and compute candidate columns on the frozen population.",
+                    "No baseline or candidate model was fitted. No forecast, accuracy, strategy "
+                    "return or predictive improvement is evaluated. Prior experiment feedback "
+                    "is not loaded; only this run's preparation feedback informs later actions.",
+                ]
+            ],
+        )
+    else:
+        append_comparisons(discovery, table, parts)
     records = discovery["memory"]
     decisions = [m for m in records if m.get("kind") == "interpretation"]
     table(
@@ -292,6 +307,8 @@ def render_discovery(result):
         ],
         observations,
     )
+    if preparation_only:
+        _append_preparations(records, bundles, table)
     lineage = []
     for m in records:
         measured = m.get("result", {})
@@ -319,19 +336,20 @@ def render_discovery(result):
                     .get("mae_price"),
                 ]
             )
-    table(
-        "Candidate → acquired input → actual fit",
-        [
-            "Candidate",
-            "News evidence",
-            "Used input",
-            "Acquisition reference",
-            "Fit",
-            "Fit identity",
-            "Development MAE",
-        ],
-        lineage,
-    )
+    if not preparation_only:
+        table(
+            "Candidate → acquired input → actual fit",
+            [
+                "Candidate",
+                "News evidence",
+                "Used input",
+                "Acquisition reference",
+                "Fit",
+                "Fit identity",
+                "Development MAE",
+            ],
+            lineage,
+        )
     features = []
     for m in records:
         actual = m.get("result", {}).get("actual_features")
@@ -344,11 +362,12 @@ def render_discovery(result):
                     ", ".join(str(v) for v in actual["training_values"][:12]),
                 ]
             )
-    table(
-        "Executed feature values",
-        ["Factor", "Distinct training values", "Inputs", "First training values"],
-        features,
-    )
+    if not preparation_only:
+        table(
+            "Executed feature values",
+            ["Factor", "Distinct training values", "Inputs", "First training values"],
+            features,
+        )
     gaps = [
         [m.get("kind"), m.get("reason") or m.get("result", {}).get("reason"), m.get("ref", "")[:12]]
         for m in records
@@ -359,19 +378,30 @@ def render_discovery(result):
         for m in surveys
         for gap in m.get("result", {}).get("gaps", [])
     )
+    if preparation_only:
+        gaps.extend(
+            [
+                "preparation",
+                m["result"].get("reason") or m["result"].get("status"),
+                m.get("ref", "")[:12],
+            ]
+            for m in records
+            if m.get("kind") == "preparation" and m["result"].get("status") != "ready"
+        )
     table("Gaps and failures", ["Kind", "Reason", "Reference"], gaps)
     selected = discovery.get("selected")
-    table(
-        "Publication selection",
-        ["Selected fit", "Rule / reason"],
-        [
+    if not preparation_only:
+        table(
+            "Publication selection",
+            ["Selected fit", "Rule / reason"],
             [
-                selected.get("result", {}).get("round") if selected else None,
-                discovery.get("selection_note", "No selection recorded"),
-            ]
-        ],
-    )
-    if selected and result.get("terminal_evaluation"):
+                [
+                    selected.get("result", {}).get("round") if selected else None,
+                    discovery.get("selection_note", "No selection recorded"),
+                ]
+            ],
+        )
+    if not preparation_only and selected and result.get("terminal_evaluation"):
         table(
             "Reserved terminal evaluation",
             ["Status", "Samples"],
@@ -410,3 +440,101 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;padding:1
         + "</main></html>"
     )
     return "\n".join(markdown), html
+
+
+def _append_preparations(records, bundles, table):
+    """Keep acquisition, partial computation and population readiness visibly distinct."""
+    candidates, coverage, provenance = [], [], []
+    for record in records:
+        if record.get("kind") != "preparation":
+            continue
+        candidate, result = record["candidate"], record["result"]
+        prepared = result.get("preparation") or {}
+        name = candidate.get("name", "Invalid candidate")
+        candidates.append(
+            [
+                name,
+                prepared.get("candidate_ref") or digest(canonical(candidate)),
+                result.get("status"),
+                result.get("reason") or "None recorded",
+            ]
+        )
+        counts = prepared.get("coverage", {})
+        bundle_refs = prepared.get("input_bundle_refs", [])
+        if not prepared:
+            acquisition = "Not established for this candidate"
+        elif not bundle_refs:
+            acquisition = "No acquired inputs used"
+        elif any(ref not in bundles for ref in bundle_refs):
+            acquisition = "Referenced acquisition receipt unavailable"
+        else:
+            acquisition = f"Acquired: {len(bundle_refs)} source-bound bundle(s)"
+        computed, required = counts.get("computed_rows", 0), counts.get("required_rows", 0)
+        ready = (
+            result.get("status") == "ready"
+            and required > 0
+            and computed == required
+            and counts.get("missing_rows") == 0
+        )
+        coverage.append(
+            [
+                name,
+                acquisition,
+                f"{computed} / {required} rows computable" if prepared else "Not computed",
+                f"{counts.get('computed_training_rows', 0)} / {counts.get('training_rows', 0)}"
+                if prepared
+                else None,
+                f"{counts.get('computed_development_rows', 0)} / "
+                f"{counts.get('development_rows', 0)}"
+                if prepared
+                else None,
+                counts.get("missing_rows") if prepared else None,
+                "Full frozen population ready" if ready else "Not ready",
+            ]
+        )
+        if prepared:
+            provenance.append(
+                [
+                    name,
+                    ", ".join(
+                        f"{item['name']} = {item['factor_id']}"
+                        for item in prepared.get("input_bindings", [])
+                    ),
+                    ", ".join(bundle_refs) or "None used",
+                    ", ".join(prepared.get("source_ids", [])) or "None recorded",
+                    prepared.get("column_ref"),
+                    prepared.get("recipe_ref"),
+                    prepared.get("definition_ref"),
+                ]
+            )
+    table(
+        "Prepared candidate decisions",
+        ["Candidate", "Candidate reference", "Validation", "Reason"],
+        candidates,
+    )
+    table(
+        "Preparation coverage — acquired inputs, computable rows and readiness",
+        [
+            "Candidate",
+            "Input acquisition",
+            "Feature computation",
+            "Training rows",
+            "Development rows",
+            "Missing rows",
+            "Frozen population",
+        ],
+        coverage,
+    )
+    table(
+        "Preparation provenance — values are retained in the evidence JSON",
+        [
+            "Candidate",
+            "Input bindings",
+            "Acquisition references",
+            "Numerical source IDs",
+            "Column reference",
+            "Recipe reference",
+            "Definition reference",
+        ],
+        provenance,
+    )

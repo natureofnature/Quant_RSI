@@ -26,7 +26,7 @@ def extra_history(folds, sessions, horizon):
 
 def price_history_sessions(horizon, sessions, folds, requested=None):
     """One collection requirement for direct studies and workbench preparation."""
-    minimum = 120 + 3 * (horizon - 5) + extra_history(folds, sessions, horizon)
+    minimum = 120 + 3 * max(0, horizon - 5) + extra_history(folds, sessions, horizon)
     if requested is None:
         return minimum
     if type(requested) is not int or not minimum <= requested <= 445:
