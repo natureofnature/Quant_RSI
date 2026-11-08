@@ -1367,10 +1367,9 @@ def _run(args, symbol, root, configuration, record, progress, cache):
 def _finish_study(args, symbol, root, result, history_prices, progress):
     from quant_rsi.research.study_report import render_study
 
-    if args.history_dir:
+    if args.history_dir and result["configuration"]["fit_budget"] != 0:
         register_study(args.history_dir, root, result, history_prices)
-        if result["configuration"]["fit_budget"] != 0:
-            result["study"]["history"] = history_view(args.history_dir, symbol)
+        result["study"]["history"] = history_view(args.history_dir, symbol)
     if not (root / "trace.jsonl").exists():
         (root / "trace.jsonl").write_text(
             "".join(json.dumps(event, allow_nan=False) + "\n" for event in result["trace"]),

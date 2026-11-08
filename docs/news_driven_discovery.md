@@ -74,7 +74,8 @@ three-session setting describes this native study's close-to-close forecast targ
 it does not reproduce another experiment's next-open entry target merely because
 both use three sessions.
 
-Preparation skips prior experiment feedback and forecast outcome observation. Its own
+Preparation skips shared history registration, prior experiment feedback and forecast
+outcome observation; its artifacts remain in the run's output directory. Its own
 input gaps and validation results still inform later actions and survive resume.
 This is not a complete model-feedback RSI experiment.
 

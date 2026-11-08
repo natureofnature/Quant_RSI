@@ -40,7 +40,7 @@ def forbid_outcomes(monkeypatch):
     monkeypatch.setattr(DiscoveryExperimentRunner, "__call__", forbidden)
     monkeypatch.setattr(LightGBMDemo, "predict", forbidden)
     monkeypatch.setattr(LightGBMDemo, "evaluate_terminal", forbidden)
-    for name in ("observe_prices", "mature_feedback", "history_view"):
+    for name in ("observe_prices", "mature_feedback", "history_view", "register_study"):
         monkeypatch.setattr(study, name, forbidden)
     monkeypatch.setattr(study_discovery, "_prior_memory", forbidden)
 
