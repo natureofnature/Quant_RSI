@@ -1307,11 +1307,12 @@ class DiscoverySources:
         if source_context is not None:
             source_context["status"] = "completed"
             self._save_usage()
-        basis = _publication_basis(observations, articles)
+        basis, metadata_gaps = _publication_basis(observations, articles)
         return bundle | {
             # Outside the replay-verified keys: labels how each publication date is known.
             "publication_basis": basis,
             "publication_basis_counts": dict(Counter(basis.values())),
+            "publication_metadata_gaps": metadata_gaps,
             "articles": articles,
             "excluded": excluded,
             "extractions": extraction_records,
@@ -1330,7 +1331,7 @@ def _publication_basis(observations, articles):
     values are reported separately and do not count as Milestone 1 acceptance evidence.
     """
     by_id = {article["id"]: article for article in articles}
-    basis = {}
+    basis, gaps = {}, {}
     for row in observations:
         article = by_id.get(row["source_id"], {})
         if article.get("provider") == "mops":
@@ -1339,7 +1340,11 @@ def _publication_basis(observations, articles):
             basis[row["observation_id"]] = "source_metadata"
         else:
             basis[row["observation_id"]] = "llm_quoted_unverified"
-    return basis
+            # Why the page gave no usable date, with its evidence, for later recovery.
+            gaps[row["observation_id"]] = deepcopy(
+                article.get("publication_metadata") or {"status": "not_recorded"}
+            )
+    return basis, gaps
 
 
 def validate_extraction(

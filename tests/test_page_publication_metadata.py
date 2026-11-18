@@ -120,7 +120,7 @@ def test_declared_publication_time_is_read_and_normalized(monkeypatch, head, tex
             '<meta property="article:published_time" content="2023-05-24">',
             "not_zone_aware_or_unparsed",
         ),
-        ('<script type="application/ld+json">{not json</script>', None),
+        ('<script type="application/ld+json">{not json</script>', "absent"),
     ],
 )
 def test_ambiguous_or_unusable_metadata_declares_no_time(monkeypatch, head, status):
@@ -204,12 +204,14 @@ def test_unrelated_metadata_cannot_reject_the_release(monkeypatch):
 )
 def test_modified_times_and_plain_pages_declare_nothing(monkeypatch, head):
     result = read(monkeypatch, head, text=TEXT + '<time datetime="2023-06-01T12:00:00Z">x</time>')
-    assert "published_at" not in result and "publication_metadata" not in result
+    assert "published_at" not in result
+    assert result["publication_metadata"] == {"sources": [], "status": "absent"}
 
 
 def test_plain_text_pages_declare_nothing(monkeypatch):
     result = read(monkeypatch, "", content_type="text/plain")
     assert "published_at" not in result
+    assert result["publication_metadata"]["status"] == "absent"
 
 
 class Extractor:
@@ -282,3 +284,95 @@ def test_metadata_does_not_make_a_late_read_eligible_in_retained_mode():
     )
     assert admitted == []
     assert excluded == [{"id": "page", "reason": "source_after_research_cutoff"}]
+
+
+@pytest.mark.parametrize(
+    ("head", "text", "reason"),
+    [
+        # Contradictory identity: one field names this page, another a different one.
+        (
+            ld(
+                {
+                    "@type": "NewsArticle",
+                    "mainEntityOfPage": URL,
+                    "url": OTHER_STORY,
+                    "datePublished": "2023-06-10T12:00:00Z",
+                }
+            ),
+            TEXT,
+            "contradictory_identity",
+        ),
+        # Named as this page's mainEntity but declaring another page as its own URL.
+        (
+            ld(
+                {
+                    "@graph": [
+                        {"@type": "WebPage", "@id": URL, "mainEntity": {"@id": "urn:a"}},
+                        {
+                            "@type": "NewsArticle",
+                            "@id": "urn:a",
+                            "url": OTHER_STORY,
+                            "datePublished": "2023-06-10T12:00:00Z",
+                        },
+                    ]
+                }
+            ),
+            TEXT,
+            "contradictory_identity",
+        ),
+        (
+            ld({"@type": "NewsArticle", "datePublished": "2023-06-10T12:00:00Z"}),
+            TEXT,
+            "no_page_identity",
+        ),
+        (
+            "",
+            ARTICLE_SCOPE.format('<meta itemprop="datePublished" content="2023-06-10T12:00:00Z">')
+            * 2
+            + TEXT,
+            "multiple_article_scopes",
+        ),
+        (
+            "",
+            TEXT
+            + "<aside>"
+            + ARTICLE_SCOPE.format('<meta itemprop="datePublished" content="2023-06-10T12:00:00Z">')
+            + "</aside>",
+            "secondary_container",
+        ),
+    ],
+)
+def test_ambiguous_association_keeps_its_reason_and_evidence(monkeypatch, head, text, reason):
+    result = read(monkeypatch, head, text=text)
+    assert "published_at" not in result
+    metadata = result["publication_metadata"]
+    assert metadata["status"] == "ambiguous_association"
+    assert {item["reason"] for item in metadata["rejected"]} == {reason}
+    assert all(item["value"] == "2023-06-10T12:00:00Z" for item in metadata["rejected"])
+
+
+def test_clear_declaration_is_kept_beside_rejected_evidence(monkeypatch):
+    head = '<meta property="article:published_time" content="2023-05-24T12:00:00Z">' + ld(
+        {"@type": "NewsArticle", "datePublished": "2023-06-10T12:00:00Z"}
+    )
+    result = read(monkeypatch, head)
+    assert result["published_at"] == "2023-05-24T12:00:00Z"
+    assert result["publication_metadata"]["status"] == "declared"
+    assert result["publication_metadata"]["rejected"][0]["reason"] == "no_page_identity"
+
+
+def test_unverified_observations_carry_the_metadata_gap(monkeypatch):
+    contradictory = ld(
+        {
+            "@type": "NewsArticle",
+            "mainEntityOfPage": URL,
+            "url": OTHER_STORY,
+            "datePublished": "2023-06-10T12:00:00Z",
+        }
+    )
+    bundle = acquire(monkeypatch, contradictory)
+    observation_id = bundle["observations"][0]["observation_id"]
+    assert bundle["publication_basis"] == {observation_id: "llm_quoted_unverified"}
+    gap = bundle["publication_metadata_gaps"][observation_id]
+    assert gap["status"] == "ambiguous_association"
+    assert gap["rejected"][0]["reason"] == "contradictory_identity"

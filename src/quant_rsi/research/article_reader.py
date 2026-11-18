@@ -151,12 +151,23 @@ def _canonical_page(url):
     )
 
 
-def _same_page(reference, page_url):
+def _page_reference(reference):
+    """A URL-like identity reference; opaque node IDs such as "urn:..." are not pages."""
     if isinstance(reference, dict):
         reference = reference.get("@id") or reference.get("url")
     if not isinstance(reference, str) or not reference.strip():
+        return None
+    reference = reference.strip()
+    if reference.startswith(("http://", "https://", "/", "#")):
+        return reference
+    return None
+
+
+def _same_page(reference, page_url):
+    reference = _page_reference(reference)
+    if reference is None:
         return False
-    return _canonical_page(urljoin(page_url, reference.strip())) == _canonical_page(page_url)
+    return _canonical_page(urljoin(page_url, reference)) == _canonical_page(page_url)
 
 
 def _linked_data_objects(value, found, depth=0):
@@ -173,8 +184,13 @@ def _linked_data_objects(value, found, depth=0):
 
 
 def _linked_data_publication(documents, page_url):
-    """datePublished of article objects that identify this page, or that an object
-    identifying this page names as its mainEntity; anything else is not this page's."""
+    """datePublished of article objects whose identity is this page, without contradiction.
+
+    Returns (accepted, rejected). An article is this page's when every URL-like identity
+    it declares (url, @id, mainEntityOfPage) resolves to this page, or when it declares
+    none and an object identifying this page names it as mainEntity. Mixed identities are
+    contradictory and never trusted. Articles describing other pages are not this page's.
+    """
     objects = []
     for document in documents:
         _linked_data_objects(document, objects)
@@ -183,11 +199,19 @@ def _linked_data_publication(documents, page_url):
         if _same_page(item.get("url"), page_url) or _same_page(item.get("@id"), page_url):
             entity = item.get("mainEntity")
             main_entities.extend(entity if isinstance(entity, list) else [entity])
-    found = []
+    accepted, rejected = [], []
     for item in objects:
         if not _schema_types(item.get("@type")) & ARTICLE_TYPES:
             continue
-        own = any(_same_page(item.get(key), page_url) for key in ("url", "@id", "mainEntityOfPage"))
+        published = item.get("datePublished")
+        if not isinstance(published, str):
+            continue
+        identity = {
+            key: _page_reference(item.get(key))
+            for key in ("url", "@id", "mainEntityOfPage")
+            if _page_reference(item.get(key)) is not None
+        }
+        matches = [_same_page(reference, page_url) for reference in identity.values()]
         named = any(
             entity is item
             or (
@@ -197,15 +221,29 @@ def _linked_data_publication(documents, page_url):
             )
             for entity in main_entities
         )
-        if (own or named) and isinstance(item.get("datePublished"), str):
-            found.append(("json-ld:datePublished", item["datePublished"]))
-    return found
+        if (identity and all(matches)) or (named and not identity):
+            accepted.append(("json-ld:datePublished", published))
+            continue
+        if any(matches) or named:
+            reason = "contradictory_identity"
+        elif not identity:
+            reason = "no_page_identity"
+        else:
+            continue  # Describes another page, such as a related story.
+        rejected.append(
+            {"source": "json-ld:datePublished", "reason": reason, "value": published}
+            | {"identity": identity}
+        )
+    return accepted, rejected
 
 
-def _publication_metadata(candidates):
-    """The page's own declared publication time, only when unambiguous and zone-aware (D3.4)."""
-    if not candidates:
-        return {}
+def _publication_metadata(candidates, rejected=()):
+    """The page's own publication time, only when clearly associated and zone-aware (D3.4).
+
+    Never guesses: a missing, conflicting or ambiguously associated declaration keeps a
+    structured status and the rejected evidence, and the date stays unverified.
+    """
+    rejected = list(rejected)[:5]
     parsed, unparsed = set(), []
     for _, raw in candidates:
         try:
@@ -216,14 +254,21 @@ def _publication_metadata(candidates):
             unparsed.append(raw)
         else:
             parsed.add(value.astimezone(UTC).isoformat().replace("+00:00", "Z"))
-    sources = sorted({source for source, _ in candidates})
+    metadata = {"sources": sorted({source for source, _ in candidates})}
+    if rejected:
+        metadata["rejected"] = rejected
     if len(parsed) == 1 and not unparsed:
-        return {
-            "published_at": parsed.pop(),
-            "publication_metadata": {"status": "declared", "sources": sources},
-        }
-    status = "conflicting" if len(parsed) > 1 else "not_zone_aware_or_unparsed"
-    return {"publication_metadata": {"status": status, "sources": sources}}
+        declared = metadata | {"status": "declared"}
+        return {"published_at": parsed.pop(), "publication_metadata": declared}
+    if len(parsed) > 1:
+        status = "conflicting"
+    elif unparsed:
+        status = "not_zone_aware_or_unparsed"
+    elif rejected:
+        status = "ambiguous_association"
+    else:
+        status = "absent"
+    return {"publication_metadata": metadata | {"status": status}}
 
 
 class _ArticleText(HTMLParser):
@@ -274,7 +319,7 @@ class _ArticleText(HTMLParser):
         self.linked_documents, self.linked_data = [], None
         self.scopes = []  # (stack depth, schema types, inside a secondary container)
         self.article_scopes = 0
-        self.microdata = []
+        self.microdata, self.microdata_rejected = [], []
 
     def _metadata(self, tag, attributes):
         name = (attributes.get("property") or attributes.get("name") or "").strip().lower()
@@ -284,18 +329,31 @@ class _ArticleText(HTMLParser):
             # Microdata belongs to its innermost itemscope; only a primary article counts.
             _, types, secondary = self.scopes[-1]
             value = attributes.get("datetime") or attributes.get("content")
-            if value and types & ARTICLE_TYPES and not secondary:
-                if not _SECONDARY.intersection(self.stack):
+            if value and types & ARTICLE_TYPES:
+                if secondary or _SECONDARY.intersection(self.stack):
+                    self.microdata_rejected.append(
+                        {"source": "itemprop:datePublished", "reason": "secondary_container"}
+                        | {"value": value}
+                    )
+                else:
                     self.microdata.append(("itemprop:datePublished", value))
         kind = (attributes.get("type") or "").strip().lower()
         if tag == "script" and kind == "application/ld+json":
             self.linked_data = []
 
     def publication_candidates(self, page_url):
-        # Microdata is unambiguous only when the page marks up exactly one primary article.
-        microdata = self.microdata if self.article_scopes == 1 else []
-        linked = _linked_data_publication(self.linked_documents, page_url)
-        return self.page_meta + microdata + linked
+        """(accepted, rejected) declarations; rejected ones carry a reason and value."""
+        rejected = list(self.microdata_rejected)
+        microdata = self.microdata
+        if self.article_scopes > 1:
+            # Several marked-up articles: which one is this page is ambiguous.
+            rejected += [
+                {"source": source, "reason": "multiple_article_scopes", "value": value}
+                for source, value in microdata
+            ]
+            microdata = []
+        linked, linked_rejected = _linked_data_publication(self.linked_documents, page_url)
+        return self.page_meta + microdata + linked, rejected + linked_rejected
 
     def handle_starttag(self, tag, attrs):
         self._metadata(tag, dict(attrs))
@@ -412,7 +470,7 @@ def read_article(url, *, avoid_hosts=None):
                 decoded = body.decode(charset, errors="replace")
             except LookupError:
                 raise _Unavailable("unsupported_charset") from None
-            publication = []
+            publication, rejected = [], []
             if headers.get_content_type() == "text/plain":
                 text = " ".join(decoded.split())
             else:
@@ -420,7 +478,7 @@ def read_article(url, *, avoid_hosts=None):
                 parser.feed(decoded)
                 parser.close()
                 text = parser.text()
-                publication = parser.publication_candidates(current)
+                publication, rejected = parser.publication_candidates(current)
             if not text:
                 raise _Unavailable("no_readable_text")
             result.update(
@@ -430,7 +488,7 @@ def read_article(url, *, avoid_hosts=None):
                 text_truncated=len(text) > MAX_TEXT,
                 content_sha256=content_hash,
             )
-            result |= _publication_metadata(publication)
+            result |= _publication_metadata(publication, rejected)
             break
     except _Unavailable as exc:
         result["reason"] = str(exc)
