@@ -389,14 +389,17 @@ def _calendar_month_period(item, excerpt, source_text, *, chinese=False):
     return False
 
 
-def _forecast_period(item, excerpt, source_text):
+def _forecast_period(item, excerpt, source_text, *, chinese=False):
     """Require a literal quarter and its exact calendar bounds, not inferred actuals."""
     if item.target_quarter is None:
         return False
     # Do not let a shortened quote strip "fiscal"/"FY" from the source's quarter label.
+    fiscal = r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b"
+    if chinese:
+        fiscal += r"|財年|財務年度|會計年度|会计年度"
     for match in re.finditer(re.escape(excerpt), source_text):
         context = source_text[max(0, match.start() - 64) : match.end() + 64]
-        if re.search(r"\bfiscal\b|\bFY(?:\s*\d{2,4})?\b", context, re.I):
+        if re.search(fiscal, context, re.I):
             return False
     year, quarter = int(item.target_quarter[:4]), int(item.target_quarter[-1])
     start = date(year, 3 * quarter - 2, 1)
@@ -412,6 +415,11 @@ def _forecast_period(item, excerpt, source_text):
         ),
     )
     quoted = any(re.search(r"(?<!\w)" + form + r"(?!\w)", excerpt, re.I) for form in forms)
+    if chinese:
+        # A Gregorian MOPS label such as 2025年第四季. CJK text counts as \w, so it has its
+        # own digit boundary; ROC-year labels (114年第四季) stay unsupported.
+        label = rf"(?<![\d.]){year}\s*年\s*第\s*[{'一二三四'[quarter - 1]}{quarter}]\s*季"
+        quoted = quoted or bool(re.search(label, excerpt))
     return item.period_start == start.isoformat() and item.period_end == end.isoformat() and quoted
 
 
@@ -466,22 +474,45 @@ def _literal_number(value, excerpt):
     return False
 
 
+# MOPS literal units. A TWD amount names its currency before the number (新台幣51億元);
+# a USD amount names it as a suffix (322億美元). One table drives the verifier and both
+# the decision and extraction prompts, because a unit is matched by its exact name.
+_MOPS_TWD_SCALES = {
+    "TWD": "元",
+    "TWD thousand": "(?:千|仟)元",
+    "TWD million": "百萬元",
+    "TWD hundred million": "億元",
+}
+_MOPS_USD_SCALES = {
+    "USD": "美元",
+    "USD million": "百萬美元",
+    "USD hundred million": "億美元",
+}
+MOPS_LITERAL_UNITS = ("percent", "%", *_MOPS_TWD_SCALES, *_MOPS_USD_SCALES)
+# A suffix-currency amount must not continue a compound amount such as 1兆1,341億美元.
+_COMPOUND_PREFIX = "0123456789.,+-−－﹣兆億亿萬万千仟百"
+
+
+def mops_units_text():
+    return (
+        ", ".join(MOPS_LITERAL_UNITS[2:]) + " and percent (or %). TWD amounts are quoted as "
+        "新台幣/NT$ followed by the number and 元, 千元, 百萬元 or 億元; USD amounts as the "
+        "number followed by 美元, 百萬美元 or 億美元"
+    )
+
+
 def _mops_literal_unit(value, unit, excerpt, source_text):
     """Admit only explicit number/unit pairs; never convert compound Chinese amounts."""
     number = r"(?P<amount>[+-]?\d[\d,]*(?:\.\d+)?)"
     if unit in {"percent", "%"}:
         pattern = rf"(?<![\d.,]){number}\s*(?:%|％|percent\b)"
+    elif unit in _MOPS_USD_SCALES:
+        pattern = rf"(?<![{_COMPOUND_PREFIX}]){number}\s*{_MOPS_USD_SCALES[unit]}"
     else:
-        scales = {
-            "TWD": "元",
-            "TWD thousand": "(?:千|仟)元",
-            "TWD million": "百萬元",
-            "TWD hundred million": "億元",
-        }
-        if unit not in scales:
+        if unit not in _MOPS_TWD_SCALES:
             return False
         pattern = (
-            rf"(?:新[台臺]幣|NT\$|TWD)\s*{number}\s*{scales[unit]}"
+            rf"(?:新[台臺]幣|NT\$|TWD)\s*{number}\s*{_MOPS_TWD_SCALES[unit]}"
             r"(?![\d萬万億亿])"
         )
     for match in re.finditer(pattern, excerpt.replace("−", "-"), re.I):
@@ -498,6 +529,10 @@ def _mops_literal_unit(value, unit, excerpt, source_text):
             if unit in {"percent", "%"}:
                 prefix = source_text[:start].rstrip()
                 if prefix and prefix[-1] in "0123456789.,+-−－﹣(（負负":
+                    return False
+            elif unit in _MOPS_USD_SCALES:
+                prefix = source_text[:start].rstrip()
+                if prefix and prefix[-1] in _COMPOUND_PREFIX:
                     return False
             elif re.match(
                 r"[\s，,]*(?:又|零)?\s*\d[\d,.]*\s*(?:[億亿萬万千仟百]+元?|元)",
@@ -1325,6 +1360,13 @@ class DiscoverySources:
         excluded += headline_exclusions
         observations, extraction_records, gaps = [], [], acquisition_gaps
         for article in articles[: self.limits["read"]]:
+            if article.get("provider") == "mops" and request.unit not in MOPS_LITERAL_UNITS:
+                # The verifier could never admit it; record the gap without an LLM call.
+                gaps.append(
+                    f"{article['id']}: unsupported_mops_unit: {request.unit!r}; "
+                    f"supported MOPS units are {mops_units_text()}"
+                )
+                continue
             payload = {
                 "request": request.model_dump(mode="json"),
                 "article": article,
@@ -1359,9 +1401,9 @@ class DiscoverySources:
                 "Return no observations for a mismatched company, unit, measurement, period or "
                 "ambiguous table. For MOPS, quote its literal ROC publication date and time in "
                 "publication_excerpt and map the date to publication_date; the official time is "
-                "taken from the source fields. Supported literal "
-                "units are percent/%, TWD, TWD thousand, TWD million and TWD hundred million. "
-                "Do not convert compound Chinese amounts such as 5118億5700萬元 into a number, "
+                "taken from the source fields. Supported literal MOPS units are "
+                + mops_units_text()
+                + ". Do not convert compound Chinese amounts such as 5118億5700萬元 into a number, "
                 "or treat cumulative or partial-month values as full-month observations. "
                 "Do not create intervening periods. Missing data is acceptable.",
                 payload,
@@ -1523,7 +1565,9 @@ def validate_extraction(
             end = date.fromisoformat(item.period_end)
             period_excerpt = item.period_excerpt or item.excerpt
             if request.forecast is not None:
-                if period_excerpt not in text or not _forecast_period(item, period_excerpt, text):
+                if period_excerpt not in text or not _forecast_period(
+                    item, period_excerpt, text, chinese=article.get("provider") == "mops"
+                ):
                     raise ValueError("unverified_forecast_target_quarter")
             else:
                 if (
@@ -1828,6 +1872,10 @@ def discovery_decision(llm, context):
         "exists. Request acquisition before fitting missing inputs; retain candidate definitions "
         "and evidence IDs. Acquisition extracts only literal quoted scalar values in exactly "
         "the requested source units: it cannot calculate midpoints, spreads, growth, or sums. "
+        "For MOPS sources, data_requests.unit must be exactly one of these names: "
+        + mops_units_text()
+        + ". Other unit names, and amounts whose currency is not adjacent to the number, "
+        "cannot be acquired from MOPS. "
         "For published quarterly expectations set data_requests.forecast with product, statistic "
         "(point/lower/upper), basis and pairing_group; use null for realized measurements. "
         "For realized monthly measurements explicitly set period_granularity=calendar_month; "
