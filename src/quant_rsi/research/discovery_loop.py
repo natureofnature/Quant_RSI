@@ -198,6 +198,17 @@ def run_discovery(
             "remaining_fits": fit_budget - counts["fits"],
         }
         current["visible_candidates"] = _visible_candidates(current["memory"])
+        if current.get("sector_map"):
+            # Which demand-chain tiers this decision's visible knowledge covers (#157).
+            from quant_rsi.research.sector_map import tier_coverage
+
+            current["sector_coverage"] = tier_coverage(
+                current["sector_map"],
+                current.get("symbol"),
+                current["memory"],
+                current["input_bundles"],
+                current.get("evidence"),
+            )
         # Freeze each decision input once. On resume the same decision sees its original
         # context; newly reached decisions include all durable failed-fit charges.
         current = cache.call(

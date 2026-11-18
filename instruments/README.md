@@ -27,6 +27,15 @@ Active discovery loads these profiles only with `--news-research`. A missing
 mapping produces a data gap rather than guessing a company ID. See
 [structured disclosures](../docs/news_driven_discovery.md#official-structured-disclosures).
 
+### Sector maps
+
+[`shared/sectors/semiconductors.json`](shared/sectors/semiconductors.json) is a reviewed,
+dated sector map selected by its members (TSM, SOXX). It names the sector comparator
+(SOXX) and market comparator (SPY) used by the sector-aware baseline, and demand-chain
+tiers whose entities are leads with identity sources, not verified relationships. TSM's
+[relationships profile](US/TSM/relationships.json) configures both comparators so their
+prices are collected. See [sector maps](../docs/news_driven_discovery.md#sector-maps-and-the-sector-aware-baseline).
+
 ### Rolling research windows
 
 [`US/SOXX/rolling.json`](US/SOXX/rolling.json) configures the SOXX rolling study:

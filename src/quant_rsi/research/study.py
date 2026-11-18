@@ -26,6 +26,7 @@ from quant_rsi.research.demo_proposals import FactorProposal
 from quant_rsi.research.demo_related import profile_related
 from quant_rsi.research.demo_strategy import evaluate_strategy
 from quant_rsi.research.llm import LLMHypothesizer, validate_reasoning_effort
+from quant_rsi.research.sector_map import load_sector_map
 from quant_rsi.research.study_cost_stress import MULTIPLIERS, evaluate_cost_stress
 from quant_rsi.research.study_estimators import model_configuration
 from quant_rsi.research.study_factor_profiles import load_study_catalog
@@ -768,6 +769,14 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 )
                 support["alignment_scope"] = "training_and_development_only"
     model.configure_peers(peers)
+    # Reviewed reference knowledge (#157): selects the sector-aware baseline and tiers.
+    model.sector_map = cache.call(
+        "sector_map", symbol, lambda: load_sector_map(symbol, args.factor_root)
+    )
+    if model.sector_map:
+        related["sector_map"] = {
+            k: model.sector_map[k] for k in ("sector_id", "ref", "path", "reviewed_on")
+        }
     if "instrument_profile" in library:
         model.configure_profile(library["instrument_profile"])
         _write(

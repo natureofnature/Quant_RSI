@@ -1,0 +1,22 @@
+{
+  "instrument": "TSM",
+  "reviewed_on": "2026-11-18",
+  "relationships": [
+    {
+      "symbol": "SOXX",
+      "relationship": "industry_comparator",
+      "reason": "Semiconductor sector ETF used as the sector comparator in a sector-aware baseline; not a claim of SOXX holdings or historical constituent weights.",
+      "source_urls": [
+        "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf"
+      ]
+    },
+    {
+      "symbol": "SPY",
+      "relationship": "market_comparator",
+      "reason": "Broad US equity market comparator; configured research context, not a causal relationship.",
+      "source_urls": [
+        "https://www.ssga.com/us/en/individual/etfs/spdr-sp-500-etf-trust-spy"
+      ]
+    }
+  ]
+}

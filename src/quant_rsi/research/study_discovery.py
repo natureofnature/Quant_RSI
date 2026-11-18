@@ -18,6 +18,8 @@ from quant_rsi.research.discovery_sources import (
     simulated_discovery_sources,
 )
 from quant_rsi.research.llm import LLMHypothesizer
+from quant_rsi.research.sector_map import decision_sector_context, tier_coverage
+from quant_rsi.research.study_knowledge import evaluated_attempts, knowledge_references
 
 
 def _disclosure_profiles(root):
@@ -222,6 +224,23 @@ def run_connected_discovery(
             "horizon_sessions": model.horizon,
         },
     }
+    first_decision = windows["partitions"]["train"]["first_decision_time"]
+    if model.sector_map:
+        context["sector_map"] = decision_sector_context(model.sector_map, configuration["symbol"])
+    context["knowledge_references"] = knowledge_references(
+        sector=model.sector_map,
+        related=related,
+        prior_memory=prior_memory,
+        first_decision_time=first_decision,
+    )
+    context["evaluated_attempts"] = evaluated_attempts(
+        args.history_dir,
+        configuration["symbol"],
+        model.horizon,
+        run_history_watermark(cache, args.history_dir, configuration["symbol"])
+        if args.history_dir
+        else None,
+    )
     if news.get("status") == "not_configured":
         context["news_seed"] = {
             key: deepcopy(news[key]) for key in ("provider", "status", "coverage", "reason")
@@ -315,6 +334,23 @@ def run_connected_discovery(
         decision_budget=args.rounds,
     )
     restore_sources(discovery)
+    if model.sector_map:
+        discovery["sector_coverage"] = tier_coverage(
+            context["sector_map"],
+            configuration["symbol"],
+            discovery["memory"],
+            [m["result"] for m in discovery["memory"] if m.get("kind") == "acquire"],
+            context["evidence"],
+        )
+    discovery["knowledge_references"] = context["knowledge_references"]
+    discovery["evaluated_attempts"] = context["evaluated_attempts"] | {
+        "this_run_evaluated_attempts": discovery["counts"]["fits"]
+    }
+    discovery["baseline"] = {
+        "factor_ids": engine.plan["baseline_ids"],
+        "kind": engine.plan.get("baseline_kind", "price_controls_and_one_peer_v1"),
+        "note": engine.plan["baseline_note"],
+    }
     discovery["source_operations"] = sources.operations
     discovery["source_counts"] = sources.counts
     selected = discovery.get("selected")

@@ -79,7 +79,14 @@ def main(argv: list[str] | None = None) -> int:
             help="model ID; required for API, optional for Codex and DeepSeek "
             "(DeepSeek default: deepseek-chat)",
         )
-        demo.add_argument("--llm-timeout", type=float, default=180, help="seconds per LLM call")
+        # A research-study survey analysis reads several full releases; measured calls took
+        # 135-320 s on 2026-11-18 (#159), so 180 s failed real runs.
+        demo.add_argument(
+            "--llm-timeout",
+            type=float,
+            default=600 if study else 180,
+            help="seconds per LLM call (research-study default 600, research-demo 180)",
+        )
         if study:
             from quant_rsi.research.llm import REASONING_EFFORTS
 
