@@ -18,6 +18,7 @@ from pydantic import Field, ValidationError, model_serializer, model_validator
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.market.availability import date_only_available_at
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.research.active_news import SearchResponse, _avoid_hosts, _hostname
 from quant_rsi.research.article_reader import read_article
@@ -1347,10 +1348,9 @@ def validate_extraction(
             # One day of tolerance covers a UTC metadata date ahead of the local dateline.
             if metadata and publication_day < timestamp(metadata).date() - timedelta(days=1):
                 return [], ["publication_before_source_metadata"]
-            # Date-only disclosures remain conservatively available after local day closes.
-            publication = datetime.combine(
-                publication_day + timedelta(days=1), datetime.min.time(), UTC
-            ) + timedelta(hours=12)
+            # Date-only disclosures: no declared source timezone, so the conservative
+            # next-day start applies (#159 D3.2).
+            publication = date_only_available_at(publication_day)
             if publication_day > receipt.date():
                 return [], ["publication_after_receipt"]
         version = timestamp(article.get("version_available_at") or article["received_at"])
