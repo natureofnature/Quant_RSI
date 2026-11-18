@@ -71,10 +71,16 @@ class OriginalActualRelease(StrictModel):
         return self
 
 
+# A 252-session study needs the release before its first origin and the releases through
+# its last development origin: 13 months or more. Listing a month is one archive request,
+# not an LLM call; the selection and read allowances still bound what is read.
+MAX_DISCLOSURE_MONTHS = 24
+
+
 class DisclosureQuery(StrictModel):
     """A bounded official archive query, not an arbitrary URL or API call.
 
-    One calendar month, or a consecutive range of at most 12 months ending at
+    One calendar month, or a consecutive range of at most MAX_DISCLOSURE_MONTHS ending at
     end_year/end_month. A whole range is charged as one search allowance; each month keeps
     its own listing receipt, so overlapping ranges reuse months already listed.
     """
@@ -91,8 +97,10 @@ class DisclosureQuery(StrictModel):
             raise ValueError("Give both end_year and end_month, or neither")
         if self.end_year is not None:
             span = (self.end_year - self.year) * 12 + self.end_month - self.month
-            if not 0 <= span <= 11:
-                raise ValueError("A disclosure range covers 1 to 12 consecutive months")
+            if not 0 <= span < MAX_DISCLOSURE_MONTHS:
+                raise ValueError(
+                    f"A disclosure range covers 1 to {MAX_DISCLOSURE_MONTHS} consecutive months"
+                )
         return self
 
     @model_serializer(mode="wrap")
@@ -1889,10 +1897,11 @@ def discovery_decision(llm, context):
         "target in context.symbol; use null when no different survey issuer is needed. "
         "For issuers listed in context.disclosure_sources, you may use a survey disclosure_query "
         "with provider=mops and a Gregorian year/month to investigate the official announcement "
-        "archive, or a consecutive range of up to 12 months by also giving end_year/end_month "
-        "(null for one month). Select months from the research question and required information "
-        "periods; quarterly measurements over a training window need every release month in "
-        "that window. The application asks you which listed documents to read. A list query, "
+        f"archive, or a consecutive range of up to {MAX_DISCLOSURE_MONTHS} months by also giving "
+        "end_year/end_month (null for one month). Select months from the research question and "
+        "required information periods; quarterly measurements need every release month from "
+        "the release in force at the first training origin through the last development "
+        "origin. The application asks you which listed documents to read. A list query, "
         "single month or range, uses one search allowance; each detail uses one read, and "
         "selection is a recorded LLM analysis call. "
         "No issuer profile means this provider is unavailable; use other sources or report the "
