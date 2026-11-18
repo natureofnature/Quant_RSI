@@ -19,6 +19,7 @@ from quant_rsi.research.discovery_sources import (
     NumericalExtraction,
     align_input_bundle,
     recorded_alignment_rules,
+    recorded_extraction_rules,
     validate_extraction,
 )
 
@@ -137,6 +138,7 @@ def _replay(bundle):
             extracted_at=extraction["extracted_at"],
             information_mode=mode,
             research_cutoff=cutoff.isoformat() if cutoff else extraction["extracted_at"],
+            rules=recorded_extraction_rules(bundle),
         )
         for row in rows:
             for quote in (
@@ -262,6 +264,7 @@ def _rows(bundle, cutoff, mode):
             extracted_at=extraction["extracted_at"],
             information_mode="retained" if observed else _mode(mode),
             research_cutoff=cutoff,
+            rules=recorded_extraction_rules(bundle),
         )
         observations.extend(
             row for row in rows if timestamp(row["effective_available_at"]) <= timestamp(cutoff)
