@@ -393,7 +393,13 @@ def _headline_only(article):
 
 def _literal_number(value, excerpt):
     # No implicit percentages, scaling, arithmetic or inferred missing values.
-    tokens = re.findall(r"\(?[+-]?\d[\d,]*(?:\.\d+)?\)?", excerpt.replace("−", "-"))
+    # A sign or accounting parenthesis counts only when it is not attached to a
+    # preceding ASCII letter, digit or ")": "10-12%", "2024-03-31" and "Revenue(1)"
+    # contain no negatives. CJK text such as "年增−1.2%" keeps its literal sign.
+    attached = r"(?<![A-Za-z0-9_)])"
+    tokens = re.findall(
+        rf"(?:{attached}\(|{attached}[+-])?\d[\d,]*(?:\.\d+)?\)?", excerpt.replace("−", "-")
+    )
     for token in tokens:
         negative = token.startswith("(") and token.endswith(")")
         try:
