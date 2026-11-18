@@ -51,3 +51,12 @@ def usable_at(available_at: datetime, instant: datetime) -> bool:
 def within_max_age(published_at: datetime, instant: datetime, max_age_days: int) -> bool:
     """Exact duration: no flooring to whole days."""
     return instant - published_at <= timedelta(days=max_age_days)
+
+
+LOOKBACK_WINDOW_RULE = "half_open_before_instant_v1"
+
+
+def in_lookback_window(time: datetime, instant: datetime, window: timedelta) -> bool:
+    """Event-count windows are [instant - window, instant): consistent with D3.1, an event
+    stamped exactly at the decision instant belongs to the next decision, not this one."""
+    return instant - window <= time < instant

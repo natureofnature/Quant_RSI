@@ -10,6 +10,7 @@ from pydantic import Field
 
 from quant_rsi.core.artifacts import canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.market.availability import in_lookback_window
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.research.study_news import MAX_BYTES, MAX_FILE_BYTES, MAX_FILES, NewsHistory
 
@@ -206,7 +207,9 @@ class GuidanceHistory:
         visible = [
             f
             for f in record["facts"]
-            if now - timedelta(days=days) < timestamp(items[f["news_id"]]["published_at"]) <= now
+            if in_lookback_window(
+                timestamp(items[f["news_id"]]["published_at"]), now, timedelta(days=days)
+            )
         ]
         result["evidence_news_ids"] = sorted(f["news_id"] for f in visible)
         if any(f["status"] == "ambiguous" for f in visible):

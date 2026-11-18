@@ -14,6 +14,7 @@ from pydantic import Field, model_validator
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.market.availability import in_lookback_window, usable_at
 from quant_rsi.market.market_contracts import timestamp
 
 Term = Annotated[str, Field(min_length=2, max_length=100)]
@@ -107,7 +108,7 @@ def compile_news_inputs(
         received = timestamp(article["received_at"])
         version = timestamp(article.get("version_available_at") or article["received_at"])
         available = max(published, received, version) if mode == "retained" else published
-        if available <= times[-1]:
+        if usable_at(available, times[-1]):
             records[identifier] = (article, published, available)
     columns, definitions, diagnostics = {}, [], []
     for recipe in parsed:
@@ -141,7 +142,8 @@ def compile_news_inputs(
             identifiers = sorted(
                 key
                 for key, (published, available, _) in matches.items()
-                if start < published <= instant and available <= instant
+                if in_lookback_window(published, instant, timedelta(days=recipe.window_days))
+                and usable_at(available, instant)
             )
             row_ids.append(identifiers)
             values.append(sum(matches[key][2] for key in identifiers))

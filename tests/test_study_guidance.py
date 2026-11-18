@@ -208,3 +208,23 @@ def test_complete_study_fits_guidance_then_deactivates_it(tmp_path):
     assert output["latest_extraction"]["provider"] == "simulated_guidance_extraction"
     assert visual_output("extract_guidance", output, {}, "KO")["findings"]
     assert result["runtime"]["counts"]["llm_requests_started"] == 0
+
+
+@pytest.mark.parametrize(
+    ("offset", "expected"),
+    [
+        (timedelta(0), 0),  # stamped exactly at the decision instant: not yet visible
+        (timedelta(seconds=1), 1),
+        (timedelta(days=7), 1),  # window start is inclusive
+        (timedelta(days=7, seconds=1), 0),
+    ],
+)
+def test_guidance_window_is_half_open_before_the_instant(offset, expected):
+    _, snapshots, _, cutoffs = fixture()
+    source = snapshots[-1]
+    item = source["items"][0]
+    item["title"] = "SIMULATED company raises earnings guidance"
+    item["published_at"] = utc_text(timestamp(cutoffs[-1]) - offset)
+    record = extract_guidance(source, "KO", None, extracted_at=source["received_at"])
+    result = GuidanceHistory([source], [record]).evaluate(RECIPE, "KO", cutoffs[-1])
+    assert result["value"] == expected
