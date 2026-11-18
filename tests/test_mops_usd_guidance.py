@@ -26,6 +26,9 @@ OUTLOOK = "台積公司2026年第四季的業績展望如下："
         ("資本支出預估將介於520億美元到560億美元之間", 520, "USD hundred million"),
         ("每單位為2.92美元", 2.92, "USD"),
         ("營收51百萬美元", 51, "USD million"),
+        # ASCII text before the amount is not part of a compound amount.
+        ("營收:322億美元", 322, "USD hundred million"),
+        ("Revenue 322億美元", 322, "USD hundred million"),
     ],
 )
 def test_usd_suffix_amounts_are_literal_units(quote, value, unit):
@@ -46,6 +49,10 @@ def test_usd_suffix_amounts_are_literal_units(quote, value, unit):
         ("1,341億美元", "341億美元", 341, "USD hundred million"),
         ("5118億5700萬美元", "5700萬美元", 5700, "USD"),
         ("5118億5700萬美元", "5118億5700萬美元", 5118, "USD hundred million"),
+        # Nor may it stop before a continuation of the same amount.
+        ("5億美元9000萬美元", "5億美元", 5, "USD hundred million"),
+        ("5億美元 9000萬美元", "5億美元", 5, "USD hundred million"),
+        ("5億美元又9000萬", "5億美元", 5, "USD hundred million"),
         # Scale and currency must both match the requested unit.
         ("322億美元", "322億美元", 322, "USD"),
         ("322億美元", "322億美元", 322, "USD million"),

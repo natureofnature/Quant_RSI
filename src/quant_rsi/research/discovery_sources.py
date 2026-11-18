@@ -507,7 +507,7 @@ def _mops_literal_unit(value, unit, excerpt, source_text):
     if unit in {"percent", "%"}:
         pattern = rf"(?<![\d.,]){number}\s*(?:%|％|percent\b)"
     elif unit in _MOPS_USD_SCALES:
-        pattern = rf"(?<![{_COMPOUND_PREFIX}]){number}\s*{_MOPS_USD_SCALES[unit]}"
+        pattern = rf"(?<![{re.escape(_COMPOUND_PREFIX)}]){number}\s*{_MOPS_USD_SCALES[unit]}"
     else:
         if unit not in _MOPS_TWD_SCALES:
             return False
@@ -530,15 +530,17 @@ def _mops_literal_unit(value, unit, excerpt, source_text):
                 prefix = source_text[:start].rstrip()
                 if prefix and prefix[-1] in "0123456789.,+-−－﹣(（負负":
                     return False
-            elif unit in _MOPS_USD_SCALES:
-                prefix = source_text[:start].rstrip()
-                if prefix and prefix[-1] in _COMPOUND_PREFIX:
+            else:
+                if unit in _MOPS_USD_SCALES:
+                    prefix = source_text[:start].rstrip()
+                    if prefix and prefix[-1] in _COMPOUND_PREFIX:
+                        return False
+                # Both currencies: the quoted amount must not continue (5億美元9000萬美元).
+                if re.match(
+                    r"[\s，,]*(?:又|零)?\s*\d[\d,.]*\s*(?:[億亿萬万千仟百]+元?|元)",
+                    source_text[end:],
+                ):
                     return False
-            elif re.match(
-                r"[\s，,]*(?:又|零)?\s*\d[\d,.]*\s*(?:[億亿萬万千仟百]+元?|元)",
-                source_text[end:],
-            ):
-                return False
         return True
     return False
 
