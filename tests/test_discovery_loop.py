@@ -560,6 +560,52 @@ def test_failed_fit_charges_survive_resume_without_changing_cached_decision(tmp_
     assert result["selected"]["spec"]["kind"] == "baseline"
 
 
+def test_failed_fit_after_budget_refusal_resumes_with_original_refusal_snapshot(tmp_path):
+    candidate = {
+        "name": "candidate",
+        "description": "Close level",
+        "inputs": [{"name": "price", "factor_id": "price.close"}],
+        "expression": {
+            "schema_version": 2,
+            "nodes": [{"name": "x", "op": "leaf", "leaf": "price", "inputs": [], "window": None}],
+        },
+        "evidence_ids": ["news"],
+        "metric": 1,
+    }
+    actions = {
+        1: {"action": "acquire", "data_requests": [{"field": "a"}, {"field": "b"}]},
+        2: {"action": "test", "candidates": [candidate]},
+    }
+    failing = {"candidate": True}
+
+    def fit(spec):
+        if spec["kind"] == "candidate" and failing["candidate"]:
+            raise RuntimeError("Worker failed after fit started")
+        return runner(spec)
+
+    arguments = dict(
+        root=tmp_path,
+        cache=cache_at(tmp_path),
+        decide=lambda context: actions.get(context["iteration"], {"action": "stop"}),
+        run_experiment=fit,
+        acquire=lambda _: {"status": "needs_data"},
+        acquisition_budget=1,
+        fit_budget=4,
+        decision_budget=3,
+    )
+    with pytest.raises(RuntimeError):
+        run_discovery({}, **arguments)
+    refusal_path = tmp_path / "discovery/memory/budget_1_1.json"
+    original = json.loads(refusal_path.read_text())
+    failing["candidate"] = False
+    result = run_discovery({}, **arguments)
+    # The refusal keeps the budgets it was refused under, not the preloaded failed charge.
+    assert json.loads(refusal_path.read_text()) == original
+    assert original["action_budgets"]["fits"]["used"] == 0
+    assert result["counts"]["failed_fits"] == 1
+    assert len(result["fit_failures"]) == 1
+
+
 def test_json_candidate_renaming_uses_normalized_discovery_identity(tmp_path):
     candidate = {
         "name": "one",
