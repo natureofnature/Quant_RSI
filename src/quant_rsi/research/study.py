@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from quant_rsi.core.artifacts import atomic_write
 from quant_rsi.factors.contracts import InstrumentId
 from quant_rsi.market.market_contracts import SideCosts, decimal_text
 from quant_rsi.research.active_news import attach_research, research_news
@@ -58,7 +59,8 @@ from quant_rsi.research.study_selection import select_attempt
 
 
 def _write(path, value):
-    path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    # Atomic, so an interrupted run never leaves a truncated config.json or failure.json.
+    atomic_write(path, (json.dumps(value, indent=2, allow_nan=False) + "\n").encode("utf-8"))
 
 
 def terminal_summary(terminal):
@@ -182,6 +184,18 @@ def _configuration(args):
         raise ValueError("--prices-dir requires --prices daily")
     if args.related_prices_dir and (args.prices != "daily" or not args.related_prices):
         raise ValueError("--related-prices-dir requires daily prices and enabled related prices")
+    # Validate run options before the output directory and identity exist. A value that
+    # only fails later leaves a directory that can neither resume nor be recreated.
+    SideCosts(commission_bps=args.commission_bps, slippage_bps=args.slippage_bps, tax_bps="0")
+    decimal_text(args.initial_cash, positive=True)
+    if not math.isfinite(args.threshold):
+        raise ValueError("Strategy threshold must be finite")
+    if args.llm != "simulated" and not getattr(args, "check_inputs", False):
+        if not math.isfinite(args.llm_timeout) or args.llm_timeout <= 0:
+            raise ValueError("LLM timeout must be a positive finite number")
+    news_limit = getattr(args, "news_limit", 5)
+    if type(news_limit) is not int or not 1 <= news_limit <= 20:
+        raise ValueError("--news-limit must be an integer between 1 and 20")
     root = args.output.resolve()
     checkout = Path(__file__).resolve().parents[3]
     if root.is_relative_to(checkout):

@@ -156,6 +156,15 @@ def test_relations_come_from_definitions_selection_and_revisions(tmp_path):
     assert embedded(html)["stars"] == json.loads(json.dumps(data["stars"]))
 
 
+@pytest.mark.parametrize("text", ["<!--<script>", "</script><b>x</b>", "a < b <!-- c"])
+def test_embedded_text_cannot_change_the_script_parsing_state(text):
+    data = {"stars": [{"factor_id": "f", "description": text}], "relations": []}
+    html = render(data)
+    payload = re.search(r"const DATA = (.*);\nconst PALETTE", html).group(1)
+    assert "<" not in payload
+    assert embedded(html) == data
+
+
 def test_cli_writes_the_map_for_default_history(tmp_path, default_history, capsys):
     assert run(tmp_path / "study") == 0
     history = default_history / "synthetic"

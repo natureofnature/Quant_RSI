@@ -170,6 +170,8 @@ def constellation(directory, symbol):
 
 
 def render(data):
-    payload = json.dumps(data, allow_nan=False).replace("</", "<\\/")
+    # Escape every "<" (as study_ui.page does): "</" alone still lets text such as
+    # "<!--<script>" switch the HTML parser into a state that swallows the page script.
+    payload = json.dumps(data, allow_nan=False).replace("<", "\\u003c")
     template = files("quant_rsi.research").joinpath("study_constellation.html").read_text()
     return template.replace("/*CONSTELLATION_DATA*/null", payload)
