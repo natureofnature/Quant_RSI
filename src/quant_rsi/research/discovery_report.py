@@ -290,6 +290,9 @@ def render_discovery(result):
                     observation.get("source_url"),
                     observation.get("effective_available_at"),
                     observation.get("availability_basis"),
+                    bundle.get("publication_basis", {}).get(
+                        observation.get("observation_id"), "not recorded"
+                    ),
                     observation.get("excerpt"),
                 ]
             )
@@ -303,6 +306,7 @@ def render_discovery(result):
             "Source",
             "Available from",
             "Availability basis",
+            "Publication evidence",
             "Retained excerpt",
         ],
         observations,
