@@ -638,3 +638,43 @@ def test_json_candidate_renaming_uses_normalized_discovery_identity(tmp_path):
     assert result["counts"]["proposed"] == 2
     assert result["counts"]["distinct_candidates"] == 1
     assert result["counts"]["proposal_duplicates"] == 1
+
+
+def test_resumed_decision_sees_its_original_frozen_view(tmp_path):
+    # Pins #159 D8.2 per-decision freezing: a replayed decision sees exactly the view it was
+    # first given, even after durable failed-fit charges are preloaded into the counts.
+    views, calls = [], []
+
+    def fit(spec):
+        calls.append(spec["kind"])
+        if len(calls) == 1:
+            raise RuntimeError("Worker failed after fit started")
+        return runner(spec)
+
+    arguments = dict(
+        root=tmp_path,
+        cache=cache_at(tmp_path),
+        decide=lambda _: {"action": "test", "candidates": [{"name": "candidate", "metric": 1}]},
+        run_experiment=fit,
+        fit_budget=2,
+        decision_budget=1,
+        on_context=lambda context: views.append(deepcopy(context)),
+    )
+    with pytest.raises(RuntimeError):
+        run_discovery({}, **arguments)
+    run_discovery({}, **arguments)
+    assert len(views) == 2
+    assert views[1] == views[0]
+    assert views[1]["counts"]["fits"] == 0  # not the preloaded failed charge
+
+
+def test_changed_prior_memory_cannot_enter_a_resumed_decision(tmp_path):
+    # Cross-run knowledge is frozen for a run: if it changes, resume refuses instead of
+    # mixing new knowledge into an already-frozen decision view.
+    cache = cache_at(tmp_path)
+    arguments = dict(
+        root=tmp_path, cache=cache, decide=lambda _: {"action": "stop"}, run_experiment=runner
+    )
+    run_discovery({"prior_memory": [{"ref": "old"}]}, **arguments)
+    with pytest.raises(ValueError, match="Checkpoint inputs changed"):
+        run_discovery({"prior_memory": [{"ref": "old"}, {"ref": "new"}]}, **arguments)
