@@ -39,3 +39,14 @@ def test_unknown_timezone_is_never_earlier_than_any_declared_zone():
 
 def test_rule_is_versioned():
     assert DATE_ONLY_RULE == "date_only_next_day_start_v1"
+
+
+def test_lookback_window_is_half_open_before_the_instant():
+    from quant_rsi.market.availability import in_lookback_window
+
+    instant = datetime(2024, 7, 15, 20, tzinfo=UTC)
+    window = timedelta(days=3)
+    assert in_lookback_window(instant - window, instant, window)
+    assert in_lookback_window(instant - timedelta(seconds=1), instant, window)
+    assert not in_lookback_window(instant, instant, window)
+    assert not in_lookback_window(instant - window - timedelta(seconds=1), instant, window)

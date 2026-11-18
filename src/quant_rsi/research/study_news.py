@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from quant_rsi.core.artifacts import canonical, decode, digest
+from quant_rsi.market.availability import in_lookback_window
 from quant_rsi.market.market_contracts import timestamp, utc_text
 
 # Longer-horizon studies need more than one trading year of daily snapshots.
@@ -247,7 +248,9 @@ class NewsHistory:
                     {
                         item["id"]
                         for item in items
-                        if cutoff - timedelta(days=days) <= _time(item["published_at"]) < cutoff
+                        if in_lookback_window(
+                            _time(item["published_at"]), cutoff, timedelta(days=days)
+                        )
                         and any(word.casefold() in item["title"].casefold() for word in keywords)
                     }
                 )

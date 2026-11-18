@@ -231,3 +231,15 @@ def test_news_ratio_cancellation_cannot_claim_dependency_from_invalid_probes():
     ]
     with pytest.raises(ValueError, match="does not numerically depend"):
         verify_news_dependency([candidate], columns, definitions, np.arange(4))
+
+
+def test_window_is_half_open_before_the_decision_instant():
+    # Published 2026-06-02T18:00Z; window 3 days: [instant - 3 days, instant).
+    times = [
+        "2026-06-02T18:00:00Z",  # exactly at publication: belongs to the next decision
+        "2026-06-02T18:00:01Z",
+        "2026-06-05T18:00:00Z",  # window start equals publication: still inside
+        "2026-06-05T18:00:01Z",
+    ]
+    cols, _, _ = compile_news_inputs([recipe()], [article("a", "Chip ban", 2)], times)
+    assert cols["news.policy_risk"].tolist() == [0, 1, 1, 0]
