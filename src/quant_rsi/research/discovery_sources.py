@@ -497,14 +497,27 @@ _COMPOUND_PREFIX = "0123456789.,+-−－﹣兆億亿萬万千仟百(（負负"
 # replay re-validates every stored answer, rejected ones included. A bundle without the
 # key predates USD suffix units and Chinese quarter labels and replays under those rules.
 MOPS_ADMISSION_RULE = "mops_usd_suffix_units_and_gregorian_chinese_quarters_v1"
-CURRENT_EXTRACTION_RULES = {"mops_admission": MOPS_ADMISSION_RULE}
+# "%" names the requested "percent" unit (and vice versa); other names must match exactly.
+UNIT_ALIAS_RULE = "percent_symbol_names_percent_v1"
+# Every rule set a bundle may have recorded, oldest first; new bundles record the last.
+EXTRACTION_RULE_SETS = (
+    {"mops_admission": MOPS_ADMISSION_RULE},
+    {"mops_admission": MOPS_ADMISSION_RULE, "unit_aliases": UNIT_ALIAS_RULE},
+)
+CURRENT_EXTRACTION_RULES = EXTRACTION_RULE_SETS[-1]
+_PERCENT_NAMES = {"percent", "%"}
+
+
+def _known_extraction_rules(rules):
+    if rules is not None and rules not in EXTRACTION_RULE_SETS:
+        raise ValueError("Unknown acquired extraction rules")
+    return rules or {}
 
 
 def recorded_extraction_rules(bundle):
     """The admission rules a stored bundle was verified under; unknown versions fail."""
     rules = bundle.get("extraction_rules")
-    if rules is not None and rules != CURRENT_EXTRACTION_RULES:
-        raise ValueError("Unknown acquired extraction rules")
+    _known_extraction_rules(rules)
     return rules
 
 
@@ -1391,8 +1404,9 @@ class DiscoverySources:
             }
             prompt = _prompt(
                 "Extract only the exact requested numerical measurement from this supplied source. "
-                "Return a literal value and its stated unit without scaling or "
-                "arithmetic. Cite exact "
+                "Return a literal value without scaling or arithmetic, and set each "
+                "observation's unit to exactly request.unit when the source states that unit. "
+                "Cite exact "
                 "contiguous excerpts supporting each value and period. Use period_excerpt for "
                 "a separate table/date header when the period is not adjacent to the value. "
                 "If request.forecast is present, extract published expectations for exactly its "
@@ -1527,12 +1541,12 @@ def validate_extraction(
 ):
     """Literal source checks cannot verify the LLM's full financial interpretation.
 
-    ``rules=None`` reproduces the admission rules before USD suffix units and Chinese
-    quarter labels, for verifying stored bundles that predate them.
+    ``rules`` is one of ``EXTRACTION_RULE_SETS``; ``None`` reproduces the admission rules
+    before USD suffix units and Chinese quarter labels, for stored bundles that predate them.
     """
-    if rules is not None and rules != CURRENT_EXTRACTION_RULES:
-        raise ValueError("Unknown acquired extraction rules")
-    current = rules is not None
+    rules = _known_extraction_rules(rules)
+    current = "mops_admission" in rules
+    aliases = "unit_aliases" in rules
     observations, reasons = [], []
     text = article.get("text", "")
     if (
@@ -1628,8 +1642,11 @@ def validate_extraction(
                         and not _date_in_excerpt(item.period_start, period_excerpt)
                     ):
                         raise ValueError("period_start_not_in_excerpt")
+            same_unit = item.unit == request.unit or (
+                aliases and {item.unit, request.unit} <= _PERCENT_NAMES
+            )
             if (
-                item.unit != request.unit
+                not same_unit
                 or item.excerpt not in text
                 or not _literal_number(item.value, item.excerpt)
                 or (
@@ -1675,6 +1692,8 @@ def validate_extraction(
             reasons.append(str(exc))
             continue
         value = item.model_dump(mode="json") | {
+            # The requested unit name; an admitted alias ("%" for percent) stays in the answer.
+            "unit": request.unit,
             "input_id": request.input_id,
             "symbol": request.symbol,
             "measurement": request.measurement,
