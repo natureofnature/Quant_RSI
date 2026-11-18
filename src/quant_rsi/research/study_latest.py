@@ -4,8 +4,12 @@ from copy import deepcopy
 
 import numpy as np
 
-from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
-from quant_rsi.research.study_estimators import StandardizedRidge
+from quant_rsi.research.study_estimators import (
+    StandardizedRidge,
+    estimator_state,
+    fit_estimator,
+    log_close_ratio_labels,
+)
 
 NOTICE = (
     "Selected factors and model settings are frozen. One publication fit uses retained "
@@ -29,9 +33,7 @@ def refit_latest(model, selected_round, selected):
         "training_policy": "available_mature_labels_through_latest_close"
     }
     requested = np.arange(30, len(model.data.dates) - model.horizon)
-    labels = np.log(
-        model.data.closes[requested + model.horizon, 0] / model.data.closes[requested, 0]
-    )
+    labels = log_close_ratio_labels(model.data.closes, requested, model.horizon)
     available = np.isfinite(matrix[requested]).all(axis=1) & np.isfinite(labels)
     training, labels = requested[available], labels[available]
     result = {
@@ -58,16 +60,8 @@ def refit_latest(model, selected_round, selected):
     x = matrix[training]
 
     def fit():
-        if model.estimator == "ridge":
-            return StandardizedRidge(x, labels, configuration["parameters"]["alpha"]).state()
-        import lightgbm as lgb
-
-        fitted = lgb.train(
-            MODEL_PARAMETERS | {"seed": 7},
-            lgb.Dataset(x, label=labels),
-            num_boost_round=BOOST_ROUNDS,
-        )
-        return {"model_string": fitted.model_to_string()}
+        alpha = configuration["parameters"].get("alpha", 1.0)
+        return estimator_state(fit_estimator(model.estimator, x, labels, alpha=alpha))
 
     inputs = {
         "x": x.tolist(),

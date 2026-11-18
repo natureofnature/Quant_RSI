@@ -2,9 +2,8 @@
 
 import numpy as np
 
-from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.research.demo_strategy import evaluate_strategy
-from quant_rsi.research.study_estimators import StandardizedRidge
+from quant_rsi.research.study_estimators import fit_estimator, predict_estimator
 
 
 def compare_financials(model, selected_round, prediction, policy):
@@ -45,18 +44,9 @@ def _compare_source(model, selected_round, prediction, policy, bundle, family):
             else "selected_model_needs_both_external_and_other_columns",
         }
     x = matrix[model.train][:, kept]
-    if model.estimator == "ridge":
-        estimator = StandardizedRidge(x, labels, model.model_configuration["parameters"]["alpha"])
-        returns = estimator.predict(matrix[model.origins][:, kept])
-    else:
-        import lightgbm as lgb
-
-        estimator = lgb.train(
-            MODEL_PARAMETERS | {"seed": 7},
-            lgb.Dataset(x, label=labels),
-            num_boost_round=BOOST_ROUNDS,
-        )
-        returns = estimator.predict(matrix[model.origins][:, kept], num_threads=1)
+    alpha = model.model_configuration["parameters"].get("alpha", 1.0)
+    estimator = fit_estimator(model.estimator, x, labels, alpha=alpha)
+    returns = predict_estimator(estimator, matrix[model.origins][:, kept])
     evaluation = model._development(np.asarray(returns), float(np.mean(labels)))
     accounts = evaluate_strategy(
         model.data, model.data.instruments[0], evaluation["rows"], **policy

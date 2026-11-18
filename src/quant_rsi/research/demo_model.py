@@ -7,7 +7,7 @@ import numpy as np
 
 from quant_rsi.core.artifacts import canonical
 from quant_rsi.core.data import synthetic_data
-from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.core.model_parameters import BOOST_ROUNDS
 from quant_rsi.core.schemas import DataSpec
 from quant_rsi.research.demo_features import (
     PRICE_RECIPE,
@@ -19,6 +19,8 @@ from quant_rsi.research.study_business import business_column
 from quant_rsi.research.study_estimators import (
     StandardizedRidge,
     column_share,
+    fit_estimator,
+    log_close_ratio_labels,
     model_configuration,
 )
 from quant_rsi.research.study_factor_profiles import prepare_bound_features
@@ -525,20 +527,15 @@ class LightGBMDemo:
                 )
         matrix = np.column_stack(columns)
         x = matrix[self.train]
-        y = np.log(self.data.closes[self.train + self.horizon, 0] / self.data.closes[self.train, 0])
+        y = log_close_ratio_labels(self.data.closes, self.train, self.horizon)
         if not np.isfinite(x).all() or not np.isfinite(y).all():
             raise ValueError("Non-finite numerical training inputs")
         if not np.isfinite(matrix[self.origins]).all():
             raise ValueError("Non-finite numerical evaluation inputs")
 
         def fit():
-            if self.estimator == "ridge":
-                return StandardizedRidge(x, y, self.model_configuration["parameters"]["alpha"])
-            return lgb.train(
-                MODEL_PARAMETERS | {"seed": 7},
-                lgb.Dataset(x, label=y),
-                num_boost_round=BOOST_ROUNDS,
-            )
+            alpha = self.model_configuration["parameters"].get("alpha", 1.0)
+            return fit_estimator(self.estimator, x, y, alpha=alpha)
 
         model = None
 
