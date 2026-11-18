@@ -49,3 +49,31 @@ def test_provider_schema_requires_a_calendar_date_but_stored_records_stay_readab
         "limitations": [],
     }
     assert NumericalExtraction.model_validate_json(json.dumps(stored))
+
+
+def test_previously_accepted_calendar_forms_are_still_admitted():
+    # date.fromisoformat has always accepted ISO basic dates; stored records may hold them.
+    request, article, extraction = records()
+    extraction["publication_date"] = "20261009"
+    observations, reasons = validate(request, article, extraction)
+    assert not reasons and len(observations) == 1
+
+
+def test_archive_with_basic_calendar_dates_replays_unchanged(tmp_path, monkeypatch):
+    # Review on #174: replay re-runs validate_extraction, so the guard must not narrow it.
+    from test_rolling_acquired import save
+    from test_rolling_measurements import acquisition_checkpoint
+
+    from quant_rsi.research.rolling_acquired import load_acquired_history
+
+    original = acquisition_checkpoint(tmp_path / "original.json", monkeypatch)
+    body = json.loads(original.read_bytes())["output"]
+    expected_ids = [row["observation_id"] for row in body["observations"]]
+    for extraction in body["extractions"]:
+        extraction["result"]["publication_date"] = extraction["result"]["publication_date"].replace(
+            "-", ""
+        )
+    basic = save(tmp_path / "basic.json", body, rebuild=True)
+    rebuilt = json.loads(basic.read_bytes())["output"]
+    assert [row["observation_id"] for row in rebuilt["observations"]] == expected_ids
+    assert load_acquired_history([basic])

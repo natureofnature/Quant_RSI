@@ -1375,8 +1375,18 @@ def validate_extraction(
         or result.publication_excerpt not in text
     ):
         return [], ["missing_literal_publication_evidence"]
-    if not re.fullmatch(CALENDAR_DATE, result.publication_date):
-        return [], ["publication_date_not_calendar_date"]
+    # Stored records replay through this validator, so accept every calendar form it has
+    # always accepted (e.g. ISO basic 20251116). Only a timestamp gets the specific reason;
+    # the stricter YYYY-MM-DD pattern applies to new provider requests, not to replay.
+    try:
+        date.fromisoformat(result.publication_date)
+    except ValueError:
+        try:
+            datetime.fromisoformat(result.publication_date)
+        except ValueError:
+            pass  # Other malformed values keep the existing invalid_source_dates path.
+        else:
+            return [], ["publication_date_not_calendar_date"]
     try:
         publication_day = date.fromisoformat(result.publication_date)
         receipt = timestamp(article["received_at"])
