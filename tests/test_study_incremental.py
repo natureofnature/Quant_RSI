@@ -86,6 +86,7 @@ def test_baseline_and_business_revision_share_population_and_three_fit_budget(
     assert all("terminal_evaluation" not in json.dumps(c) for c in calls)
     report = (root / "report.html").read_text()
     assert "Delta vs B" in report and "Frozen time and information boundaries" in report
+    assert "strictly_before_decision_instant_v1" in report and "close + 900 s" in report
     before = (root / "incremental_plan.json").read_bytes()
     monkeypatch.setattr(
         LightGBMDemo, "predict", lambda *a: pytest.fail("completed resume refitted")

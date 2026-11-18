@@ -6,6 +6,7 @@ from html import escape
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.research.discovery_factors import DiscoveryFactor
 from quant_rsi.research.discovery_report_comparisons import append_comparisons
+from quant_rsi.research.study_windows import timing_rows
 
 
 def render_discovery(result):
@@ -39,6 +40,9 @@ def render_discovery(result):
         ["Question", "Outcome"],
         [[result["configuration"]["question"], result["study"]["conclusion"]]],
     )
+    timing = timing_rows(result.get("study", {}).get("research_windows", {}).get("timing"))
+    if timing:
+        table("Time conventions (declared)", ["Convention", "Rule"], timing)
     table("Operations", ["Operation", "Count"], list(discovery["counts"].items()))
     if preparation_only:
         table(

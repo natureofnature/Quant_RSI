@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from quant_rsi.core.artifacts import canonical, decode, digest
-from quant_rsi.market.availability import in_lookback_window
+from quant_rsi.market.availability import in_lookback_window, usable_at
 from quant_rsi.market.market_contracts import timestamp, utc_text
 
 # Longer-horizon studies need more than one trading year of daily snapshots.
@@ -211,7 +211,7 @@ class NewsHistory:
             receipt = (
                 _time(source["received_at"]) if source and source.get("received_at") else anchor
             )
-            if receipt <= cutoff:
+            if usable_at(receipt, cutoff):
                 candidates.append((receipt, snapshot, source))
         if not candidates:
             result["reasons"] = ["no_snapshot_received_by_cutoff"]

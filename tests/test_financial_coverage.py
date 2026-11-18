@@ -18,8 +18,8 @@ from quant_rsi.research.study_ui import read_state
 def test_gaps_count_only_missing_required_rows_and_keep_actual_cutoffs():
     cutoffs = [
         "2023-04-26T04:59:59+00:00",
-        "2023-04-26T05:00:00+00:00",
-        "2024-04-26T05:00:00+00:00",
+        "2023-04-26T05:00:01+00:00",
+        "2024-04-26T05:00:01+00:00",
         "2025-02-01T20:00:00+00:00",  # Stale, but outside the required fit/evaluation rows.
     ]
     bundle = financials.prepare_financials(inventory_snapshot(), cutoffs, [0, 1, 2])
@@ -56,7 +56,7 @@ def test_guidance_matches_the_unavailable_measurement(case):
         ] = "different"
         factor, reason = "operating_margin", "missing_or_incompatible_margin_facts"
     elif case == "zero_cash_base":
-        data, cutoff = cash_snapshot(), "2024-10-26T05:00:00+00:00"
+        data, cutoff = cash_snapshot(), "2024-10-26T05:00:01+00:00"
         data["companyfacts"]["facts"]["us-gaap"]["NetCashProvidedByUsedInOperatingActivities"][
             "units"
         ]["USD"][0]["val"] = 0

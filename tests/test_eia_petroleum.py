@@ -60,17 +60,18 @@ def test_changes_use_same_release_comparatives_and_wait_for_publication():
     cutoffs = [
         "2026-10-23T20:00:00+00:00",  # observation date is not availability
         "2026-10-28T20:00:00+00:00",  # date-only release conservatively waits
-        "2026-10-29T05:00:00+00:00",
+        "2026-10-29T05:00:00+00:00",  # exactly at availability: not yet usable (D3.1)
+        "2026-10-29T05:00:01+00:00",
         "2026-11-12T05:00:01+00:00",  # older than fourteen days
     ]
-    bundle = eia.prepare_petroleum(snapshot, cutoffs, [2])
+    bundle = eia.prepare_petroleum(snapshot, cutoffs, [3])
     values = bundle["columns"]["external.eia_commercial_crude_wow"]
-    assert values[:2] == [None, None]
-    assert values[2] == pytest.approx(410.625 / 412.517 - 1)
-    assert values[3] is None
+    assert values[:3] == [None, None, None]
+    assert values[3] == pytest.approx(410.625 / 412.517 - 1)
+    assert values[4] is None
     assert all(item["runnable"] for item in bundle["definitions"])
     assert not any(
-        item["runnable"] for item in eia.prepare_petroleum(snapshot, cutoffs, [1, 2])["definitions"]
+        item["runnable"] for item in eia.prepare_petroleum(snapshot, cutoffs, [1, 3])["definitions"]
     )
     assert len(values) == len(cutoffs)  # missing inputs never shrink the sample
     with pytest.raises(ValueError, match="timezones"):

@@ -175,7 +175,7 @@ def _last_complete(received, holidays, early):
     day = received.astimezone(daily_data.EASTERN).date()
     for _ in range(15):
         session = daily_data._session(day, holidays, early)
-        if session and timestamp(session["close_at"]) + timedelta(minutes=15) <= received:
+        if session and daily_data.close_ready(timestamp(session["close_at"]), received):
             return day
         day -= timedelta(days=1)
     raise ValueError("no recent completed official session")
@@ -211,7 +211,7 @@ def _quotes(data, stamps, quotes, history, received, holidays, early):
             raise ValueError("provider bar on closed day or off the official open")
         if day in selected:
             raise ValueError("multiple daily bars for one official session")
-        if timestamp(session["close_at"]) + timedelta(minutes=15) > received:
+        if not daily_data.close_ready(timestamp(session["close_at"]), received):
             raise ValueError("selected bar has not passed close plus 15 minutes")
         selected[day] = (
             daily_data._price(quotes["open"][index]),

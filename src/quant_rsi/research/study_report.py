@@ -5,6 +5,7 @@ from html import escape
 
 from quant_rsi.market.market_contracts import timestamp
 from quant_rsi.research.study_explanation import continuity, evidence_path, question_coverage
+from quant_rsi.research.study_windows import timing_rows
 
 
 def _cell(value):
@@ -217,6 +218,8 @@ def render_study(result):
             + "; research cutoff: "
             + str(windows["research_cutoff"] or "current retrospective material"),
         )
+        if windows.get("timing"):
+            table(["Convention", "Rule"], timing_rows(windows["timing"]))
         table(
             ["Partition", "Origin range", "Last target", "Rows", "Excluded boundary origins"],
             [

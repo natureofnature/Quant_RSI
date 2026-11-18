@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
+from quant_rsi.market.availability import usable_at
 
 NOTICE = (
     "Retrospective reconstruction from currently retained SEC facts, not a complete historical "
@@ -236,7 +237,7 @@ def at_cutoff(records, cutoff):
         r
         for r in records
         if r["field"] not in CASHFLOW_FIELDS | {"inventory"}
-        and datetime.fromisoformat(r["available_at"]) <= instant
+        and usable_at(datetime.fromisoformat(r["available_at"]), instant)
     ]
     periods = {}
     for row in visible:
@@ -371,7 +372,7 @@ def inventory_at_cutoff(records, cutoff):
         if (
             row["field"] == "inventory"
             and row.get("period_kind") == "reported_balance_instant"
-            and datetime.fromisoformat(row["available_at"]) <= instant
+            and usable_at(datetime.fromisoformat(row["available_at"]), instant)
         ):
             periods.setdefault(row["end"], []).append(row)
     if not periods:

@@ -49,12 +49,14 @@ def test_all_quotes_wait_for_one_publication_and_expire():
         [
             "2026-10-27T20:00:00+00:00",
             "2026-10-28T20:00:00+00:00",
-            "2026-10-29T05:00:00+00:00",
+            "2026-10-29T05:00:00+00:00",  # exactly at availability: not yet usable (D3.1)
+            "2026-10-29T05:00:01+00:00",
             "2026-11-12T05:00:01+00:00",
         ],
         [2],
     )
-    assert bundle["columns"]["external.eia_wti_5obs_return"] == [None, None, 107 / 101 - 1, None]
+    column = bundle["columns"]["external.eia_wti_5obs_return"]
+    assert column == [None, None, None, 107 / 101 - 1, None]
 
 
 @pytest.mark.parametrize(

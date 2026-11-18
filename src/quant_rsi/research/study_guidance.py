@@ -10,7 +10,7 @@ from pydantic import Field
 
 from quant_rsi.core.artifacts import canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.market.availability import in_lookback_window
+from quant_rsi.market.availability import in_lookback_window, usable_at
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.research.study_news import MAX_BYTES, MAX_FILE_BYTES, MAX_FILES, NewsHistory
 
@@ -193,7 +193,7 @@ class GuidanceHistory:
             if r["symbol"] == symbol
             and timestamp(_receipt(r["snapshot"], symbol))
             == timestamp(result["snapshot_received_at"])
-            and timestamp(r["extracted_at"]) <= now
+            and usable_at(timestamp(r["extracted_at"]), now)
         ]
         if not candidates:
             result["reasons"] = ["no_guidance_extraction_by_cutoff"]

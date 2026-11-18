@@ -10,6 +10,7 @@ from test_research_study import command
 from quant_rsi.cli import main
 from quant_rsi.research import study_discovery
 from quant_rsi.research.discovery_engine import DiscoveryExperimentRunner
+from quant_rsi.research.study_windows import study_timing
 
 
 def arguments(root, *extra):
@@ -45,6 +46,11 @@ def test_discovery_acquired_lineage_real_fits_and_frozen_rows(tmp_path, monkeypa
     attempts = result["iterations"]["attempts"]
     assert [a["prediction"]["training_feature_columns"] for a in attempts] == [3, 4, 4]
     windows = result["study"]["research_windows"]
+    # The declared timing is recorded once and shown in the report (#159 D3.1).
+    assert windows["timing"] == study_timing(windows["horizon_sessions"])
+    assert windows["timing"]["at_instant_rule"] == "strictly_before_decision_instant_v1"
+    report = (root / "report.md").read_text()
+    assert "## Time conventions (declared)" in report and "close + 900 s" in report
     assert all(
         a["prediction"]["training_rows"] == len(windows["partitions"]["train"]["origin_sessions"])
         for a in attempts

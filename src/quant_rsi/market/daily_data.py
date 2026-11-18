@@ -63,6 +63,14 @@ SUPPORTED_EXCHANGES = {
 }
 HISTORY_SESSIONS = 120
 CLOSE_BUFFER_SECONDS = 900
+
+
+def close_ready(close_at, instant):
+    """One close-readiness rule for every daily-close consumer: a bar is complete once its
+    scheduled close plus CLOSE_BUFFER_SECONDS has passed."""
+    return instant >= close_at + timedelta(seconds=CLOSE_BUFFER_SECONDS)
+
+
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 EASTERN = ZoneInfo("America/New_York")
 MONTHS = {
@@ -477,7 +485,7 @@ def _complete_bars(
         if session is None or opening != datetime.fromisoformat(session["open_at"]):
             raise ValueError("Daily timestamp differs from the official registered opening")
         close_at = datetime.fromisoformat(session["close_at"])
-        if cutoff < close_at + timedelta(seconds=CLOSE_BUFFER_SECONDS):
+        if not close_ready(close_at, cutoff):
             if opening > received_at:
                 raise ValueError("Public chart contains a future bar")
             continue
@@ -501,9 +509,7 @@ def _complete_bars(
     day = end + timedelta(days=1)
     while day <= cutoff.astimezone(EASTERN).date():
         session = _session(day, holidays, early)
-        if session and cutoff >= datetime.fromisoformat(session["close_at"]) + timedelta(
-            seconds=CLOSE_BUFFER_SECONDS
-        ):
+        if session and close_ready(datetime.fromisoformat(session["close_at"]), cutoff):
             raise ValueError("Latest completed exchange session is absent from the public chart")
         day += timedelta(days=1)
     future = []
@@ -826,7 +832,8 @@ def collect_daily(
             "cash_and_quote_USD_per_share_are_explicit_provider_field_interpretations",
             "publication_must_use_observed_receipts_and_actual_model_effective_time",
             "user_selected_single_instrument_universe_not_historical_membership_certification",
-            "15_minute_close_buffer_does_not_prevent_later_provider_revisions",
+            f"{CLOSE_BUFFER_SECONDS // 60}_minute_close_buffer"
+            "_does_not_prevent_later_provider_revisions",
             "quote_decimals_normalized_to_12_fractional_places_half_even_raw_preserved",
             "unversioned_provider_events_use_revision_zero_conflicts_must_not_be_overwritten",
             "immutable_source_version_binds_chart_response_and_calendar_evidence",

@@ -233,7 +233,27 @@ Historical data may overlap an LLM's pretraining knowledge. Record provider, mod
 
 Maintain event time, available-at time, instrument identity, historical universe membership, corporate actions, and data revision identifiers. Features at a decision time may use only information available then. Include delisted instruments where applicable and fit imputers, scalers, and selectors only on training data.
 
-For the initial daily design, compute signals after the close of session t and model execution at the open of session t+1, with explicit costs and fill assumptions. A configurable horizon H defines returns from the open of t+1 to the open of t+1+H. Start with H=1. If reliable open prices or executable liquidity are unavailable, change the registered execution convention before testing.
+For the initial daily design of the forecast workflow (pipeline A, frozen under #159 D2), compute signals after the close of session t and model execution at the open of session t+1, with explicit costs and fill assumptions. A configurable horizon H defines returns from the open of t+1 to the open of t+1+H. Start with H=1. If reliable open prices or executable liquidity are unavailable, change the registered execution convention before testing.
+
+#### Research-study time conventions (#159 D3)
+
+The connected study (`research-study`, the main pipeline under #159 D1) declares its timing as a typed `StudyTiming` record in `research_windows.json`, and both report types show it under "Time conventions". The rules live in one data-layer module, [`market/availability.py`](../src/quant_rsi/market/availability.py), which imports nothing from `evaluation`, `forecast` or `research`. Each rule has a versioned identifier, so stored results state which rule produced them.
+
+| Convention | Rule | Identifier |
+|---|---|---|
+| Decision instant | The session close of the origin session | `decision_instant: session_close` |
+| Label | Close to close: `log(close[origin + H] / close[origin])` | `label: close_to_close` |
+| Execution | The strategy trades at the next session open | `execution: next_session_open` |
+| Usable at the decision instant | Only if available **strictly before** the close. Under a close-to-close label, information stamped exactly at the close describes the move the label measures. | `strictly_before_decision_instant_v1` |
+| Date-only publication | Usable from the start of the next calendar day in the source's declared timezone. If the timezone is unknown, the latest midnight on Earth (UTC−12), which is next day 12:00 UTC. | `date_only_next_day_start_v1` |
+| Freshness (max age) | Measured as an exact duration from publication (or the forecast vintage), never from receipt, version or extraction, so re-fetching an old release cannot renew it | `publication_anchored_exact_age_v1` |
+| News and guidance windows | Half-open `[instant − window, instant)` | `half_open_before_instant_v1` |
+| Daily close readiness | A daily bar is complete at scheduled close + 900 s. Every consumer calls `market.daily_data.close_ready`. | `close_readiness_seconds: 900` |
+| Cross-run memory | Prior studies are read through one journal-sequence watermark recorded per run, so a study registered later, or before a resume, stays invisible | `journal_sequence_v1` |
+
+Acquired input bundles record the alignment rules (`availability_rules`) and extraction-admission rules (`extraction_rules`) they were verified under. Replay uses the recorded rules, and a bundle without them uses the earlier rules exactly. The information mode is `retained` or `reconstructed`; the internal spelling `retrospective` means `reconstructed` and is kept because it is part of stored identities. Each source record carries its own `availability_basis`, and page-derived articles also carry a `publication_basis`.
+
+**Not yet migrated (Phase 3).** Six date-only sources still use their own "next day 05:00 UTC" rule rather than `date_only_available_at`: SEC financial facts (`study_financials`, `issuer_financials`), the EIA modules, and intraday fundamentals. For US Eastern sources this equals the declared-timezone rule in winter and is one hour later (more conservative) in summer. Their comparisons at the decision instant already use the strict rule. The forecast workflow's `market_data.knowledge_time`/`market.asof` conventions are unchanged until pipeline A moves under `legacy/`.
 
 Use chronological walk-forward folds. For initial fits and M0 folds, purge training labels whose intervals overlap the validation or scoring interval served by that fit. For an approved M1 refit, apply label maturity and purge rules at that refit time against the subsequent prediction/validation intervals served by the updated model; do not exclude an already elapsed episode segment merely because it once supplied scored observations. Only labels fully matured and available by the refit cutoff may enter training. Any additional gap or embargo follows the label horizon, publication delay, split/update construction and frozen TrainingPolicy. This permits registered online learning from past observations without exposing future outcomes or changing the research program.
 

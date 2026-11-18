@@ -1,7 +1,6 @@
 """Configurable price-context workflow on the existing forecast experiment ledger."""
 
 import re
-from datetime import timedelta
 
 from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
@@ -11,7 +10,7 @@ from quant_rsi.forecast import forecast_context_data as context
 from quant_rsi.forecast import forecast_experiment as experiment
 from quant_rsi.forecast.forecast_inputs import ForecastInputs
 from quant_rsi.forecast.forecast_workflow_config import ForecastWorkflowConfig
-from quant_rsi.market import market_contracts
+from quant_rsi.market import daily_data, market_contracts
 
 
 def workflow_root(workflow_id):
@@ -166,7 +165,7 @@ def _freshness(root, inputs, config):
         if not 0 <= age <= config.max_source_age_seconds:
             raise ValueError("frozen source receipts are stale or future-dated; no recollection")
     sessions = inputs.target[0].contract.calendar.sessions
-    complete = [s.session_id for s in sessions if s.close_at + timedelta(minutes=15) <= now]
+    complete = [s.session_id for s in sessions if daily_data.close_ready(s.close_at, now)]
     if not complete or complete[-1] != prepared["origin_session_id"]:
         raise ValueError("frozen origin is no longer the latest complete session")
 
