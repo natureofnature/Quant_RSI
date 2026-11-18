@@ -779,6 +779,9 @@ class DiscoverySources:
                 "status": "started",
                 "attempt": self.counts[kind],
             }
+            if charge_group is not None:
+                # Persisted with the receipt, so a resumed range knows it was already paid.
+                receipt["charge_group"] = charge_group["identity"]
             if not charge:
                 receipt["charged"] = False
             self.operations.append(receipt)
@@ -913,9 +916,28 @@ class DiscoverySources:
         issuer = self.disclosure_profiles.get(symbol)
         if issuer is None or self.disclosure_root is None:
             return output | {"status": "needs_data", "reason": "disclosure_issuer_not_configured"}
-        charge = {"charged": False}
+        months = parsed.months()
+        charge = None
+        if len(months) > 1:
+            # One search per range and source operation, restored from persisted receipts on
+            # resume. Another range, even an overlapping one, has its own identity.
+            group = digest(
+                canonical(
+                    [
+                        "disclosure_range",
+                        issuer["company_id"],
+                        query,
+                        (source_context or {}).get("identity"),
+                    ]
+                )
+            )
+            charged = any(
+                op.get("charge_group") == group and op.get("charged", True)
+                for op in self.operations
+            )
+            charge = {"identity": group, "charged": charged}
         listings = []
-        for year, month in parsed.months():
+        for year, month in months:
 
             def listing(year=year, month=month):
                 value = list_disclosures(

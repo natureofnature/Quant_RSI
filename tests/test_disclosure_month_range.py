@@ -121,3 +121,45 @@ def test_one_unavailable_month_does_not_block_the_others(tmp_path, monkeypatch):
     assert [len(documents) for documents in selection_documents(llm)] == [4]
     unavailable = result["search"]["unavailable_months"]
     assert [item["reason"] for item in unavailable] == ["http_503"]
+
+
+class Interrupted(BaseException):
+    """A process stop between months, not a failed request (review on #175)."""
+
+
+def test_interrupted_range_resumes_without_a_second_charge(tmp_path, monkeypatch):
+    class StopBeforeSeptember(PostArchive):
+        stop = True
+
+        def __call__(self, url, *, json_body):
+            if self.stop and url == mops_source.LIST_URL and json_body["month"] == "09":
+                raise Interrupted
+            return super().__call__(url, json_body=json_body)
+
+    archive = StopBeforeSeptember()
+    monkeypatch.setattr(article_reader, "_fetch", archive)
+    cache = Cache()
+    options = {"call": cache, "usage_path": tmp_path / "usage.json", "max_searches": 1}
+    context = {"operation_id": "survey-range"}
+    with pytest.raises(Interrupted):
+        source(tmp_path, **options).survey(survey(RANGE), context=context)
+    assert listed_months(archive) == [(2026, 8)]
+
+    archive.stop = False
+    resumed = source(tmp_path, **options)
+    result = resumed.survey(survey(RANGE), context=context)
+    # August replays from its receipt; September and October complete the paid range.
+    assert listed_months(archive) == [(2026, 8), (2026, 9), (2026, 10)]
+    assert resumed.counts["search"] == 1
+    assert len(result["articles"]) == 1
+    assert not any("allowance exhausted" in gap for gap in result["gaps"])
+
+
+def test_a_cached_month_does_not_make_a_different_range_free(tmp_path, archive):
+    cache = Cache()
+    engine = source(tmp_path, call=cache, max_searches=1)
+    engine.survey(survey(RANGE), context={"operation_id": "first"})
+    later = RANGE | {"month": 9, "end_month": 11}  # overlaps 09-10, adds 11
+    result = engine.survey(survey(later), context={"operation_id": "second"})
+    assert listed_months(archive) == [(2026, 8), (2026, 9), (2026, 10)]
+    assert any("allowance exhausted" in gap for gap in result["gaps"])
