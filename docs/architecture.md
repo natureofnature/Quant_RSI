@@ -438,6 +438,26 @@ examples/
 
 Keep datasets and run artifacts outside version control in configured storage. Apply separate protected-data permissions. Initialize Git before source implementation so package patches, evaluator changes and release bundles have reviewable revisions. The integration adapter may be replaced without changing the Experiment Kernel interfaces or declaring incomparable runs equivalent.
 
+### Active pipeline and frozen pipeline A (#159 D1/D2)
+
+The layout above is the original proposal. What exists today is organized as follows.
+
+The connected study (`research-study`, with its discovery and incremental modes), rolling research and the research workbench form the **active pipeline** (D1). The older recursive campaign, package/controller flow and forecast workflow form **pipeline A**. Pipeline A is frozen (D2): no new features, still importable, and its commands keep working.
+
+- **Boundary.** The active pipeline imports no pipeline A module. [`tests/test_pipeline_boundary.py`](../tests/test_pipeline_boundary.py) checks the import closure of every active entry point and neutral module, and of an offline study run. The layering ratchet cannot see these downward leaks. `cli.py` imports pipeline A modules only inside the dispatch of A commands.
+- **Neutral shared symbols.** Symbols both sides need live in neutral modules, and pipeline A re-exports them unchanged:
+  - `market.event_csv`: `parse_csv`, `validate_event`;
+  - `market.forecast_records`: `forecast_errors`, `confirmed_report`;
+  - `core.model_parameters`: the fixed LightGBM `MODEL_PARAMETERS`/`BOOST_ROUNDS`;
+  - `market.news_feed`: `EventTemplate` and feed-publication parsing.
+- **One fit, one target.** Research fits whose semantics match share `study_estimators.fit_estimator`, `predict_estimator`, `estimator_state` and `log_close_ratio_labels` (close-to-close `log(close[t+h]/close[t])`): study attempts, latest refits, walk-forward folds, model and financial comparisons, and rolling research. Each keeps its own row selection (fixed, expanding or latest window). [`tests/test_shared_fit.py`](../tests/test_shared_fit.py) keeps research modules from fitting directly.
+- **Distinct targets keep explicit contracts:**
+  - pipeline A's event-sourced labels (`forecast_kernel`, with knowledge-time and corporate-action eligibility);
+  - open-to-open returns (`core.model`, `market.asof`);
+  - intraday timing.
+
+  Sector-aware studies change the baseline's features, not the target.
+
 ## Capability implementation plan
 
 Dependencies reflect what a capability needs to execute and be verified. A favorable financial finding is not an implementation dependency.
