@@ -8,6 +8,7 @@ collection never invents historical receipt times.
 import calendar
 import json
 import re
+from collections import Counter
 from copy import deepcopy
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -1306,7 +1307,11 @@ class DiscoverySources:
         if source_context is not None:
             source_context["status"] = "completed"
             self._save_usage()
+        basis = _publication_basis(observations, articles)
         return bundle | {
+            # Outside the replay-verified keys: labels how each publication date is known.
+            "publication_basis": basis,
+            "publication_basis_counts": dict(Counter(basis.values())),
             "articles": articles,
             "excluded": excluded,
             "extractions": extraction_records,
@@ -1316,6 +1321,25 @@ class DiscoverySources:
             "operations": deepcopy(self.operations),
             "access_receipts": deepcopy(self.access_receipts),
         }
+
+
+def _publication_basis(observations, articles):
+    """How each observation's publication date is known (#159 D3.4).
+
+    ``llm_quoted_unverified`` rests only on the date the LLM quoted from the text; such
+    values are reported separately and do not count as Milestone 1 acceptance evidence.
+    """
+    by_id = {article["id"]: article for article in articles}
+    basis = {}
+    for row in observations:
+        article = by_id.get(row["source_id"], {})
+        if article.get("provider") == "mops":
+            basis[row["observation_id"]] = "official_timestamp"
+        elif article.get("published_at"):
+            basis[row["observation_id"]] = "source_metadata"
+        else:
+            basis[row["observation_id"]] = "llm_quoted_unverified"
+    return basis
 
 
 def validate_extraction(

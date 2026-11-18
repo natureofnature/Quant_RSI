@@ -122,6 +122,45 @@ def _fetch(url, *, json_body=None):
         sock.close()
 
 
+def _published_in_linked_data(value, found, depth=0):
+    if depth > 6:
+        return
+    if isinstance(value, list):
+        for item in value[:50]:
+            _published_in_linked_data(item, found, depth + 1)
+    elif isinstance(value, dict):
+        published = value.get("datePublished")
+        if isinstance(published, str):
+            found.append(("json-ld:datePublished", published))
+        for key in ("@graph", "mainEntity", "mainEntityOfPage"):
+            if key in value:
+                _published_in_linked_data(value[key], found, depth + 1)
+
+
+def _publication_metadata(candidates):
+    """The page's own declared publication time, only when unambiguous and zone-aware (D3.4)."""
+    if not candidates:
+        return {}
+    parsed, unparsed = set(), []
+    for _, raw in candidates:
+        try:
+            value = datetime.fromisoformat(raw.strip())
+        except ValueError:
+            value = None
+        if value is None or value.tzinfo is None:
+            unparsed.append(raw)
+        else:
+            parsed.add(value.astimezone(UTC).isoformat().replace("+00:00", "Z"))
+    sources = sorted({source for source, _ in candidates})
+    if len(parsed) == 1 and not unparsed:
+        return {
+            "published_at": parsed.pop(),
+            "publication_metadata": {"status": "declared", "sources": sources},
+        }
+    status = "conflicting" if len(parsed) > 1 else "not_zone_aware_or_unparsed"
+    return {"publication_metadata": {"status": status, "sources": sources}}
+
+
 class _ArticleText(HTMLParser):
     _ignored = {
         "head",
@@ -165,8 +204,25 @@ class _ArticleText(HTMLParser):
         self.stack = []
         self.hidden_depths = []
         self.parts = {"article": [], "main": [], "body": []}
+        self.publication = []  # (source, raw value) the page itself declares
+        self.linked_data = None
+
+    def _metadata(self, tag, attributes):
+        # Only explicit publication declarations; never dateModified or a bare <time>,
+        # which pages use for unrelated dates (comments, related stories, updates).
+        name = (attributes.get("property") or attributes.get("name") or "").strip().lower()
+        if tag == "meta" and name == "article:published_time" and attributes.get("content"):
+            self.publication.append(("meta:article:published_time", attributes["content"]))
+        if (attributes.get("itemprop") or "").strip() == "datePublished":
+            value = attributes.get("datetime") or attributes.get("content")
+            if value:
+                self.publication.append(("itemprop:datePublished", value))
+        kind = (attributes.get("type") or "").strip().lower()
+        if tag == "script" and kind == "application/ld+json":
+            self.linked_data = []
 
     def handle_starttag(self, tag, attrs):
+        self._metadata(tag, dict(attrs))
         if tag not in self._void:
             self.stack.append(tag)
             attributes = dict(attrs)
@@ -184,15 +240,24 @@ class _ArticleText(HTMLParser):
                 self.hidden_depths.append(len(self.stack))
 
     def handle_startendtag(self, tag, attrs):
-        pass
+        self._metadata(tag, dict(attrs))
 
     def handle_endtag(self, tag):
+        if tag == "script" and self.linked_data is not None:
+            try:
+                _published_in_linked_data(json.loads("".join(self.linked_data)), self.publication)
+            except (ValueError, RecursionError):
+                pass  # Malformed linked data declares nothing.
+            self.linked_data = None
         if tag in self.stack:
             index = len(self.stack) - 1 - self.stack[::-1].index(tag)
             del self.stack[index:]
             self.hidden_depths = [depth for depth in self.hidden_depths if depth <= len(self.stack)]
 
     def handle_data(self, data):
+        if self.linked_data is not None:
+            self.linked_data.append(data)
+            return
         if self.hidden_depths or self._ignored.intersection(self.stack):
             return
         self.parts["body"].append(data)
@@ -264,6 +329,7 @@ def read_article(url, *, avoid_hosts=None):
                 decoded = body.decode(charset, errors="replace")
             except LookupError:
                 raise _Unavailable("unsupported_charset") from None
+            publication = []
             if headers.get_content_type() == "text/plain":
                 text = " ".join(decoded.split())
             else:
@@ -271,6 +337,7 @@ def read_article(url, *, avoid_hosts=None):
                 parser.feed(decoded)
                 parser.close()
                 text = parser.text()
+                publication = parser.publication
             if not text:
                 raise _Unavailable("no_readable_text")
             result.update(
@@ -280,6 +347,7 @@ def read_article(url, *, avoid_hosts=None):
                 text_truncated=len(text) > MAX_TEXT,
                 content_sha256=content_hash,
             )
+            result |= _publication_metadata(publication)
             break
     except _Unavailable as exc:
         result["reason"] = str(exc)
