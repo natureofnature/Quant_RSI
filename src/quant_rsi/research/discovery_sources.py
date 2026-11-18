@@ -31,6 +31,8 @@ from quant_rsi.research.active_news import SearchResponse, _avoid_hosts, _hostna
 from quant_rsi.research.article_reader import read_article
 from quant_rsi.research.discovery_hypotheses import EvidenceRelationship
 
+CALENDAR_DATE = r"^\d{4}-\d{2}-\d{2}$"
+
 
 class RealizedMeasure(StrictModel):
     product: str = Field(min_length=1, max_length=200)
@@ -168,6 +170,16 @@ class NumericalExtraction(StrictModel):
     measurement: str
     observations: tuple[ExtractedObservation, ...] = Field(max_length=32)
     limitations: tuple[str, ...] = Field(max_length=8)
+
+
+class ProviderNumericalExtraction(NumericalExtraction):
+    """The schema requested from the provider: publication_date is a calendar date.
+
+    Stored extractions keep validating with the lenient NumericalExtraction, so archives
+    containing earlier rejected answers still replay.
+    """
+
+    publication_date: Annotated[str, Field(pattern=CALENDAR_DATE)] | None
 
 
 class SurveyFinding(StrictModel):
@@ -1250,10 +1262,12 @@ class DiscoverySources:
                 "publication_date is the "
                 "source's actual publication date, never the period end or retrieval "
                 "time; quote its "
-                "date from the text. If publication is absent, return null and no observations. "
+                "date from the text. publication_date is a calendar date (YYYY-MM-DD) with no "
+                "time or offset. If publication is absent, return null and no observations. "
                 "Return no observations for a mismatched company, unit, measurement, period or "
-                "ambiguous table. For MOPS, quote its literal ROC publication date and map that "
-                "to publication_date; preserve the official publication time. Supported literal "
+                "ambiguous table. For MOPS, quote its literal ROC publication date and time in "
+                "publication_excerpt and map the date to publication_date; the official time is "
+                "taken from the source fields. Supported literal "
                 "units are percent/%, TWD, TWD thousand, TWD million and TWD hundred million. "
                 "Do not convert compound Chinese amounts such as 5118億5700萬元 into a number, "
                 "or treat cumulative or partial-month values as full-month observations. "
@@ -1265,7 +1279,9 @@ class DiscoverySources:
                     "extract",
                     payload,
                     lambda prompt=prompt: {
-                        "text": self.llm.structured(prompt, strict_schema(NumericalExtraction)),
+                        "text": self.llm.structured(
+                            prompt, strict_schema(ProviderNumericalExtraction)
+                        ),
                         "extracted_at": _now(),
                     },
                 )
@@ -1359,6 +1375,18 @@ def validate_extraction(
         or result.publication_excerpt not in text
     ):
         return [], ["missing_literal_publication_evidence"]
+    # Stored records replay through this validator, so accept every calendar form it has
+    # always accepted (e.g. ISO basic 20251116). Only a timestamp gets the specific reason;
+    # the stricter YYYY-MM-DD pattern applies to new provider requests, not to replay.
+    try:
+        date.fromisoformat(result.publication_date)
+    except ValueError:
+        try:
+            datetime.fromisoformat(result.publication_date)
+        except ValueError:
+            pass  # Other malformed values keep the existing invalid_source_dates path.
+        else:
+            return [], ["publication_date_not_calendar_date"]
     try:
         publication_day = date.fromisoformat(result.publication_date)
         receipt = timestamp(article["received_at"])
