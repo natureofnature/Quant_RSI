@@ -72,11 +72,46 @@ class OriginalActualRelease(StrictModel):
 
 
 class DisclosureQuery(StrictModel):
-    """A bounded official archive query, not an arbitrary URL or API call."""
+    """A bounded official archive query, not an arbitrary URL or API call.
+
+    One calendar month, or a consecutive range of at most 12 months ending at
+    end_year/end_month. A whole range is charged as one search allowance; each month keeps
+    its own listing receipt, so overlapping ranges reuse months already listed.
+    """
 
     provider: Literal["mops"]
     year: int = Field(ge=1990, le=2100)
     month: int = Field(ge=1, le=12)
+    end_year: int | None = Field(default=None, ge=1990, le=2100)
+    end_month: int | None = Field(default=None, ge=1, le=12)
+
+    @model_validator(mode="after")
+    def bounded_range(self):
+        if (self.end_year is None) != (self.end_month is None):
+            raise ValueError("Give both end_year and end_month, or neither")
+        if self.end_year is not None:
+            span = (self.end_year - self.year) * 12 + self.end_month - self.month
+            if not 0 <= span <= 11:
+                raise ValueError("A disclosure range covers 1 to 12 consecutive months")
+        return self
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        # Single-month queries keep their original stored form and cache keys.
+        value = handler(self)
+        if self.end_year is None:
+            value.pop("end_year", None)
+            value.pop("end_month", None)
+        return value
+
+    def months(self):
+        if self.end_year is None:
+            return [(self.year, self.month)]
+        year, month, result = self.year, self.month, []
+        while (year, month) <= (self.end_year, self.end_month):
+            result.append((year, month))
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        return result
 
 
 class DisclosureIssuer(StrictModel):
@@ -716,7 +751,7 @@ class DiscoverySources:
             "avoid_hosts": sorted(_avoid_hosts(self.access_receipts)),
         }
 
-    def _operation(self, kind, payload, operation, *, replay_only=False):
+    def _operation(self, kind, payload, operation, *, replay_only=False, charge_group=None):
         payload = {
             "input": payload,
             "policy": self.policy,
@@ -730,15 +765,22 @@ class DiscoverySources:
         def dispatch():
             if replay_only:
                 raise ValueError(f"Completed discovery {kind} checkpoint is unavailable")
-            if kind in self.limits and self.counts[kind] >= self.limits[kind]:
-                raise SourceAllowanceExhausted(f"Discovery {kind} allowance exhausted")
-            self.counts[kind] += 1
+            # Operations sharing a charge group (one disclosure range) are charged once.
+            charge = charge_group is None or not charge_group["charged"]
+            if charge:
+                if kind in self.limits and self.counts[kind] >= self.limits[kind]:
+                    raise SourceAllowanceExhausted(f"Discovery {kind} allowance exhausted")
+                self.counts[kind] += 1
+                if charge_group is not None:
+                    charge_group["charged"] = True
             receipt = {
                 "kind": kind,
                 "identity": identity,
                 "status": "started",
                 "attempt": self.counts[kind],
             }
+            if not charge:
+                receipt["charged"] = False
             self.operations.append(receipt)
             # Charge before dispatch: an interrupted or failed paid call is not free.
             self._save_usage()
@@ -847,7 +889,7 @@ class DiscoverySources:
         self.articles.append(article)
         return article
 
-    def _disclosure_operation(self, kind, payload, operation):
+    def _disclosure_operation(self, kind, payload, operation, *, charge_group=None):
         # A newly denied host cannot invalidate an already retained response.
         # On a cache miss the provider returns a skip before resolving/connecting.
         if "mops.twse.com.tw" in _avoid_hosts(self.access_receipts):
@@ -858,42 +900,70 @@ class DiscoverySources:
                     if str(exc) != f"Completed discovery {kind} checkpoint is unavailable":
                         raise
             return operation()
-        return self._operation(kind, payload, operation)
+        return self._operation(kind, payload, operation, charge_group=charge_group)
 
     def _disclosures(self, query, symbol, question, source_context):
         from quant_rsi.research.mops_source import list_disclosures, read_disclosure
 
-        query = DisclosureQuery.model_validate(query).model_dump(mode="json")
+        parsed = DisclosureQuery.model_validate(query)
+        query = parsed.model_dump(mode="json")
         output = {"provider": "mops", "query": query, "results": []}
         if self.mode == "retained":
             return output | {"status": "retained_search_disabled"}
         issuer = self.disclosure_profiles.get(symbol)
         if issuer is None or self.disclosure_root is None:
             return output | {"status": "needs_data", "reason": "disclosure_issuer_not_configured"}
+        charge = {"charged": False}
+        listings = []
+        for year, month in parsed.months():
 
-        def listing():
-            value = list_disclosures(
-                issuer["company_id"],
-                query["year"],
-                query["month"],
-                root=self.disclosure_root,
-                avoid_hosts=_avoid_hosts(self.access_receipts),
+            def listing(year=year, month=month):
+                value = list_disclosures(
+                    issuer["company_id"],
+                    year,
+                    month,
+                    root=self.disclosure_root,
+                    avoid_hosts=_avoid_hosts(self.access_receipts),
+                )
+                self._remember_access(value)
+                self._save_usage()
+                return value
+
+            # Each month keeps the single-month receipt key, so ranges reuse cached months.
+            month_query = {"provider": "mops", "year": year, "month": month}
+            listed = self._disclosure_operation(
+                "search",
+                {"provider": "mops", "issuer": issuer, "query": month_query},
+                listing,
+                charge_group=charge,
             )
-            self._remember_access(value)
+            self._remember_access(listed)
             self._save_usage()
-            return value
-
-        listed = self._disclosure_operation(
-            "search", {"provider": "mops", "issuer": issuer, "query": query}, listing
-        )
-        self._remember_access(listed)
-        self._save_usage()
-        output["listing"] = listed
-        if listed["status"] != "available":
-            return output | {"status": "needs_data", "reason": listed.get("reason", "unavailable")}
-        documents = {row["document_ref"]: row for row in listed["items"]}
+            listings.append(listed)
+        available = [listed for listed in listings if listed["status"] == "available"]
+        if len(listings) == 1:
+            output["listing"] = listings[0]
+        else:
+            output["listings"] = listings
+        if not available:
+            return output | {
+                "status": "needs_data",
+                "reason": listings[0].get("reason", "unavailable"),
+            }
+        documents = {row["document_ref"]: row for listed in available for row in listed["items"]}
         if not documents:
-            return output | {"status": "needs_data", "reason": "no_disclosures_in_requested_month"}
+            reason = (
+                "no_disclosures_in_requested_month"
+                if len(listings) == 1
+                else "no_disclosures_in_requested_months"
+            )
+            return output | {"status": "needs_data", "reason": reason}
+        if len(available) < len(listings):
+            output["unavailable_months"] = [
+                {"query": listed.get("request", {}), "reason": listed.get("reason", "unavailable")}
+                for listed in listings
+                if listed["status"] != "available"
+            ]
         allowance = min(6, source_context.get("read_allowance", self.limits["read"]))
         if not allowance:
             return output | {"status": "needs_data", "reason": "Discovery read allowance exhausted"}
@@ -1697,15 +1767,19 @@ def discovery_decision(llm, context):
         "target in context.symbol; use null when no different survey issuer is needed. "
         "For issuers listed in context.disclosure_sources, you may use a survey disclosure_query "
         "with provider=mops and a Gregorian year/month to investigate the official announcement "
-        "archive. Select the month from the research question and required information periods; "
-        "the application asks you which listed documents to read. A list query uses one search "
-        "allowance, each detail one read, and selection is a recorded LLM analysis call. "
+        "archive, or a consecutive range of up to 12 months by also giving end_year/end_month "
+        "(null for one month). Select months from the research question and required information "
+        "periods; quarterly measurements over a training window need every release month in "
+        "that window. The application asks you which listed documents to read. A list query, "
+        "single month or range, uses one search allowance; each detail uses one read, and "
+        "selection is a recorded LLM analysis call. "
         "No issuer profile means this provider is unavailable; use other sources or report the "
         "gap. Current retrieval of a historical announcement is not a historical version archive. "
         "Use data_requests.source_ids to request measurements from exact retained document "
         "snapshots, especially POST sources sharing one endpoint. "
         "Use data_requests.disclosure_query "
-        "to acquire another announcement month when measurements are missing. source_ids, "
+        "to acquire announcement months or a month range when measurements are missing. "
+        "source_ids, "
         "source_urls and disclosure_query are mutually exclusive. Do not fabricate a GET URL "
         "for a structured disclosure or change the source issuer. A few months do not establish "
         "coverage of every training row; inspect the measured coverage before testing. "
