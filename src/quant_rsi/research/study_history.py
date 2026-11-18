@@ -68,9 +68,16 @@ def _ledger(directory, *, write=False, wait_seconds=LOCK_WAIT_SECONDS):
             journal.close()
 
 
-def _entries(journal, store):
+def _entries(journal, store, through=None):
+    """Entries from journal events, optionally only those at or before sequence `through`."""
     entries = {}
-    for event in journal.connection.execute("SELECT kind,payload FROM events ORDER BY sequence"):
+    query, values = "SELECT kind,payload FROM events ORDER BY sequence", ()
+    if through is not None:
+        query, values = (
+            "SELECT kind,payload FROM events WHERE sequence <= ? ORDER BY sequence",
+            (through,),
+        )
+    for event in journal.connection.execute(query, values):
         payload = decode(event["payload"].encode())
         if event["kind"] == "study_registered":
             entry = store.json(payload["ref"])
@@ -358,12 +365,35 @@ def observe_prices(directory, symbol, snapshot):
     return history_view(directory, symbol)
 
 
-def history_view(directory, symbol=None):
+def history_watermark(directory):
+    """The journal's last event sequence: the cross-run snapshot a run reads through."""
+    if not directory or not (Path(directory) / "journal.sqlite").exists():
+        return 0
+    with _ledger(directory) as (journal, _):
+        row = journal.connection.execute("SELECT MAX(sequence) FROM events").fetchone()
+        return int(row[0] or 0)
+
+
+def run_history_watermark(cache, directory, symbol):
+    """Record the cross-run history watermark once per run (#159 D8.2).
+
+    Every cross-run history read in the run goes through this one sequence, so a study
+    registered later, by another process or before a resume, stays invisible to the run.
+    Called after this run records its own maturity observations.
+    """
+    return cache.call(
+        "history_watermark",
+        {"symbol": symbol},
+        lambda: {"sequence": history_watermark(directory), "rule": "journal_sequence_v1"},
+    )["sequence"]
+
+
+def history_view(directory, symbol=None, *, through=None):
     if not (Path(directory) / "journal.sqlite").exists():
         return {"entries": [], "notice": NOTICE}
     with _ledger(directory) as (journal, store):
         entries = []
-        for entry in _entries(journal, store).values():
+        for entry in _entries(journal, store, through).values():
             if symbol and entry["symbol"] != symbol:
                 continue
             latest = entry["observations"][-1] if entry["observations"] else entry
@@ -393,8 +423,8 @@ def history_view(directory, symbol=None):
         return {"entries": entries[-50:], "notice": NOTICE}
 
 
-def mature_feedback(directory, symbol, *, horizon_sessions=5, question=""):
-    view = history_view(directory, symbol)
+def mature_feedback(directory, symbol, *, horizon_sessions=5, question="", through=None):
+    view = history_view(directory, symbol, through=through)
     view["entries"] = [
         e
         for e in view["entries"]
@@ -406,10 +436,10 @@ def mature_feedback(directory, symbol, *, horizon_sessions=5, question=""):
         "horizon_sessions": horizon_sessions,
         "question": question,
         "factor_memory": recent_factor_recipes(
-            directory, symbol, horizon_sessions=horizon_sessions, question=question
+            directory, symbol, horizon_sessions=horizon_sessions, question=question, through=through
         ),
         "factor_ledger": factor_ledger(
-            directory, symbol, horizon_sessions=horizon_sessions, limit=40
+            directory, symbol, horizon_sessions=horizon_sessions, limit=40, through=through
         ),
         "entries": [e for e in view["entries"] if e["status"] == "settled"][-20:],
         "history": {
@@ -422,7 +452,7 @@ def mature_feedback(directory, symbol, *, horizon_sessions=5, question=""):
     }
 
 
-def recent_factor_recipes(directory, symbol, *, horizon_sessions=5, question=""):
+def recent_factor_recipes(directory, symbol, *, horizon_sessions=5, question="", through=None):
     """Read selected recipes through retained artifact references, never mutable run paths."""
     if not (Path(directory) / "journal.sqlite").exists():
         return []
@@ -431,7 +461,7 @@ def recent_factor_recipes(directory, symbol, *, horizon_sessions=5, question="")
     with _ledger(directory) as (journal, store):
         entries = [
             e
-            for e in _entries(journal, store).values()
+            for e in _entries(journal, store, through).values()
             if e["symbol"] == symbol
             and e.get("horizon_sessions", 5) == horizon_sessions
             and e.get("question", "") == question
@@ -458,7 +488,7 @@ def recent_factor_recipes(directory, symbol, *, horizon_sessions=5, question="")
         return result
 
 
-def ledger_studies(directory, symbol, *, horizon_sessions=None):
+def ledger_studies(directory, symbol, *, horizon_sessions=None, through=None):
     """Attempt records for every retained study; older entries read their frozen result."""
     if not (Path(directory) / "journal.sqlite").exists():
         return []
@@ -466,7 +496,7 @@ def ledger_studies(directory, symbol, *, horizon_sessions=None):
 
     with _ledger(directory) as (journal, store):
         studies = []
-        for entry in _entries(journal, store).values():
+        for entry in _entries(journal, store, through).values():
             if entry["symbol"] != symbol or (
                 horizon_sessions is not None
                 and entry.get("horizon_sessions", 5) != horizon_sessions
@@ -500,10 +530,10 @@ def ledger_studies(directory, symbol, *, horizon_sessions=None):
         return studies
 
 
-def factor_ledger(directory, symbol, *, horizon_sessions=None, limit=None):
+def factor_ledger(directory, symbol, *, horizon_sessions=None, limit=None, through=None):
     from quant_rsi.research.study_factor_ledger import summarize
 
-    studies = ledger_studies(directory, symbol, horizon_sessions=horizon_sessions)
+    studies = ledger_studies(directory, symbol, horizon_sessions=horizon_sessions, through=through)
     return summarize(studies, limit=limit) | {
         "symbol": symbol,
         "horizon_sessions": horizon_sessions,
