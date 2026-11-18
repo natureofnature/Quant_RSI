@@ -1,6 +1,7 @@
 """Portable research reports: local HTML/Markdown plus the complete JSON evidence."""
 
 import json
+from datetime import date
 from html import escape
 
 from quant_rsi.market.market_contracts import timestamp
@@ -785,7 +786,6 @@ def render_study(result):
     )
     rows = []
     cost_rows = []
-    accounts = []
     for label, prediction in (("Initial", first), ("Revised", second)):
         for name in ("strategy", "buy_and_hold"):
             if name == "buy_and_hold" and label == "Initial":
@@ -812,16 +812,19 @@ def render_study(result):
                     metrics["risk_statistics"]["status"],
                 ]
             )
-            accounts.append((account_label, account))
     table(
         ["Account", "Net return", "Sharpe (ann.)", "Volatility (ann.)", "Max drawdown", "Daily N"],
         rows,
     )
     table(["Account", "Commission", "Slippage", "Turnover", "Risk statistic status"], cost_rows)
-    html.append(_equity_chart(accounts))
-    selected = first if selection["selected_attempt"] == "initial" else second
-    if iterations:
-        selected = iterations["attempts"][iterations["selected_round"] - 1]["prediction"]
+    selected = _selected_prediction(first, second, iterations, selection)
+    html.append(
+        _equity_chart(
+            selected,
+            result.get("terminal_evaluation"),
+            result["study"].get("account_windows"),
+        )
+    )
     from quant_rsi.research.study_latest import publication_prediction
 
     published = publication_prediction(result)
@@ -1326,6 +1329,10 @@ def render_study(result):
         "td,th{text-align:left;vertical-align:top;padding:10px;border-bottom:1px solid #d8e1e7;"
         "overflow-wrap:anywhere;min-width:80px}th{background:#e4eeed}a{color:#086b79}"
         "svg{width:100%;height:auto;background:white}"
+        "svg.nav-chart{display:block;width:100%;height:380px;background:white}"
+        "svg.nav-chart .cross{visibility:hidden}"
+        "svg.nav-chart .hit:hover .cross{visibility:visible}"
+        ".nav-legend{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 4px}"
         "section p{max-width:100ch;overflow-wrap:anywhere}"
         ".question-claim{padding:18px;margin:16px 0;border:1px solid #d8e1e7;"
         "border-radius:10px;background:white;overflow-wrap:anywhere}"
@@ -1333,34 +1340,261 @@ def render_study(result):
     )
 
 
-def _equity_chart(accounts):
-    series = [
-        (name, [(row["session_id"], float(row["nav"])) for row in account["valuations"]])
-        for name, account in accounts
+_BANDS = {
+    "training": ("#e7eef8", "Training"),
+    "development": ("#e7f6ef", "Development"),
+    "test": ("#fdecc8", "Test"),
+}
+
+
+def _selected_prediction(first, second, iterations, selection):
+    if iterations:
+        return iterations["attempts"][iterations["selected_round"] - 1]["prediction"]
+    if selection["selected_attempt"] == "initial":
+        return first
+    return second
+
+
+def _day_number(day):
+    return date.fromisoformat(str(day)[:10]).toordinal()
+
+
+def _nav_rows(account):
+    return [
+        (str(row["session_id"])[:10], float(row["nav"]))
+        for row in account["valuations"]
+        if row.get("nav") is not None
     ]
-    values = [value for _, rows in series for _, value in rows]
-    low, high = min(values), max(values)
-    span = high - low or 1
-    palette = ("#246bce", "#13827b", "#d18b18")
-    svg = [
-        "<h2>Hypothetical account NAV</h2><svg viewBox='0 0 900 340' role='img' "
-        "aria-label='Initial and revised strategy NAV versus buy and hold'>"
-    ]
-    for name, rows in series:
-        color = palette[len(svg) - 1]
-        points = " ".join(
-            f"{70 + i * 790 / max(1, len(rows) - 1):.2f},{260 - (v - low) * 210 / span:.2f}"
-            for i, (_, v) in enumerate(rows)
-        )
-        svg.append(
-            f"<polyline points='{points}' fill='none' stroke='{color}' stroke-width='2'/>"
-            f"<text x='{70 + (len(svg) - 1) * 270}' y='325' fill='{color}' font-size='13'>"
-            f"{escape(name)}</text>"
-        )
-    svg.append(
-        f"<text x='8' y='55' font-size='12'>{high:.0f}</text>"
-        f"<text x='8' y='265' font-size='12'>{low:.0f}</text>"
-        f"<text x='70' y='290' font-size='12'>{escape(series[0][1][0][0])}</text>"
-        f"<text x='775' y='290' font-size='12'>{escape(series[0][1][-1][0])}</text></svg>"
+
+
+def _account_lines(bundle):
+    strategy = bundle["strategy"]
+    return {
+        "strategy": _nav_rows(strategy),
+        "buy_and_hold": _nav_rows(bundle["buy_and_hold"]),
+        "fills": [
+            (str(fill["resolved_at"])[:10], fill["side"])
+            for fill in strategy.get("fills") or []
+            if fill.get("side") in {"buy", "sell"}
+        ],
+    }
+
+
+def _date_ticks(known):
+    if len(known) <= 4:
+        return known
+    first, last = _day_number(known[0]), _day_number(known[-1])
+    ticks = []
+    for step in range(4):
+        target = first + (last - first) * step / 3
+        nearest = min(known, key=lambda day: abs(_day_number(day) - target))
+        if nearest not in ticks:
+            ticks.append(nearest)
+    return ticks
+
+
+def _swatch(color, label):
+    return (
+        "<span><i style='display:inline-block;width:12px;height:12px;margin-right:6px;"
+        f"vertical-align:-1px;background:{color}'></i>{escape(label)}</span>"
     )
-    return "".join(svg)
+
+
+def _nav_legend(bands, markers):
+    items = [_BANDS[name] for name in ("training", "development", "test")] if bands else []
+    items.extend((("#13827b", "Selected strategy"), ("#d18b18", "Buy-and-hold")))
+    if markers:
+        items.extend((("#0b6b3a", "Buy"), ("#9a3412", "Sell")))
+    return "<p class='nav-legend'>" + "".join(_swatch(*item) for item in items) + "</p>"
+
+
+def _nav_figure(chart_id, label, windows, series, show_markers):
+    days, values = [], []
+    for _account, _name, _color, points, _fills in series:
+        days.extend(day for day, _value in points)
+        values.extend(value for _day, value in points)
+    for span in windows.values():
+        days.extend((str(span["start"])[:10], str(span["end"])[:10]))
+    if not days:
+        return ""
+    first, last = min(days), max(days)
+    span_days = max(_day_number(last) - _day_number(first), 1)
+    if values:
+        low, high = min(values), max(values)
+        pad = (high - low) * 0.08 or 1
+        low, high = low - pad, high + pad
+    else:
+        low, high = 9000.0, 11000.0
+    y_span = high - low or 1
+
+    def x_of(day):
+        return 72 + (_day_number(day) - _day_number(first)) / span_days * 812
+
+    def y_of(value):
+        return 28 + (high - value) / y_span * 272
+
+    parts = [
+        f"<svg id='{chart_id}' class='nav-chart' viewBox='0 0 900 340' role='img' "
+        f"aria-label='{escape(label)}' "
+        "style='display:block;width:100%;height:380px;background:white'>"
+        "<style>.cross{visibility:hidden}.hit:hover .cross{visibility:visible}</style>"
+    ]
+    for name, span in windows.items():
+        color, _title = _BANDS[name]
+        x0 = x_of(str(span["start"])[:10])
+        x1 = min(max(x_of(str(span["end"])[:10]), x0 + 8), 884)
+        parts.append(
+            f"<rect data-window='{name}' x='{x0:.2f}' y='28' width='{max(x1 - x0, 0):.2f}' "
+            "height='272' fill='" + color + "'/>"
+        )
+    for day in _date_ticks(sorted(set(days))):
+        x = x_of(day)
+        anchor = "start" if x < 120 else "end" if x > 820 else "middle"
+        parts.append(
+            f"<line data-grid='date' x1='{x:.2f}' y1='28' x2='{x:.2f}' y2='300' "
+            "stroke='#e4eeed' stroke-width='1'/>"
+            f"<text x='{x:.2f}' y='322' text-anchor='{anchor}' font-size='12'>{escape(day)}</text>"
+        )
+    for value in (low, (low + high) / 2, high):
+        y = y_of(value)
+        parts.append(
+            f"<line data-grid='nav' x1='72' y1='{y:.2f}' x2='884' y2='{y:.2f}' "
+            "stroke='#e4eeed' stroke-width='1'/>"
+            f"<text x='4' y='{y + 4:.2f}' font-size='12'>{value:.0f}</text>"
+        )
+    readings = {}
+    for account, name, color, points, fills in series:
+        coords, located = [], {}
+        for day, value in points:
+            x, y = x_of(day), y_of(value)
+            coords.append(f"{x:.2f},{y:.2f}")
+            located[day] = (x, y)
+            readings.setdefault(day, {"x": x, "rows": []})["rows"].append((name, value, y))
+        if len(coords) >= 2:
+            parts.append(
+                f"<polyline data-account='{account}' data-name='{name}' "
+                f"points='{' '.join(coords)}' fill='none' stroke='{color}' stroke-width='2'/>"
+            )
+        elif coords:
+            x, y = coords[0].split(",")
+            parts.append(
+                f"<circle data-account='{account}' data-name='{name}' cx='{x}' cy='{y}' "
+                f"r='3' fill='{color}'/>"
+            )
+        if show_markers and name == "Selected strategy":
+            for day, side in fills:
+                if day not in located:
+                    continue
+                x, y = located[day]
+                if side == "buy":
+                    parts.append(
+                        f"<circle data-side='buy' cx='{x:.2f}' cy='{y:.2f}' r='4.5' "
+                        "fill='#0b6b3a'/>"
+                    )
+                else:
+                    parts.append(
+                        f"<rect data-side='sell' x='{x - 4:.2f}' y='{y - 4:.2f}' "
+                        "width='8' height='8' fill='#9a3412'/>"
+                    )
+    ordered = sorted(readings, key=lambda day: readings[day]["x"])
+    for index, day in enumerate(ordered):
+        x = readings[day]["x"]
+        previous = 72 if index == 0 else (readings[ordered[index - 1]]["x"] + x) / 2
+        nxt = 884 if index + 1 == len(ordered) else (x + readings[ordered[index + 1]]["x"]) / 2
+        label_x = x + 8 if x < 620 else x - 8
+        anchor = "start" if x < 620 else "end"
+        rows = readings[day]["rows"]
+        label = (
+            f"<text x='{label_x:.2f}' y='46' font-size='12' text-anchor='{anchor}'>"
+            f"{escape(day)}</text>"
+            + "".join(
+                f"<text x='{label_x:.2f}' y='{62 + offset * 16}' font-size='12' "
+                f"text-anchor='{anchor}'>{escape(row_name)} {row_value:.2f}</text>"
+                for offset, (row_name, row_value, _row_y) in enumerate(rows)
+            )
+        )
+        y = rows[0][2]
+        parts.append(
+            f"<g class='hit'><rect x='{previous:.2f}' y='28' width='{max(nxt - previous, 1):.2f}' "
+            "height='272' fill='transparent'/>"
+            f"<g class='cross'><line x1='{x:.2f}' y1='28' x2='{x:.2f}' y2='300' "
+            "stroke='#172735' stroke-width='1'/>"
+            f"<line x1='72' y1='{y:.2f}' x2='884' y2='{y:.2f}' stroke='#172735' "
+            "stroke-width='1'/>"
+            f"<circle cx='{x:.2f}' cy='{y:.2f}' r='3.5' fill='#172735'/>"
+            f"{label}</g></g>"
+        )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def _equity_chart(selected, terminal, windows):
+    windows = {name: span for name, span in (windows or {}).items() if span and name in _BANDS}
+    development = _account_lines(selected["strategy"])
+    completed = bool(terminal) and terminal.get("status") == "completed"
+    held_out = _account_lines(terminal["strategy"]) if completed else None
+    span_series = [
+        ("development", "Selected strategy", "#13827b", development["strategy"], []),
+        ("development", "Buy-and-hold", "#d18b18", development["buy_and_hold"], []),
+    ]
+    if held_out:
+        span_series.extend(
+            (
+                ("test", "Selected strategy", "#13827b", held_out["strategy"], []),
+                ("test", "Buy-and-hold", "#d18b18", held_out["buy_and_hold"], []),
+            )
+        )
+    parts = [
+        "<section><h2>Hypothetical account NAV</h2>",
+        "<p>Hypothetical account. This chart displays the retained account. "
+        "It is not a live quote and not evidence of a tradable edge. "
+        "The selected strategy and buy-and-hold are drawn only where that account "
+        "has a valuation. Development and the reserved test are separate accounts, "
+        "each starting from its own cash, and are not joined. "
+        "The training band is the mature training sessions; "
+        "no account valuation is invented there.</p>",
+        _nav_figure(
+            "nav-span",
+            "Selected strategy and buy-and-hold across training, development, and test",
+            windows,
+            span_series,
+            False,
+        ),
+        _nav_legend(True, False),
+        "<h2>Reserved test account</h2>",
+    ]
+    if held_out:
+        parts.extend(
+            (
+                "<p>Hypothetical account for the reserved terminal window only, "
+                "from the first test session through the last scored session. "
+                "The selected fitted model is reused without refitting. "
+                "Cash days stay flat. Buy and sell marks are fills resolved at the next open. "
+                "This account is initialized separately from development. "
+                "It is not a live quote and not evidence of a tradable edge.</p>",
+                _nav_figure(
+                    "nav-test",
+                    "Reserved test account NAV",
+                    {"test": windows["test"]} if windows.get("test") else {},
+                    (
+                        (
+                            "test",
+                            "Selected strategy",
+                            "#13827b",
+                            held_out["strategy"],
+                            held_out["fills"],
+                        ),
+                        ("test", "Buy-and-hold", "#d18b18", held_out["buy_and_hold"], []),
+                    ),
+                    True,
+                ),
+                _nav_legend(False, True),
+            )
+        )
+    else:
+        parts.append(
+            "<p>No completed reserved-test account is available. "
+            "The test band above, when present, is the reserved window only.</p>"
+        )
+    parts.append("</section>")
+    return "".join(parts)
