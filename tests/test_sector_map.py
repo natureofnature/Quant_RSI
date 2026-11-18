@@ -215,3 +215,21 @@ def test_tsm_study_compares_candidates_against_the_sector_baseline_on_one_sample
     ):
         assert heading in report
     assert "post_period_knowledge" in report
+
+
+def test_decision_prompt_puts_the_issuer_tier_before_other_tiers():
+    from quant_rsi.research.discovery_sources import discovery_decision
+
+    prompts = []
+
+    class Transport:
+        def structured(self, prompt, schema):
+            prompts.append(prompt)
+            return json.dumps(
+                {"action": "stop", "reason": "Done", "candidates": [], "data_requests": []}
+                | {"query": None}
+            )
+
+    discovery_decision(Transport(), {"symbol": "TSM"})
+    issuer = prompts[0].index("measurable disclosures of the prediction target itself")
+    assert issuer < prompts[0].index("then spend remaining allowances on uncovered tiers")
