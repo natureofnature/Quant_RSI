@@ -280,3 +280,30 @@ def test_api_study_uses_strict_proposal_schema_and_keeps_key_out_of_artifacts(
         for path in root.rglob("*")
         if path.is_file()
     )
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        ("--initial-cash", "-5"),
+        ("--commission-bps", "-1"),
+        ("--threshold", "nan"),
+        ("--news-limit", "0"),
+        ("--llm-timeout", "0"),
+    ],
+)
+def test_invalid_run_option_fails_before_creating_the_run_directory(tmp_path, capsys, option):
+    root = tmp_path / "study"
+    llm = ["--llm", "codex"] if option[0] == "--llm-timeout" else ["--llm", "simulated"]
+    assert main(command(root, *llm, *option)) != 0
+    assert "quant-rsi:" in capsys.readouterr().err
+    # Nothing is frozen, so the corrected command can reuse the same output path.
+    assert not root.exists()
+
+
+def test_study_json_writes_are_atomic(tmp_path):
+    from quant_rsi.research.study import _write
+
+    _write(tmp_path / "config.json", {"a": 1})
+    assert (tmp_path / "config.json").read_text() == '{\n  "a": 1\n}\n'
+    assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
