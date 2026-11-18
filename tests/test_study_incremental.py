@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from functools import partial
 from types import SimpleNamespace
 
 import numpy as np
@@ -360,6 +361,7 @@ def test_retained_context_excludes_latest_financial_row_and_memory():
     model = SimpleNamespace(
         origin=2, horizon=1, financial_features={"evidence": [0, 1, 2, "eligible", "future"]}
     )
+    model.development_financial_facts = partial(LightGBMDemo.development_financial_facts, model)
     context = {
         "financial_features": {"latest_visible_facts": "future"},
         "prior_outcomes": {"secret": "future"},
@@ -370,6 +372,30 @@ def test_retained_context_excludes_latest_financial_row_and_memory():
     filtered = restrict_context(context, model, {"information_mode": "retained"})
     assert "future" not in json.dumps(filtered)
     assert filtered["financial_features"]["latest_visible_facts"] == "eligible"
+
+
+def test_retrospective_context_excludes_terminal_financial_rows(tmp_path, monkeypatch):
+    from quant_rsi.research import study_financials
+
+    real, cutoffs = study_financials.simulated_financials, []
+
+    def tagged(symbol, sessions, required):
+        bundle = real(symbol, sessions, required)
+        cutoffs.extend(sessions)
+        bundle["evidence"] = [dict(e, row=i) for i, e in enumerate(bundle["evidence"])]
+        return bundle
+
+    monkeypatch.setattr("quant_rsi.research.study_financials.simulated_financials", tagged)
+    root, result, calls, _ = run(tmp_path, monkeypatch)
+    plan = json.loads((root / "evaluation_plan.json").read_text())
+    assert plan["status"] == "reserved"
+    days = [cutoff[:10] for cutoff in cutoffs]
+    first_terminal = days.index(plan["origin_sessions"][0])
+    for context, _, _ in calls:
+        facts = context["financial_features"]["latest_visible_facts"]
+        # Development targets mature before the first terminal origin; nothing later is shown.
+        assert facts["row"] == first_terminal - 1
+        assert facts["row"] < len(cutoffs) - 1
 
 
 def test_fixed_baseline_is_not_counted_as_paid_llm_request(tmp_path, monkeypatch):

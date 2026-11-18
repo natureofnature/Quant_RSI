@@ -320,6 +320,12 @@ class LightGBMDemo:
         """Bind prevalidated discovery columns without changing any experiment rows."""
         self.discovery_features = deepcopy(bundle)
 
+    def development_financial_facts(self):
+        """Facts visible at the development information boundary, never a terminal row."""
+        evidence = (self.financial_features or {}).get("evidence") or []
+        index = self.origin + self.horizon
+        return evidence[index] if index < len(evidence) else {}
+
     def context(self, symbol):
         self._news_configuration_open = False
         if self._news_history is not None and symbol != self._news_symbol:
@@ -373,9 +379,7 @@ class LightGBMDemo:
                 "definitions": deepcopy(self.financial_features["definitions"]),
                 "coverage_gaps": deepcopy(self.financial_features.get("coverage_gaps", [])),
                 "sample_coverage": deepcopy(self.financial_features.get("sample_coverage", [])),
-                "latest_visible_facts": deepcopy(
-                    (self.financial_features.get("evidence") or [{}])[-1]
-                ),
+                "latest_visible_facts": deepcopy(self.development_financial_facts()),
                 "notice": self.financial_features["notice"],
             }
         if self.external_features is not None:
