@@ -1324,6 +1324,10 @@ def validate_extraction(
         else:
             if not _date_in_excerpt(result.publication_date, result.publication_excerpt):
                 return [], ["publication_date_not_in_excerpt"]
+            metadata = article.get("published_at")
+            # One day of tolerance covers a UTC metadata date ahead of the local dateline.
+            if metadata and publication_day < timestamp(metadata).date() - timedelta(days=1):
+                return [], ["publication_before_source_metadata"]
             # Date-only disclosures remain conservatively available after local day closes.
             publication = datetime.combine(
                 publication_day + timedelta(days=1), datetime.min.time(), UTC
@@ -1350,7 +1354,8 @@ def validate_extraction(
             else:
                 if (
                     item.target_quarter is not None
-                    or end > publication_day
+                    # A realized period cannot be published on or before its own end date.
+                    or end >= publication_day
                     or (item.period_start and date.fromisoformat(item.period_start) > end)
                 ):
                     raise ValueError("invalid_period")
