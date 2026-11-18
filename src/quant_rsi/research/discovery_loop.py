@@ -101,9 +101,13 @@ def run_discovery(
             )
         }
 
-    def persist(name, value):
+    def persist(name, value, frozen=None):
+        # `frozen` describes state when the record was first written. It is stored in the
+        # record but not in its cache key: resume replays the original snapshot even after
+        # durable failed-fit charges have been preloaded into the current counts.
         def create():
-            record = deepcopy(value) | {"created_at": now(), "partition": "development"}
+            record = deepcopy(value) | deepcopy(frozen or {})
+            record |= {"created_at": now(), "partition": "development"}
             return record | {"ref": digest(canonical(record))}
 
         record = cache.call("discovery_record_" + name, value, create)
@@ -290,8 +294,8 @@ def run_discovery(
                             "reason": stop_reason,
                             "operation": kind,
                             "requests": deepcopy(requests[index:]),
-                            "action_budgets": action_budgets(),
                         },
+                        frozen={"action_budgets": action_budgets()},
                     )
                     break
                 inputs = {"request": request, "policy_identity": policy["identity"]}
