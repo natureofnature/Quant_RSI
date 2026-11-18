@@ -30,7 +30,6 @@
   "market/news_collection.py -> evaluation",
   "market/news_collection.py -> factors",
   "market/news_collection.py -> forecast",
-  "market/news_feed.py -> factors",
   "market/signal_sources.py -> forecast",
   "research/study_queue.py -> cli"
 ]

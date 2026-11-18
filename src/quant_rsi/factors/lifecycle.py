@@ -6,28 +6,15 @@ admission/extraction remains the caller's registered source task's responsibilit
 
 import re
 from datetime import timedelta
-from typing import Literal
-
-from pydantic import Field
 
 from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
-from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.journal import Journal
 from quant_rsi.evaluation.evidence import authority_root
 from quant_rsi.forecast.forecast_experiment import commit_event, event_payload
 from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import timestamp, utc_text
-
-
-class EventTemplate(StrictModel):
-    schema_version: Literal[1] = 1
-    template_id: str = Field(pattern=r"^[a-z][a-z0-9_.]{0,95}$")
-    description: str = Field(min_length=1, max_length=4096)
-    ttl_hours: int = Field(ge=1, le=720)
-    decay: Literal["none", "linear"] = "none"
-    output_unit: Literal["dimensionless"] = "dimensionless"
-
+from quant_rsi.market.news_feed import EventTemplate  # noqa: F401  (re-export)
 
 STATES = {
     "proposed": {"validated", "rejected"},

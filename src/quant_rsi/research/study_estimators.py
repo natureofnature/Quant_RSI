@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 
 
 def model_configuration(name="lightgbm", ridge_alpha=None, *, horizon_sessions=5):

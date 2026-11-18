@@ -16,7 +16,6 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlparse
@@ -25,6 +24,7 @@ from urllib.request import Request, urlopen
 from quant_rsi.core.artifacts import canonical, digest, reject_constant
 from quant_rsi.forecast.forecast_inputs import SignalEvent, SignalSnapshot
 from quant_rsi.market.market_contracts import timestamp
+from quant_rsi.market.news_feed import _publication
 
 RSS_URL = "https://nvidianews.nvidia.com/rss.xml"
 SEC_BASE = "https://data.sec.gov"
@@ -169,21 +169,6 @@ def _day_overlaps(day, start, end):
     # A date without a timezone cannot be treated as midnight UTC. Retain any
     # overlap under civil offsets UTC-12..UTC+14; do not invent publication time.
     return boundary - timedelta(hours=14) < end and boundary + timedelta(days=1, hours=12) > start
-
-
-def _publication(raw):
-    raw = raw.strip()
-    if not raw:
-        return None, None, "unknown"
-    if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", raw):
-        return None, date.fromisoformat(raw).isoformat(), "day"
-    try:
-        value = parsedate_to_datetime(raw)
-    except (TypeError, ValueError):
-        return None, None, "unknown"
-    if value.tzinfo is None:
-        return None, None, "unknown"
-    return value.astimezone(timezone.utc).isoformat(), None, "second"
 
 
 def _event(source, query_ref, receipt_ref, seen, event_id, payload_ref, **values):

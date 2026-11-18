@@ -7,8 +7,8 @@ import numpy as np
 
 from quant_rsi.core.artifacts import canonical
 from quant_rsi.core.data import synthetic_data
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.core.schemas import DataSpec
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.research.demo_features import (
     PRICE_RECIPE,
     compact_development,

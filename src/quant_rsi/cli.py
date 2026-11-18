@@ -7,30 +7,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from quant_rsi.core.controller import create_run, inspect_run, resume_run
-from quant_rsi.evaluation.comparison import (
-    cancel_comparison,
-    decide_comparison,
-    inspect_comparison,
-    register_comparison,
-    resume_comparison,
-)
-from quant_rsi.evaluation.evidence import ComparisonInput, init_evidence, parse_program
-from quant_rsi.execution.baseline import infer_at, inspect_baseline, seal_baseline
-from quant_rsi.execution.observer import (
-    advance_observer,
-    inspect_observer,
-    register_observer,
-    stop_observer,
-)
-from quant_rsi.forecast.forecast_contracts import parse_development_plan
 from quant_rsi.market.market_contracts import DataContract, parse_observation_plan
-from quant_rsi.market.market_data import ingest, inspect_data
-from quant_rsi.research.package_experiment import create_package, inspect_package, resume_package
-from quant_rsi.research.research import create_research, inspect_research, resume_research
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.trajectory import init_trajectory, inspect_trajectory, resume_trajectory
-from quant_rsi.research.trajectory_state import TrajectoryPlan
 
 
 def default_history_dir(prices):
@@ -971,6 +948,40 @@ def main(argv: list[str] | None = None) -> int:
                 )
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
+        # Pipeline A commands (frozen, #159 D2) load its modules only when one of them runs,
+        # so the active research commands never import pipeline A.
+        from quant_rsi.core.controller import create_run, inspect_run, resume_run
+        from quant_rsi.evaluation.comparison import (
+            cancel_comparison,
+            decide_comparison,
+            inspect_comparison,
+            register_comparison,
+            resume_comparison,
+        )
+        from quant_rsi.evaluation.evidence import ComparisonInput, init_evidence, parse_program
+        from quant_rsi.execution.baseline import infer_at, inspect_baseline, seal_baseline
+        from quant_rsi.execution.observer import (
+            advance_observer,
+            inspect_observer,
+            register_observer,
+            stop_observer,
+        )
+        from quant_rsi.forecast.forecast_contracts import parse_development_plan
+        from quant_rsi.market.market_data import ingest, inspect_data
+        from quant_rsi.research.package_experiment import (
+            create_package,
+            inspect_package,
+            resume_package,
+        )
+        from quant_rsi.research.research import create_research, inspect_research, resume_research
+        from quant_rsi.research.researcher import ResearchPlan
+        from quant_rsi.research.trajectory import (
+            init_trajectory,
+            inspect_trajectory,
+            resume_trajectory,
+        )
+        from quant_rsi.research.trajectory_state import TrajectoryPlan
+
         if args.command == "trajectory":
             if args.trajectory_command == "init":
                 report = init_trajectory(TrajectoryPlan.model_validate_json(args.plan.read_bytes()))

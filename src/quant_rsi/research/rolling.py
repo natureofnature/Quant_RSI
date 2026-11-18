@@ -12,7 +12,7 @@ import numpy as np
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.data import MarketData
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.market.geopolitical_data import align_gpr_features, load_gpr_history
 from quant_rsi.market.market_contracts import timestamp
 from quant_rsi.market.risk_data import align_risk_features, load_risk_history
