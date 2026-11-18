@@ -411,6 +411,56 @@ def _survey_view(result, sources):
     return view
 
 
+SERIES_LIMIT = 40
+# Account paths repeat their summary metrics; benchmark rows repeat their metrics.
+_SUMMARIZED_SERIES = {"valuations", "fills", "orders", "trades"}
+
+
+def _bounded_series(value, key=None):
+    """Summarize long lists (daily valuations, fills) in fit results; keep short ones.
+
+    Development rows of the fitted model stay complete; the fixed benchmarks keep their
+    metrics, and account paths keep their first and last points.
+    """
+    if isinstance(value, dict):
+        if key in {"unchanged_price", "training_label_mean"} and "rows" in value:
+            value = {k: v for k, v in value.items() if k != "rows"} | {
+                "rows": "retained in the experiment record"
+            }
+        return {k: _bounded_series(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        if len(value) > SERIES_LIMIT or (key in _SUMMARIZED_SERIES and len(value) > 2):
+            return {
+                "items": len(value),
+                "first": _bounded_series(value[0]),
+                "last": _bounded_series(value[-1]),
+                "full_series": "retained in the experiment record",
+            }
+        return [_bounded_series(v) for v in value]
+    return value
+
+
+def _spec_view(spec, identities, sources, contract=None):
+    """An experiment or preparation spec refers to bundles the view already holds."""
+    if not isinstance(spec, dict):
+        return spec
+    if contract and isinstance(spec.get("contract"), dict):
+        windows = spec["contract"].get("windows")
+        if windows is not None and windows == contract.get("windows"):
+            spec = spec | {
+                "contract": spec["contract"] | {"windows": "context.experiment_contract.windows"}
+            }
+    if not isinstance(spec.get("input_bundles"), list):
+        return spec
+    bundles = [
+        {"identity": b.get("identity"), "bundle": "context.input_bundles"}
+        if b.get("identity") in identities
+        else _bundle_view(b, sources)
+        for b in spec["input_bundles"]
+    ]
+    return spec | {"input_bundles": bundles}
+
+
 def decision_view(context):
     """A bounded, deterministic provider view of a frozen decision context.
 
@@ -437,6 +487,19 @@ def decision_view(context):
             memory.append(entry | {"result": _bundle_view(result, sources)})
         elif entry.get("kind") == "survey":
             memory.append(entry | {"result": _survey_view(result, sources)})
+        elif entry.get("kind") in {"experiment", "experiment_failure", "preparation"}:
+            memory.append(
+                entry
+                | {
+                    "spec": _spec_view(
+                        entry.get("spec"),
+                        identities,
+                        sources,
+                        context.get("experiment_contract"),
+                    ),
+                    "result": _bounded_series(result),
+                }
+            )
         else:
             memory.append(entry)
     if "memory" in context:
