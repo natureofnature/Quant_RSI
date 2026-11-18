@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, model_serializer, model_validator
+from pydantic import Field, ValidationError, model_serializer, model_validator
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
@@ -893,13 +893,16 @@ class DiscoverySources:
             "valid if no listed item is relevant; explain the gap. Do not execute other tools.",
             selection_input,
         )
-        selection = DisclosureSelection.model_validate_json(
-            self._operation(
-                "analysis",
-                selection_input,
-                lambda: self.llm.structured(prompt, strict_schema(DisclosureSelection)),
-            )
-        ).model_dump(mode="json")
+        response = self._operation(
+            "analysis",
+            selection_input,
+            lambda: self.llm.structured(prompt, strict_schema(DisclosureSelection)),
+        )
+        # A completed but invalid answer is a recorded gap, replayed identically on resume.
+        try:
+            selection = DisclosureSelection.model_validate_json(response).model_dump(mode="json")
+        except ValidationError:
+            return output | {"status": "needs_data", "reason": "invalid_disclosure_selection"}
         output["selection"] = selection
         refs = selection["document_refs"]
         if len(refs) > allowance or len(set(refs)) != len(refs) or set(refs) - documents.keys():
@@ -964,7 +967,15 @@ class DiscoverySources:
             payload,
             lambda: self.llm.search(prompt, strict_schema(SearchResponse)),
         )
-        value = SearchResponse.model_validate_json(response["text"]).model_dump(mode="json")
+        try:
+            value = SearchResponse.model_validate_json(response["text"]).model_dump(mode="json")
+        except ValidationError:
+            value = {
+                "query": query,
+                "results": [],
+                "status": "needs_data",
+                "reason": "Invalid search response",
+            }
         return value | {
             "search_actions": response.get("search_actions", []),
             "avoid_hosts": access_feedback["avoid_hosts"],
@@ -1053,10 +1064,11 @@ class DiscoverySources:
                 payload,
                 lambda: self.llm.structured(prompt, strict_schema(SurveyAnalysis)),
             )
-            analysis = SurveyAnalysis.model_validate_json(response)
+            try:
+                analysis = SurveyAnalysis.model_validate_json(response)
+            except ValidationError:
+                analysis = SurveyAnalysis(findings=(), gaps=("Invalid analysis response",))
             ids = {a["id"] for a in articles}
-            if any(set(f.evidence_ids) - ids for f in analysis.findings if not f.relationships):
-                raise ValueError("News finding cites unknown evidence")
             findings = analysis.model_dump(mode="json")
             admitted = {article["id"]: article for article in articles}
             accepted = []
@@ -1072,8 +1084,9 @@ class DiscoverySources:
                         if error:
                             errors.append(error)
                 if errors:
+                    label = "relationship finding" if finding.relationships else "finding"
                     findings["gaps"].append(
-                        "Rejected relationship finding: " + "; ".join(dict.fromkeys(errors))
+                        f"Rejected {label}: " + "; ".join(dict.fromkeys(errors))
                     )
                 else:
                     accepted.append(finding.model_dump(mode="json"))
@@ -1142,6 +1155,8 @@ class DiscoverySources:
                     "reason": str(exc),
                 }
                 acquisition_gaps.append(str(exc))
+            if search.get("reason") == "Invalid search response":
+                acquisition_gaps.append(search["reason"])
             searches.append(search)
             urls = [item["url"] for item in search["results"]]
         from quant_rsi.research.mops_source import is_post_endpoint
@@ -1250,7 +1265,11 @@ class DiscoverySources:
                 gaps.append("Extraction allowance exhausted")
                 break
             extracted_at = extracted["extracted_at"]
-            result = NumericalExtraction.model_validate_json(extracted["text"])
+            try:
+                result = NumericalExtraction.model_validate_json(extracted["text"])
+            except ValidationError:
+                gaps.append(f"{article['id']}: invalid extraction response")
+                continue
             checked, reasons = validate_extraction(
                 request,
                 article,
