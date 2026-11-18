@@ -489,8 +489,23 @@ _MOPS_USD_SCALES = {
     "USD hundred million": "億美元",
 }
 MOPS_LITERAL_UNITS = ("percent", "%", *_MOPS_TWD_SCALES, *_MOPS_USD_SCALES)
-# A suffix-currency amount must not continue a compound amount such as 1兆1,341億美元.
-_COMPOUND_PREFIX = "0123456789.,+-−－﹣兆億亿萬万千仟百"
+# A suffix-currency amount must not continue a compound amount such as 1兆1,341億美元,
+# nor drop a negative marker the source places before it (負322億美元, (322億美元)).
+_COMPOUND_PREFIX = "0123456789.,+-−－﹣兆億亿萬万千仟百(（負负"
+
+# Bundles record the admission rules their extractions were verified under, because a
+# replay re-validates every stored answer, rejected ones included. A bundle without the
+# key predates USD suffix units and Chinese quarter labels and replays under those rules.
+MOPS_ADMISSION_RULE = "mops_usd_suffix_units_and_gregorian_chinese_quarters_v1"
+CURRENT_EXTRACTION_RULES = {"mops_admission": MOPS_ADMISSION_RULE}
+
+
+def recorded_extraction_rules(bundle):
+    """The admission rules a stored bundle was verified under; unknown versions fail."""
+    rules = bundle.get("extraction_rules")
+    if rules is not None and rules != CURRENT_EXTRACTION_RULES:
+        raise ValueError("Unknown acquired extraction rules")
+    return rules
 
 
 def mops_units_text():
@@ -501,12 +516,12 @@ def mops_units_text():
     )
 
 
-def _mops_literal_unit(value, unit, excerpt, source_text):
+def _mops_literal_unit(value, unit, excerpt, source_text, *, usd=True):
     """Admit only explicit number/unit pairs; never convert compound Chinese amounts."""
     number = r"(?P<amount>[+-]?\d[\d,]*(?:\.\d+)?)"
     if unit in {"percent", "%"}:
         pattern = rf"(?<![\d.,]){number}\s*(?:%|％|percent\b)"
-    elif unit in _MOPS_USD_SCALES:
+    elif unit in _MOPS_USD_SCALES and usd:
         pattern = rf"(?<![{re.escape(_COMPOUND_PREFIX)}]){number}\s*{_MOPS_USD_SCALES[unit]}"
     else:
         if unit not in _MOPS_TWD_SCALES:
@@ -1461,6 +1476,7 @@ class DiscoverySources:
             self._save_usage()
         basis, metadata_gaps = _publication_basis(observations, articles)
         return bundle | {
+            "extraction_rules": dict(CURRENT_EXTRACTION_RULES),
             # Outside the replay-verified keys: labels how each publication date is known.
             "publication_basis": basis,
             "publication_basis_counts": dict(Counter(basis.values())),
@@ -1500,9 +1516,23 @@ def _publication_basis(observations, articles):
 
 
 def validate_extraction(
-    request, article, result, *, extracted_at, information_mode, research_cutoff
+    request,
+    article,
+    result,
+    *,
+    extracted_at,
+    information_mode,
+    research_cutoff,
+    rules=CURRENT_EXTRACTION_RULES,
 ):
-    """Literal source checks cannot verify the LLM's full financial interpretation."""
+    """Literal source checks cannot verify the LLM's full financial interpretation.
+
+    ``rules=None`` reproduces the admission rules before USD suffix units and Chinese
+    quarter labels, for verifying stored bundles that predate them.
+    """
+    if rules is not None and rules != CURRENT_EXTRACTION_RULES:
+        raise ValueError("Unknown acquired extraction rules")
+    current = rules is not None
     observations, reasons = [], []
     text = article.get("text", "")
     if (
@@ -1568,7 +1598,10 @@ def validate_extraction(
             period_excerpt = item.period_excerpt or item.excerpt
             if request.forecast is not None:
                 if period_excerpt not in text or not _forecast_period(
-                    item, period_excerpt, text, chinese=article.get("provider") == "mops"
+                    item,
+                    period_excerpt,
+                    text,
+                    chinese=current and article.get("provider") == "mops",
                 ):
                     raise ValueError("unverified_forecast_target_quarter")
             else:
@@ -1601,7 +1634,9 @@ def validate_extraction(
                 or not _literal_number(item.value, item.excerpt)
                 or (
                     article.get("provider") == "mops"
-                    and not _mops_literal_unit(item.value, item.unit, item.excerpt, text)
+                    and not _mops_literal_unit(
+                        item.value, item.unit, item.excerpt, text, usd=current
+                    )
                 )
             ):
                 raise ValueError("unverified_literal_value_or_unit")

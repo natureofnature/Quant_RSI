@@ -10,9 +10,11 @@ import json
 
 import pytest
 from test_mops_extraction_boundaries import ISSUER, records, validate
+from test_rolling_acquired import save
 
 from quant_rsi.core.artifacts import digest
 from quant_rsi.research import discovery_sources as sources
+from quant_rsi.research.rolling_acquired import align_acquired_history, load_acquired_history
 
 GUIDANCE = "合併營收預計介於322億美元到334億美元之間"
 OUTLOOK = "台積公司2026年第四季的業績展望如下："
@@ -58,6 +60,12 @@ def test_usd_suffix_amounts_are_literal_units(quote, value, unit):
         ("322億美元", "322億美元", 322, "USD million"),
         ("322億美元", "322億美元", 322, "TWD hundred million"),
         ("新台幣51億元", "新台幣51億元", 51, "USD hundred million"),
+        # A shortened quote must not drop the source's negative marker.
+        ("淨利負322億美元", "322億美元", 322, "USD hundred million"),
+        ("淨利负322億美元", "322億美元", 322, "USD hundred million"),
+        ("淨利(322億美元)", "322億美元", 322, "USD hundred million"),
+        ("淨利（322億美元）", "322億美元", 322, "USD hundred million"),
+        ("淨利負 322億美元", "322億美元", 322, "USD hundred million"),
         # The currency is named in the clause, not next to the amount: still a gap.
         ("若以美元計算，營收為331.0億", "營收為331.0億", 331.0, "USD hundred million"),
     ],
@@ -194,3 +202,90 @@ def test_decision_prompt_names_every_supported_mops_unit():
     for unit in sources.MOPS_LITERAL_UNITS:
         assert unit in seen[0]
     assert "data_requests.unit must be exactly one of these names" in seen[0]
+
+
+TIMES = ["2026-10-09T06:30:00Z", "2026-10-09T06:30:01Z"]
+
+
+def acquired_guidance(monkeypatch):
+    monkeypatch.setattr(sources, "_now", lambda: "2026-10-10T12:01:00Z")
+    request, article, extraction = guidance()
+    bundle = provider_for(article, extraction, []).acquire(request, prediction_times=TIMES)
+    return request, bundle
+
+
+def replayed_column(history):
+    view = align_acquired_history(history, TIMES, TIMES[-1], "reconstructed")
+    return [None if value != value else value for value in view["columns"][INPUT]]
+
+
+INPUT = "acquired.revenue_guidance_lower"
+
+
+def test_new_bundles_record_and_replay_their_extraction_rules(tmp_path, monkeypatch):
+    _, bundle = acquired_guidance(monkeypatch)
+    assert bundle["extraction_rules"] == sources.CURRENT_EXTRACTION_RULES
+    history = load_acquired_history([save(tmp_path / "current.json", bundle)])
+    assert replayed_column(history) == [None, 322]
+
+
+def test_answer_rejected_under_earlier_rules_replays_without_rewriting(tmp_path, monkeypatch):
+    request, bundle = acquired_guidance(monkeypatch)
+    # Before #176 the same stored answer was rejected and its archive had no rules key.
+    article = bundle["articles"][0]
+    extraction = bundle["extractions"][0]
+    rows, reasons = sources.validate_extraction(
+        sources.DataRequest.model_validate_json(json.dumps(request)),
+        article,
+        sources.NumericalExtraction.model_validate_json(json.dumps(extraction["result"])),
+        extracted_at=extraction["extracted_at"],
+        information_mode="retrospective",
+        research_cutoff=None,
+        rules=None,
+    )
+    assert (rows, reasons) == ([], ["unverified_forecast_target_quarter"])
+    earlier = {k: v for k, v in bundle.items() if k != "extraction_rules"}
+    earlier |= sources.align_input_bundle(request, [], TIMES)
+    history = load_acquired_history([save(tmp_path / "earlier.json", earlier)])
+    assert history["acquisitions"][0]["observations"] == []
+    assert replayed_column(history) == [None, None]  # rolling use keeps the outcome too
+
+    # The recorded rules are what decides: the same claim without them does not verify.
+    unrecorded = {k: v for k, v in bundle.items() if k != "extraction_rules"}
+    with pytest.raises(ValueError, match="differs from replayed observations"):
+        load_acquired_history([save(tmp_path / "unrecorded.json", unrecorded)])
+
+
+def test_usd_unit_answer_is_rejected_under_earlier_rules():
+    request, article, extraction = records(
+        "2026年9月 營收322億美元。", quote="營收322億美元", value=322, unit="USD hundred million"
+    )
+    assert validate(request, article, extraction)[1] == []
+    rows, reasons = sources.validate_extraction(
+        sources.DataRequest.model_validate_json(json.dumps(request)),
+        article,
+        sources.NumericalExtraction.model_validate_json(json.dumps(extraction)),
+        extracted_at="2026-10-10T12:01:00Z",
+        information_mode="retrospective",
+        research_cutoff=None,
+        rules=None,
+    )
+    assert (rows, reasons) == ([], ["unverified_literal_value_or_unit"])
+
+
+def test_unknown_extraction_rules_are_rejected(tmp_path, monkeypatch):
+    _, bundle = acquired_guidance(monkeypatch)
+    unknown = bundle | {"extraction_rules": {"mops_admission": "future_v9"}}
+    with pytest.raises(ValueError, match="Unknown acquired extraction rules"):
+        load_acquired_history([save(tmp_path / "unknown.json", unknown)])
+    request, article, extraction = guidance()
+    with pytest.raises(ValueError, match="Unknown acquired extraction rules"):
+        sources.validate_extraction(
+            sources.DataRequest.model_validate_json(json.dumps(request)),
+            article,
+            sources.NumericalExtraction.model_validate_json(json.dumps(extraction)),
+            extracted_at="2026-10-10T12:01:00Z",
+            information_mode="retrospective",
+            research_cutoff=None,
+            rules={"mops_admission": "future_v9"},
+        )
