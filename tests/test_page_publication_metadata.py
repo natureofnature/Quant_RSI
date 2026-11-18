@@ -39,24 +39,70 @@ def read(monkeypatch, head, **kwargs):
     return article_reader.read_article(URL)
 
 
+ARTICLE_SCOPE = '<div itemscope itemtype="https://schema.org/NewsArticle">{}</div>'
+
+
+def ld(document):
+    return f'<script type="application/ld+json">{json.dumps(document)}</script>'
+
+
 @pytest.mark.parametrize(
-    ("head", "expected"),
+    ("head", "text", "expected"),
     [
         (
             '<meta property="article:published_time" content="2023-05-24T08:00:00-04:00">',
+            TEXT,
             "2023-05-24T12:00:00Z",
         ),
-        ('<meta itemprop="datePublished" content="2023-05-24T12:00:00Z"/>', "2023-05-24T12:00:00Z"),
         (
-            '<script type="application/ld+json">'
-            '{"@graph": [{"@type": "NewsArticle", "datePublished": "2023-05-24T12:00:00+00:00"}]}'
-            "</script>",
+            "",
+            ARTICLE_SCOPE.format(
+                '<meta itemprop="datePublished" content="2023-05-24T12:00:00Z">' + TEXT
+            ),
+            "2023-05-24T12:00:00Z",
+        ),
+        (
+            ld(
+                {
+                    "@graph": [
+                        {
+                            "@type": "NewsArticle",
+                            "url": URL,
+                            "datePublished": "2023-05-24T12:00:00Z",
+                        }
+                    ]
+                }
+            ),
+            TEXT,
+            "2023-05-24T12:00:00Z",
+        ),
+        (
+            ld(
+                {"@type": "NewsArticle", "@id": "#article", "datePublished": "2023-05-24T12:00:00Z"}
+            ),
+            TEXT,
+            "2023-05-24T12:00:00Z",
+        ),
+        (
+            ld(
+                {
+                    "@graph": [
+                        {"@type": "WebPage", "@id": URL + "/", "mainEntity": {"@id": "urn:a"}},
+                        {
+                            "@type": "Article",
+                            "@id": "urn:a",
+                            "datePublished": "2023-05-24T12:00:00Z",
+                        },
+                    ]
+                }
+            ),
+            TEXT,
             "2023-05-24T12:00:00Z",
         ),
     ],
 )
-def test_declared_publication_time_is_read_and_normalized(monkeypatch, head, expected):
-    result = read(monkeypatch, head)
+def test_declared_publication_time_is_read_and_normalized(monkeypatch, head, text, expected):
+    result = read(monkeypatch, head, text=text)
     assert result["published_at"] == expected
     assert result["publication_metadata"]["status"] == "declared"
     assert "Revenue" in result["text"] and "datePublished" not in result["text"]
@@ -67,7 +113,7 @@ def test_declared_publication_time_is_read_and_normalized(monkeypatch, head, exp
     [
         (
             '<meta property="article:published_time" content="2023-05-24T12:00:00Z">'
-            '<script type="application/ld+json">{"datePublished": "2023-06-01T12:00:00Z"}</script>',
+            + ld({"@type": "NewsArticle", "url": URL, "datePublished": "2023-06-01T12:00:00Z"}),
             "conflicting",
         ),
         (
@@ -81,6 +127,71 @@ def test_ambiguous_or_unusable_metadata_declares_no_time(monkeypatch, head, stat
     result = read(monkeypatch, head)
     assert "published_at" not in result
     assert result.get("publication_metadata", {}).get("status") == status
+
+
+OTHER_STORY = "https://issuer.example/other-story"
+
+
+@pytest.mark.parametrize(
+    ("head", "text"),
+    [
+        # Review on #172: a related story in the page's graph is not this page.
+        (
+            ld(
+                {
+                    "@graph": [
+                        {"@type": "WebPage", "url": URL},
+                        {
+                            "@type": "NewsArticle",
+                            "url": OTHER_STORY,
+                            "@id": OTHER_STORY,
+                            "datePublished": "2023-06-10T12:00:00Z",
+                        },
+                    ]
+                }
+            ),
+            TEXT,
+        ),
+        # Review on #172: a comment's datePublished is not the article's.
+        (
+            "",
+            TEXT + '<aside itemscope itemtype="https://schema.org/Comment">'
+            '<time itemprop="datePublished" datetime="2023-06-10T12:00:00Z">June 10</time></aside>',
+        ),
+        # An article object that does not identify any page is ambiguous.
+        (ld({"@type": "NewsArticle", "datePublished": "2023-06-10T12:00:00Z"}), TEXT),
+        # Unscoped microdata, and an article scope in a sidebar.
+        ('<meta itemprop="datePublished" content="2023-06-10T12:00:00Z">', TEXT),
+        (
+            "",
+            TEXT
+            + "<aside>"
+            + ARTICLE_SCOPE.format('<meta itemprop="datePublished" content="2023-06-10T12:00:00Z">')
+            + "</aside>",
+        ),
+        # Two marked-up articles: which one is this page is ambiguous.
+        (
+            "",
+            ARTICLE_SCOPE.format('<meta itemprop="datePublished" content="2023-05-24T12:00:00Z">')
+            + ARTICLE_SCOPE.format('<meta itemprop="datePublished" content="2023-05-24T12:00:00Z">')
+            + TEXT,
+        ),
+    ],
+)
+def test_metadata_not_attached_to_this_page_declares_nothing(monkeypatch, head, text):
+    result = read(monkeypatch, head, text=text)
+    assert "published_at" not in result
+
+
+def test_unrelated_metadata_cannot_reject_the_release(monkeypatch):
+    comment = (
+        '<aside itemscope itemtype="https://schema.org/Comment">'
+        '<time itemprop="datePublished" datetime="2023-06-10T12:00:00Z">June 10</time></aside>'
+    )
+    bundle = acquire(monkeypatch, "", text=TEXT + comment)
+    assert len(bundle["observations"]) == 1
+    observation_id = bundle["observations"][0]["observation_id"]
+    assert bundle["publication_basis"] == {observation_id: "llm_quoted_unverified"}
 
 
 @pytest.mark.parametrize(
@@ -127,8 +238,8 @@ class Extractor:
         )
 
 
-def acquire(monkeypatch, head):
-    serve(monkeypatch, head)
+def acquire(monkeypatch, head, text=TEXT):
+    serve(monkeypatch, head, text=text)
     monkeypatch.setattr(discovery_sources, "_now", lambda: "2026-11-05T10:00:01Z")
     return DiscoverySources(Extractor()).acquire(REQUEST, prediction_times=["2023-06-01T20:00:00Z"])
 

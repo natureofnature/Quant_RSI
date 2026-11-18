@@ -11,7 +11,7 @@ import ssl
 import zlib
 from datetime import UTC, datetime
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
 
 MAX_BYTES = 1_048_576
 MAX_TEXT = 16_000
@@ -122,19 +122,84 @@ def _fetch(url, *, json_body=None):
         sock.close()
 
 
-def _published_in_linked_data(value, found, depth=0):
-    if depth > 6:
+# Publication metadata must describe the page being read, not a related story, a comment or
+# a sidebar item that happens to carry its own datePublished (#159 D3.4, review on #172).
+ARTICLE_TYPES = {
+    "Article",
+    "NewsArticle",
+    "AnalysisNewsArticle",
+    "BackgroundNewsArticle",
+    "OpinionNewsArticle",
+    "ReportageNewsArticle",
+    "BlogPosting",
+    "Report",
+    "ScholarlyArticle",
+    "TechArticle",
+}
+_SECONDARY = {"aside", "nav", "footer", "header", "template"}
+
+
+def _schema_types(value):
+    values = value.split() if isinstance(value, str) else value if isinstance(value, list) else []
+    return {str(v).rstrip("/").rsplit("/", 1)[-1] for v in values if isinstance(v, str)}
+
+
+def _canonical_page(url):
+    parts = urlsplit(urldefrag(url)[0])
+    return urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/") or "/", parts.query, "")
+    )
+
+
+def _same_page(reference, page_url):
+    if isinstance(reference, dict):
+        reference = reference.get("@id") or reference.get("url")
+    if not isinstance(reference, str) or not reference.strip():
+        return False
+    return _canonical_page(urljoin(page_url, reference.strip())) == _canonical_page(page_url)
+
+
+def _linked_data_objects(value, found, depth=0):
+    if depth > 6 or len(found) > 200:
         return
     if isinstance(value, list):
         for item in value[:50]:
-            _published_in_linked_data(item, found, depth + 1)
+            _linked_data_objects(item, found, depth + 1)
     elif isinstance(value, dict):
-        published = value.get("datePublished")
-        if isinstance(published, str):
-            found.append(("json-ld:datePublished", published))
-        for key in ("@graph", "mainEntity", "mainEntityOfPage"):
+        found.append(value)
+        for key in ("@graph", "mainEntity"):
             if key in value:
-                _published_in_linked_data(value[key], found, depth + 1)
+                _linked_data_objects(value[key], found, depth + 1)
+
+
+def _linked_data_publication(documents, page_url):
+    """datePublished of article objects that identify this page, or that an object
+    identifying this page names as its mainEntity; anything else is not this page's."""
+    objects = []
+    for document in documents:
+        _linked_data_objects(document, objects)
+    main_entities = []
+    for item in objects:
+        if _same_page(item.get("url"), page_url) or _same_page(item.get("@id"), page_url):
+            entity = item.get("mainEntity")
+            main_entities.extend(entity if isinstance(entity, list) else [entity])
+    found = []
+    for item in objects:
+        if not _schema_types(item.get("@type")) & ARTICLE_TYPES:
+            continue
+        own = any(_same_page(item.get(key), page_url) for key in ("url", "@id", "mainEntityOfPage"))
+        named = any(
+            entity is item
+            or (
+                isinstance(entity, dict)
+                and isinstance(item.get("@id"), str)
+                and entity.get("@id") == item["@id"]
+            )
+            for entity in main_entities
+        )
+        if (own or named) and isinstance(item.get("datePublished"), str):
+            found.append(("json-ld:datePublished", item["datePublished"]))
+    return found
 
 
 def _publication_metadata(candidates):
@@ -204,28 +269,45 @@ class _ArticleText(HTMLParser):
         self.stack = []
         self.hidden_depths = []
         self.parts = {"article": [], "main": [], "body": []}
-        self.publication = []  # (source, raw value) the page itself declares
-        self.linked_data = None
+        # Declarations the page makes about itself; never dateModified or a bare <time>.
+        self.page_meta = []
+        self.linked_documents, self.linked_data = [], None
+        self.scopes = []  # (stack depth, schema types, inside a secondary container)
+        self.article_scopes = 0
+        self.microdata = []
 
     def _metadata(self, tag, attributes):
-        # Only explicit publication declarations; never dateModified or a bare <time>,
-        # which pages use for unrelated dates (comments, related stories, updates).
         name = (attributes.get("property") or attributes.get("name") or "").strip().lower()
         if tag == "meta" and name == "article:published_time" and attributes.get("content"):
-            self.publication.append(("meta:article:published_time", attributes["content"]))
-        if (attributes.get("itemprop") or "").strip() == "datePublished":
+            self.page_meta.append(("meta:article:published_time", attributes["content"]))
+        if (attributes.get("itemprop") or "").strip() == "datePublished" and self.scopes:
+            # Microdata belongs to its innermost itemscope; only a primary article counts.
+            _, types, secondary = self.scopes[-1]
             value = attributes.get("datetime") or attributes.get("content")
-            if value:
-                self.publication.append(("itemprop:datePublished", value))
+            if value and types & ARTICLE_TYPES and not secondary:
+                if not _SECONDARY.intersection(self.stack):
+                    self.microdata.append(("itemprop:datePublished", value))
         kind = (attributes.get("type") or "").strip().lower()
         if tag == "script" and kind == "application/ld+json":
             self.linked_data = []
+
+    def publication_candidates(self, page_url):
+        # Microdata is unambiguous only when the page marks up exactly one primary article.
+        microdata = self.microdata if self.article_scopes == 1 else []
+        linked = _linked_data_publication(self.linked_documents, page_url)
+        return self.page_meta + microdata + linked
 
     def handle_starttag(self, tag, attrs):
         self._metadata(tag, dict(attrs))
         if tag not in self._void:
             self.stack.append(tag)
             attributes = dict(attrs)
+            if "itemscope" in attributes:
+                types = _schema_types(attributes.get("itemtype") or "")
+                secondary = bool(_SECONDARY.intersection(self.stack))
+                self.scopes.append((len(self.stack), types, secondary))
+                if types & ARTICLE_TYPES and not secondary:
+                    self.article_scopes += 1
             styles = {}
             for declaration in (attributes.get("style") or "").lower().split(";"):
                 name, separator, value = declaration.partition(":")
@@ -245,7 +327,7 @@ class _ArticleText(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "script" and self.linked_data is not None:
             try:
-                _published_in_linked_data(json.loads("".join(self.linked_data)), self.publication)
+                self.linked_documents.append(json.loads("".join(self.linked_data)))
             except (ValueError, RecursionError):
                 pass  # Malformed linked data declares nothing.
             self.linked_data = None
@@ -253,6 +335,7 @@ class _ArticleText(HTMLParser):
             index = len(self.stack) - 1 - self.stack[::-1].index(tag)
             del self.stack[index:]
             self.hidden_depths = [depth for depth in self.hidden_depths if depth <= len(self.stack)]
+            self.scopes = [scope for scope in self.scopes if scope[0] <= len(self.stack)]
 
     def handle_data(self, data):
         if self.linked_data is not None:
@@ -337,7 +420,7 @@ def read_article(url, *, avoid_hosts=None):
                 parser.feed(decoded)
                 parser.close()
                 text = parser.text()
-                publication = parser.publication
+                publication = parser.publication_candidates(current)
             if not text:
                 raise _Unavailable("no_readable_text")
             result.update(
