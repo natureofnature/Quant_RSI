@@ -15,7 +15,13 @@ MAX_PEERS = 3
 
 
 def aligned_closes(dates, cutoffs, peer_data, peer_info):
-    """Match exact session dates; a later peer close is not known at the target close."""
+    """Match exact session dates; a later peer close is not known at the target close.
+
+    Closes at or after an unreviewed corporate action are missing, never adjusted, so no
+    trailing return spans the action.
+    """
+    action = peer_info.get("unresolved_corporate_action_at")
+    action = datetime.fromisoformat(action) if action else None
     peer_times = peer_info["session_close_times"]
     if len(peer_times) != len(peer_data.dates) or len(cutoffs) != len(dates):
         raise ValueError("Related price timestamps must match their sessions")
@@ -31,6 +37,8 @@ def aligned_closes(dates, cutoffs, peer_data, peer_info):
         if decision.tzinfo is None:
             raise ValueError("Target close times must have timezones")
         if day in lookup and lookup[day][0] <= decision:
+            if action is not None and lookup[day][0] >= action:
+                continue
             values[index] = lookup[day][1]
     return values
 
@@ -115,12 +123,19 @@ def prepare_related_prices(
                 if retained_only and not (directory / symbol / "collection_receipt.json").is_file():
                     raise ValueError("No retained peer prices; current collection disabled")
                 peer_data, evidence = load_daily_prices(
-                    symbol, directory / symbol, historical_sessions=len(data.dates)
+                    symbol,
+                    directory / symbol,
+                    historical_sessions=len(data.dates),
+                    unresolved_actions="truncate",
                 )
                 if peer_data.instruments != (symbol,):
                     raise ValueError("Related collection symbol mismatch")
                 aligned = aligned_closes(data.dates, cutoffs, peer_data, evidence)
             entry["provider"] = evidence["provider"]
+            if evidence.get("unresolved_corporate_action_at"):
+                entry["truncated_at_unresolved_corporate_action"] = evidence[
+                    "unresolved_corporate_action_at"
+                ]
         except (ValueError, OSError, URLError) as exc:
             entry.update(reason=str(exc), error_type=type(exc).__name__)
             continue
