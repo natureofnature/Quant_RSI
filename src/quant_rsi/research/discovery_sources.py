@@ -18,7 +18,13 @@ from pydantic import Field, ValidationError, model_serializer, model_validator
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.market.availability import date_only_available_at
+from quant_rsi.market.availability import (
+    AT_INSTANT_RULE,
+    MAX_AGE_RULE,
+    date_only_available_at,
+    usable_at,
+    within_max_age,
+)
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.research.active_news import SearchResponse, _avoid_hosts, _hostname
 from quant_rsi.research.article_reader import read_article
@@ -1463,8 +1469,26 @@ def validate_extraction(
     return observations, reasons
 
 
-def align_input_bundle(request, observations, prediction_times):
-    """Explicit bounded last-disclosed value; never interpolate or backfill before release."""
+# Bundles record the availability rules they were aligned under. A bundle without the key
+# was aligned before #159 D3 and must replay byte-for-byte under the legacy rules.
+CURRENT_ALIGNMENT_RULES = {"at_instant": AT_INSTANT_RULE, "max_age": MAX_AGE_RULE}
+
+
+def recorded_alignment_rules(bundle):
+    """The rules a stored bundle was aligned under; unknown versions are rejected."""
+    rules = bundle.get("availability_rules")
+    if rules is not None and rules != CURRENT_ALIGNMENT_RULES:
+        raise ValueError("Unknown acquired availability rules")
+    return rules
+
+
+def align_input_bundle(request, observations, prediction_times, *, rules=CURRENT_ALIGNMENT_RULES):
+    """Explicit bounded last-disclosed value; never interpolate or backfill before release.
+
+    ``rules=None`` reproduces pre-D3 alignments exactly, for verifying stored bundles.
+    """
+    if rules is not None and rules != CURRENT_ALIGNMENT_RULES:
+        raise ValueError("Unknown acquired availability rules")
     request = request if isinstance(request, DataRequest) else _record(DataRequest, request)
     observations = sorted(
         observations,
@@ -1475,12 +1499,23 @@ def align_input_bundle(request, observations, prediction_times):
     vintage_field = "published_at" if request.forecast else "effective_available_at"
     for instant in prediction_times:
         cutoff = timestamp(instant)
-        available = [
-            o
-            for o in observations
-            if timestamp(o["effective_available_at"]) <= cutoff
-            and (cutoff - timestamp(o[vintage_field])).days <= request.max_age_days
-        ]
+        if rules is None:
+            # Legacy (pre-D3), verbatim: inclusive instant, floored days, vintage anchor.
+            available = [
+                o
+                for o in observations
+                if timestamp(o["effective_available_at"]) <= cutoff
+                and (cutoff - timestamp(o[vintage_field])).days <= request.max_age_days
+            ]
+        else:
+            # D3.1 strict availability and D3.3 publication-anchored exact max age; for
+            # realized values published_at is the derived usable time of the disclosure.
+            available = [
+                o
+                for o in observations
+                if usable_at(timestamp(o["effective_available_at"]), cutoff)
+                and within_max_age(timestamp(o["published_at"]), cutoff, request.max_age_days)
+            ]
         # Forecasts follow the latest published vintage, then its latest target quarter.
         available.sort(
             key=lambda o: (
@@ -1530,6 +1565,8 @@ def align_input_bundle(request, observations, prediction_times):
     }
     if request.forecast is not None:
         body["alignment"] = "latest_forecast_vintage_max_age_no_backfill_strict_pairing_v1"
+    if rules is not None:
+        body["availability_rules"] = dict(rules)
     identity = digest(canonical(body))
     return body | {
         "identity": identity,

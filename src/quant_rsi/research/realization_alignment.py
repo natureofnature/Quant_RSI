@@ -7,7 +7,7 @@ Original-release anchors are reviewed source constraints, not first-ever-publica
 import numpy as np
 
 from quant_rsi.core.artifacts import canonical
-from quant_rsi.market.availability import date_only_available_at
+from quant_rsi.market.availability import date_only_available_at, usable_at, within_max_age
 from quant_rsi.market.market_contracts import timestamp
 from quant_rsi.research.discovery_sources import DataRequest
 
@@ -61,9 +61,11 @@ def prepare_realization_inputs(proposal, bundles, times):
             role: [
                 row
                 for row in by_id[identity]["observations"]
-                if timestamp(row["effective_available_at"]) <= cutoff
-                and timestamp(row["published_at"]) <= cutoff
-                and (cutoff - timestamp(row["published_at"])).days <= requests[role].max_age_days
+                if usable_at(timestamp(row["effective_available_at"]), cutoff)
+                and usable_at(timestamp(row["published_at"]), cutoff)
+                and within_max_age(
+                    timestamp(row["published_at"]), cutoff, requests[role].max_age_days
+                )
             ]
             for role, identity in ids.items()
         }
@@ -77,7 +79,7 @@ def prepare_realization_inputs(proposal, bundles, times):
             (
                 end
                 for end, anchor in anchors.items()
-                if date_only_available_at(anchor["publication_date"]) <= cutoff
+                if usable_at(date_only_available_at(anchor["publication_date"]), cutoff)
             ),
             default=None,
         )

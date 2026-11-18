@@ -132,7 +132,10 @@ def test_legacy_realized_identities_from_main_11471dd_are_unchanged():
         rows[0]["observation_id"]
         == "ab426a63d20e6aab57eb5b45641f4bfeaccd1ece6e65c7bb0f482184e4a49772"
     )
-    result = align_input_bundle(req, rows, ["2025-01-03T21:00:00Z", "2025-01-06T21:00:00Z"])
+    # Archives aligned before #159 D3 replay under the legacy rules with the same identity.
+    result = align_input_bundle(
+        req, rows, ["2025-01-03T21:00:00Z", "2025-01-06T21:00:00Z"], rules=None
+    )
     assert result["identity"] == "f18e384be3442648e4ed6d5ed37aba0f533c6c0825cf620d7cd8e36cc18b61e8"
 
 

@@ -34,7 +34,8 @@ REQUEST = {
 TIMES = [
     "2023-05-24T21:00:00Z",
     "2023-05-25T11:59:59Z",
-    "2023-05-25T12:00:00Z",
+    "2023-05-25T12:00:00Z",  # exactly the derived publication time: not yet usable (D3.1)
+    "2023-05-25T12:00:01Z",
     "2023-06-01T21:00:00Z",
     "2023-10-01T21:00:00Z",
 ]
@@ -96,7 +97,7 @@ def test_actual_article_reader_feeds_validated_aligned_measurement(pipeline):
     bundle = source.acquire(REQUEST, prediction_times=TIMES)
     assert fetches == [URL]
     assert source.counts == {"search": 0, "read": 1, "extract": 1, "analysis": 0}
-    assert bundle["columns"][REQUEST["input_id"]] == [None, None, 4.28, 4.28, None]
+    assert bundle["columns"][REQUEST["input_id"]] == [None, None, None, 4.28, 4.28, None]
     assert bundle["gaps"] == []
 
     article = extractor.calls[0]["article"]
@@ -117,7 +118,7 @@ def test_actual_article_reader_feeds_validated_aligned_measurement(pipeline):
     assert observation["extracted_at"] == EXTRACTED
     assert observation["availability_basis"] == "reconstructed_public_disclosure_date"
     assert (
-        bundle["input_evidence"][REQUEST["input_id"]][2]["observation_id"]
+        bundle["input_evidence"][REQUEST["input_id"]][3]["observation_id"]
         == observation["observation_id"]
     )
     json.dumps(bundle, allow_nan=False)

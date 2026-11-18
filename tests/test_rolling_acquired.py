@@ -109,11 +109,14 @@ def test_availability_staleness_conflicts_and_empty_rows(archive):
     history = load_acquired_history([archive])
     view = align_acquired_history(
         history,
-        ["2025-11-17T11:59:59Z", "2025-11-17T12:00:00Z"],
+        ["2025-11-17T11:59:59Z", "2025-11-17T12:00:00Z", "2025-11-17T12:00:01Z"],
         "2025-11-18T00:00:00Z",
         "reconstructed",
     )
-    np.testing.assert_allclose(view["columns"]["acquired.revenue"], [np.nan, 100], equal_nan=True)
+    # Exactly at the availability instant is not yet usable (D3.1).
+    np.testing.assert_allclose(
+        view["columns"]["acquired.revenue"], [np.nan, np.nan, 100], equal_nan=True
+    )
     assert view["coverage"][0]["factor_id"] == "acquired.revenue"
     assert view["coverage"][0]["symbol"] == "NVDA"
     assert view["input_evidence"]["acquired.revenue"][0]["observation_id"] is None

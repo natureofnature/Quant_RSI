@@ -219,9 +219,12 @@ def test_roc_publication_clock_aligns_at_taipei_instant_not_utc_day():
     assert not reasons
     assert observations[0]["published_at"] == "2026-10-09T00:30:00+08:00"
     bundle = sources.align_input_bundle(
-        request, observations, ["2026-10-08T16:29:59Z", "2026-10-08T16:30:00Z"]
+        request,
+        observations,
+        ["2026-10-08T16:29:59Z", "2026-10-08T16:30:00Z", "2026-10-08T16:30:01Z"],
     )
-    assert bundle["columns"][request["input_id"]] == [None, 51]
+    # Usable strictly after the official Taipei instant (D3.1), never at the UTC day.
+    assert bundle["columns"][request["input_id"]] == [None, None, 51]
 
 
 @pytest.mark.parametrize(
@@ -299,9 +302,10 @@ def test_exact_source_acquisition_only_aligns_verified_literal_units(
         reader=lambda _: pytest.fail("Exact retained source must not fetch"),
     )
     bundle = provider.acquire(
-        request, prediction_times=["2026-10-09T06:29:59Z", "2026-10-09T06:30:00Z"]
+        request,
+        prediction_times=["2026-10-09T06:29:59Z", "2026-10-09T06:30:00Z", "2026-10-09T06:30:01Z"],
     )
-    assert bundle["columns"][request["input_id"]] == [None, value if available else None]
+    assert bundle["columns"][request["input_id"]] == [None, None, value if available else None]
     assert bundle["status"] == ("available" if available else "needs_data")
     assert provider.counts == {"search": 0, "read": 0, "extract": 1, "analysis": 0}
     if not available:
