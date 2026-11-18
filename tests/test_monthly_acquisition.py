@@ -13,6 +13,7 @@ from quant_rsi.research.discovery_sources import (
     DiscoverySources,
     NumericalExtraction,
     _date_in_excerpt,
+    _literal_number,
     align_input_bundle,
     validate_extraction,
 )
@@ -183,6 +184,43 @@ def test_abbreviated_month_punctuation_preserves_exact_publication_day(quoted):
     assert not _date_in_excerpt("2026-01-08", quoted)
     assert not _date_in_excerpt("2026-01-09", "Jan. 2026")
     assert not _date_in_excerpt("2026-01-09", "NotJan. 9, 2026")
+
+
+@pytest.mark.parametrize(
+    ("value", "excerpt"),
+    [
+        (-12, "organic revenue grew 10-12 percent"),
+        (-3, "backlog as of 2024-03-31"),
+        (-1, "Revenue(1) increased"),
+        (-7, "guidance for Q3-7 remains"),
+    ],
+)
+def test_attached_hyphen_or_footnote_parenthesis_is_not_a_negative_sign(value, excerpt):
+    assert not _literal_number(value, excerpt)
+    assert _literal_number(abs(value), excerpt)
+
+
+@pytest.mark.parametrize(
+    ("value", "excerpt"),
+    [
+        (-12, "margin fell -12%"),
+        (-5, "change of −5%"),
+        (-12.5, "a loss of (12.5) million"),
+        (-1234, "net cash (1,234)"),
+        (5, "growth of +5%"),
+        (-1.2, "年增−1.2%"),
+    ],
+)
+def test_standalone_signs_and_accounting_negatives_remain_literal(value, excerpt):
+    assert _literal_number(value, excerpt)
+
+
+def test_range_hyphen_cannot_admit_a_negative_monthly_value():
+    request, article, extracted = fixture()
+    value = "Revenue for May 2026: YoY increase 10-12%."
+    article["text"] = f"Published June 10, 2026. {value}"
+    extracted["observations"][0] |= {"value": -12.0, "excerpt": value}
+    assert validate(request, article, extracted) == ([], ["unverified_literal_value_or_unit"])
 
 
 def test_month_name_cannot_substitute_for_publication_day():
