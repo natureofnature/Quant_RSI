@@ -92,10 +92,18 @@ class DiscoveryExperimentRunner:
 
     def inputs(self, bundles):
         definitions, columns = deepcopy(self.definitions), dict(self.columns)
-        from quant_rsi.research.discovery_sources import align_input_bundle
+        from quant_rsi.research.discovery_sources import (
+            align_input_bundle,
+            recorded_alignment_rules,
+        )
 
         for bundle in bundles:
-            expected = align_input_bundle(bundle["request"], bundle["observations"], self.cutoffs)
+            expected = align_input_bundle(
+                bundle["request"],
+                bundle["observations"],
+                self.cutoffs,
+                rules=recorded_alignment_rules(bundle),
+            )
             for key in ("identity", "columns", "input_evidence", "definitions"):
                 if bundle.get(key) != expected[key]:
                     raise ValueError("Acquired input differs from its source-bound alignment")

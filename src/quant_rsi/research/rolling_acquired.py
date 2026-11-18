@@ -18,6 +18,7 @@ from quant_rsi.research.discovery_sources import (
     DiscoverySources,
     NumericalExtraction,
     align_input_bundle,
+    recorded_alignment_rules,
     validate_extraction,
 )
 
@@ -150,7 +151,8 @@ def _replay(bundle):
     evidence = bundle["input_evidence"][request.input_id]
     _require(len(evidence) <= 10000, "Acquired alignment exceeds row bound")
     times = [row["prediction_time"] for row in evidence]
-    expected = align_input_bundle(request, checked, times)
+    # Verify under the rules the archive was aligned with, legacy included.
+    expected = align_input_bundle(request, checked, times, rules=recorded_alignment_rules(bundle))
     for key in ("observations", "identity", "columns", "input_evidence", "definitions"):
         _require(
             canonical(bundle[key]) == canonical(expected[key]),

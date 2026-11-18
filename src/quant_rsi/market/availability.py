@@ -33,3 +33,21 @@ def date_only_available_at(day: date | str, timezone: str | None = None) -> date
         return datetime.combine(following, datetime.min.time(), UTC) + _UNKNOWN_ZONE_OFFSET
     local = datetime.combine(following, datetime.min.time(), ZoneInfo(timezone))
     return local.astimezone(UTC)
+
+
+# A value is usable at a decision instant only if it was available strictly before it
+# (D3.1). Under the default close-to-close label, information stamped exactly at the close
+# describes the same post-close move the label measures.
+AT_INSTANT_RULE = "strictly_before_decision_instant_v1"
+# Freshness is measured from publication, never from receipt, version or extraction, so
+# re-fetching an old release cannot renew it (D3.3).
+MAX_AGE_RULE = "publication_anchored_exact_age_v1"
+
+
+def usable_at(available_at: datetime, instant: datetime) -> bool:
+    return available_at < instant
+
+
+def within_max_age(published_at: datetime, instant: datetime, max_age_days: int) -> bool:
+    """Exact duration: no flooring to whole days."""
+    return instant - published_at <= timedelta(days=max_age_days)
