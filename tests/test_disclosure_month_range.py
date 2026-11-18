@@ -60,7 +60,7 @@ def test_single_month_query_keeps_its_stored_form():
     "query",
     [
         SINGLE | {"end_year": 2026},  # end_month missing
-        RANGE | {"end_year": 2027, "end_month": 8},  # 13 months
+        RANGE | {"end_year": 2028, "end_month": 8},  # 25 months
         RANGE | {"end_year": 2026, "end_month": 7},  # ends before it starts
     ],
 )
@@ -163,3 +163,13 @@ def test_a_cached_month_does_not_make_a_different_range_free(tmp_path, archive):
     result = engine.survey(survey(later), context={"operation_id": "second"})
     assert listed_months(archive) == [(2026, 8), (2026, 9), (2026, 10)]
     assert any("allowance exhausted" in gap for gap in result["gaps"])
+
+
+def test_a_one_year_study_range_fits_in_one_query():
+    # Measured on #159: Oct 2025 initialisation through the Oct 2026 development release.
+    query = DisclosureQuery.model_validate(
+        {"provider": "mops", "year": 2025, "month": 10, "end_year": 2026, "end_month": 10}
+    )
+    assert len(query.months()) == 13
+    longest = {"provider": "mops", "year": 2025, "month": 1, "end_year": 2026, "end_month": 12}
+    assert len(DisclosureQuery.model_validate(longest).months()) == 24
