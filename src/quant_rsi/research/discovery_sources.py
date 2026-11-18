@@ -391,17 +391,6 @@ def _headline_only(article):
     return not text or any(title and text == " ".join(title.split()) for title in titles)
 
 
-def _quotes_period(result):
-    """A date quoted from the measurement period is not evidence of publication."""
-
-    def normalized(value):
-        return re.sub(r"\s+", " ", value or "").strip().casefold()
-
-    quote = normalized(result.publication_excerpt)
-    periods = [normalized(item.period_excerpt) for item in result.observations]
-    return bool(quote) and any(period and quote in period for period in periods)
-
-
 def _literal_number(value, excerpt):
     # No implicit percentages, scaling, arithmetic or inferred missing values.
     tokens = re.findall(r"\(?[+-]?\d[\d,]*(?:\.\d+)?\)?", excerpt.replace("−", "-"))
@@ -1329,8 +1318,6 @@ def validate_extraction(
         else:
             if not _date_in_excerpt(result.publication_date, result.publication_excerpt):
                 return [], ["publication_date_not_in_excerpt"]
-            if _quotes_period(result):
-                return [], ["publication_excerpt_is_period_text"]
             metadata = article.get("published_at")
             # One day of tolerance covers a UTC metadata date ahead of the local dateline.
             if metadata and publication_day < timestamp(metadata).date() - timedelta(days=1):
@@ -1358,6 +1345,9 @@ def validate_extraction(
             if request.forecast is not None:
                 if period_excerpt not in text or not _forecast_period(item, period_excerpt, text):
                     raise ValueError("unverified_forecast_target_quarter")
+                # A date bounding the forecast target cannot also be the forecast's vintage.
+                if result.publication_date in {item.period_start, item.period_end}:
+                    raise ValueError("publication_date_is_period_bound")
             else:
                 if (
                     item.target_quarter is not None

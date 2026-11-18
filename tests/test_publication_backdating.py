@@ -47,18 +47,19 @@ def quarter_release(publication_date, excerpt, period_excerpt=None):
     return source, result
 
 
-def test_quarter_end_date_cannot_be_claimed_as_publication_date():
-    source, result = quarter_release("2024-03-31", "quarter ended March 31, 2024")
+@pytest.mark.parametrize("period_excerpt", [None, "the quarter ended March 31, 2024"])
+def test_quarter_end_date_cannot_be_claimed_as_publication_date(period_excerpt):
+    source, result = quarter_release("2024-03-31", "quarter ended March 31, 2024", period_excerpt)
+    assert validate(source, result) == ([], ["invalid_period"])
+
+
+def test_dateline_inside_the_quoted_period_sentence_is_accepted():
+    # Role, not quote overlap, decides: the period sentence may also carry the dateline.
+    sentence = "April 25, 2024 -- KO reported results for the quarter ended March 31, 2024."
+    source, result = quarter_release("2024-04-25", "April 25, 2024", sentence)
+    source["published_at"] = "2024-04-25T12:00:00Z"
     rows, reasons = validate(source, result)
-    assert not rows
-    assert reasons == ["invalid_period"]
-
-
-def test_period_description_cannot_serve_as_publication_evidence():
-    source, result = quarter_release(
-        "2024-03-31", "quarter ended March 31, 2024", "the quarter ended March 31, 2024"
-    )
-    assert validate(source, result) == ([], ["publication_excerpt_is_period_text"])
+    assert len(rows) == 1 and not reasons
 
 
 def test_release_dateline_is_still_accepted():
@@ -109,3 +110,16 @@ def test_forecast_vintage_cannot_be_backdated_to_an_earlier_quoted_date():
         ["publication_before_source_metadata"],
     )
     assert checked(forecast_request(), source, forecast_extraction(2))[0]
+
+
+def test_forecast_vintage_cannot_claim_its_target_period_bound_as_publication():
+    source = forecast_article(1)
+    source["text"] = "Target quarter begins 1 January 2026. " + source["text"]
+    result = forecast_extraction(1) | {
+        "publication_date": "2026-01-01",
+        "publication_excerpt": "1 January 2026",
+    }
+    assert checked(forecast_request(), source, result) == (
+        [],
+        ["publication_date_is_period_bound"],
+    )
