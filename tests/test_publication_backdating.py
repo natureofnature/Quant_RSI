@@ -112,14 +112,17 @@ def test_forecast_vintage_cannot_be_backdated_to_an_earlier_quoted_date():
     assert checked(forecast_request(), source, forecast_extraction(2))[0]
 
 
-def test_forecast_vintage_cannot_claim_its_target_period_bound_as_publication():
-    source = forecast_article(1)
-    source["text"] = "Target quarter begins 1 January 2026. " + source["text"]
-    result = forecast_extraction(1) | {
-        "publication_date": "2026-01-01",
-        "publication_excerpt": "1 January 2026",
+def test_forecast_published_on_the_first_day_of_its_target_period_is_accepted():
+    # Review case on #161: date equality with a target bound is not evidence of a wrong role.
+    result = forecast_extraction(3) | {
+        "publication_date": "2026-04-01",
+        "publication_excerpt": "Published 1 April 2026",
     }
-    assert checked(forecast_request(), source, result) == (
-        [],
-        ["publication_date_is_period_bound"],
-    )
+    source = forecast_article(3) | {
+        "text": "Published 1 April 2026. " + result["observations"][0]["excerpt"],
+        "published_at": "2026-04-01T09:00:00Z",
+        "received_at": "2026-04-02T12:00:00Z",
+        "version_available_at": "2026-04-02T12:00:00Z",
+    }
+    rows, reasons = checked(forecast_request(), source, result)
+    assert len(rows) == 1 and not reasons

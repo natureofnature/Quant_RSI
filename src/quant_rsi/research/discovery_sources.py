@@ -1351,9 +1351,6 @@ def validate_extraction(
             if request.forecast is not None:
                 if period_excerpt not in text or not _forecast_period(item, period_excerpt, text):
                     raise ValueError("unverified_forecast_target_quarter")
-                # A date bounding the forecast target cannot also be the forecast's vintage.
-                if result.publication_date in {item.period_start, item.period_end}:
-                    raise ValueError("publication_date_is_period_bound")
             else:
                 if (
                     item.target_quarter is not None
