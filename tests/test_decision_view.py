@@ -138,12 +138,67 @@ def test_coverage_summary_reports_exactly_the_uncovered_rows():
     assert summary["observations_used"][0]["rows"] == 247
 
 
-def test_article_not_in_context_evidence_keeps_its_text():
+def test_article_outside_evidence_keeps_one_full_copy_in_retained_sources():
     frozen = context()
-    extra = article(9) | {"id": "source-web-extra"}
+    extra = article(9) | {"id": "source-web-extra", "text": "Only copy of this body."}
     frozen["memory"][1]["result"]["articles"].append(extra)
     view = sources.decision_view(frozen)
-    assert view["memory"][1]["result"]["articles"][-1] == extra
+    assert view["memory"][1]["result"]["articles"][-1]["full_text"] == ("context.retained_sources")
+    assert view["retained_sources"] == [extra]
+    assert json.dumps(view, ensure_ascii=False).count("Only copy of this body.") == 1
+
+
+def test_same_id_with_different_text_is_never_stubbed():
+    frozen = context()
+    changed = article(1) | {"text": "A different version of the body."}
+    frozen["input_bundles"][0]["articles"] = [changed]
+    view = sources.decision_view(frozen)
+    assert view["input_bundles"][0]["articles"] == [changed]
+    assert "retained_sources" not in view
+
+
+MARKER = "Additional management explanation: inventory normalization is incomplete."
+
+
+@pytest.mark.parametrize("unit", ["percent", "unsupported unit"])
+def test_directly_acquired_article_text_reaches_the_next_decision(tmp_path, monkeypatch, unit):
+    # Review on #177: direct acquisition never adds to context.evidence, and a
+    # needs_data acquisition is only in memory; the view must still carry its body.
+    from test_discovery_loop import cache_at, runner
+    from test_mops_usd_guidance import provider_for
+    from test_unit_aliases import TIMES, answer
+
+    from quant_rsi.core.artifacts import digest
+    from quant_rsi.research.discovery_loop import run_discovery
+
+    request, source, extraction = answer()
+    source["text"] += "\n" + MARKER
+    source["content_sha256"] = digest(source["text"].encode())
+    request["unit"] = unit
+    provider = provider_for(source, extraction, [])
+    monkeypatch.setattr(sources, "_now", lambda: "2026-10-10T12:01:00Z")
+    contexts = []
+
+    def decide(frozen):
+        if frozen["iteration"] == 1:
+            return {"action": "acquire", "data_requests": [request]}
+        return {"action": "stop"}
+
+    run_discovery(
+        {"symbol": "TSM", "evidence": []},
+        root=tmp_path,
+        cache=cache_at(tmp_path),
+        decide=decide,
+        run_experiment=runner,
+        acquire=lambda r: provider.acquire(r, prediction_times=TIMES),
+        decision_budget=2,
+        on_context=contexts.append,
+    )
+    frozen = contexts[1]
+    assert frozen["evidence"] == [] and MARKER in json.dumps(frozen, ensure_ascii=False)
+    view = sources.decision_view(frozen)
+    assert json.dumps(view, ensure_ascii=False).count(MARKER) == 1
+    assert [a["id"] for a in view["retained_sources"]] == [source["id"]]
 
 
 def decide(frozen, prompts):

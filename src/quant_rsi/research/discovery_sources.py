@@ -307,9 +307,34 @@ _LISTING_ITEM_KEYS = ("document_ref", "published_at", "title")
 _RECEIPT_KEYS = ("url", "provider", "status", "reason", "http_status")
 
 
-def _article_stub(article):
-    stub = {k: article[k] for k in _ARTICLE_STUB_KEYS if k in article}
-    return stub | {"text_chars": len(article.get("text") or ""), "full_text": "context.evidence"}
+class _ProviderSources:
+    """Where each article's single full copy lives in the provider view.
+
+    An article is stubbed only when the view holds a full copy with the same id and text:
+    in context.evidence, or else in context.retained_sources, which collects each article
+    seen nowhere else exactly once (e.g. a directly acquired or a needs_data source).
+    A different text under an already used id stays in place, never stubbed.
+    """
+
+    def __init__(self, evidence):
+        self.evidence = {a.get("id"): a.get("text") for a in evidence if a.get("id")}
+        self.retained = {}
+
+    def view(self, article):
+        identity = article.get("id")
+        if not identity:
+            return article
+        if identity in self.evidence:
+            if self.evidence[identity] != article.get("text"):
+                return article
+            location = "context.evidence"
+        else:
+            held = self.retained.setdefault(identity, article)
+            if held.get("text") != article.get("text"):
+                return article
+            location = "context.retained_sources"
+        stub = {k: article[k] for k in _ARTICLE_STUB_KEYS if k in article}
+        return stub | {"text_chars": len(article.get("text") or ""), "full_text": location}
 
 
 def _coverage_summary(rows):
@@ -337,7 +362,7 @@ def _coverage_summary(rows):
     }
 
 
-def _bundle_view(bundle):
+def _bundle_view(bundle, sources):
     view = {
         k: v
         for k, v in bundle.items()
@@ -348,20 +373,18 @@ def _bundle_view(bundle):
             key: _coverage_summary(rows) for key, rows in bundle["input_evidence"].items()
         }
     if "articles" in bundle:
-        view["articles"] = [_article_stub(a) for a in bundle["articles"]]
+        view["articles"] = [sources.view(a) for a in bundle["articles"]]
     for key in ("operations", "access_receipts"):
         if key in bundle:
             view[key + "_count"] = len(bundle[key])
     return view
 
 
-def _survey_view(result, evidence_ids):
+def _survey_view(result, sources):
     view = dict(result)
     for key in ("articles", "evidence"):
         if key in result:
-            view[key] = [
-                _article_stub(a) if a.get("id") in evidence_ids else a for a in result[key]
-            ]
+            view[key] = [sources.view(a) for a in result[key]]
     if "operations" in result:
         view.pop("operations")
         view["operations_count"] = len(result["operations"])
@@ -391,13 +414,14 @@ def _survey_view(result, evidence_ids):
 def decision_view(context):
     """A bounded, deterministic provider view of a frozen decision context.
 
-    Full article text appears once, in context.evidence. Acquisition bundles appear once,
-    in context.input_bundles, with per-row alignment summarized. Memory entries refer to
-    them by identity, and every ref and identity the agent may cite is preserved.
+    Each article's full text appears exactly once: in context.evidence, or in
+    context.retained_sources when evidence does not hold it. Acquisition bundles appear
+    once, in context.input_bundles, with per-row alignment summarized. Memory entries refer
+    to them by identity, and every ref and identity the agent may cite is preserved.
     """
     view = dict(context)
-    evidence_ids = {a.get("id") for a in context.get("evidence", [])}
-    bundles = [_bundle_view(b) for b in context.get("input_bundles", [])]
+    sources = _ProviderSources(context.get("evidence", []))
+    bundles = [_bundle_view(b, sources) for b in context.get("input_bundles", [])]
     identities = {b.get("identity") for b in bundles}
     if "input_bundles" in context:
         view["input_bundles"] = bundles
@@ -410,13 +434,15 @@ def decision_view(context):
             summary = {k: result[k] for k in ("identity", "status", "covered_rows") if k in result}
             memory.append(entry | {"result": summary | {"bundle": "context.input_bundles"}})
         elif entry.get("kind") == "acquire":
-            memory.append(entry | {"result": _bundle_view(result)})
+            memory.append(entry | {"result": _bundle_view(result, sources)})
         elif entry.get("kind") == "survey":
-            memory.append(entry | {"result": _survey_view(result, evidence_ids)})
+            memory.append(entry | {"result": _survey_view(result, sources)})
         else:
             memory.append(entry)
     if "memory" in context:
         view["memory"] = memory
+    if sources.retained:
+        view["retained_sources"] = list(sources.retained.values())
     return view
 
 
