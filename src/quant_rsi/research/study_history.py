@@ -1,14 +1,15 @@
 """Cross-run study receipts using the existing journal, artifact and account helpers."""
 
+import fcntl
 import math
 import re
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode, digest
-from quant_rsi.core.controller import controller_lock
 from quant_rsi.core.data import MarketData
 from quant_rsi.core.journal import Journal
 from quant_rsi.forecast.forecast_kernel import forecast_errors
@@ -28,11 +29,35 @@ NOTICE = (
 )
 
 
+LOCK_WAIT_SECONDS = 30.0
+
+
 @contextmanager
-def _ledger(directory):
+def _ledger_lock(root, *, write, wait_seconds):
+    """Readers share; a writer excludes everyone. Contention waits, bounded, then fails."""
+    # The same file the previous exclusive controller lock used, so an older process
+    # that is still running remains mutually exclusive with this one during an upgrade.
+    with (root / ".controller.lock").open("a+") as handle:
+        mode = fcntl.LOCK_EX if write else fcntl.LOCK_SH
+        deadline = time.monotonic() + wait_seconds
+        while True:
+            try:
+                fcntl.flock(handle, mode | fcntl.LOCK_NB)
+                break
+            except BlockingIOError as exc:
+                if time.monotonic() >= deadline:
+                    raise ValueError(
+                        "another controller or its worker still owns this run"
+                    ) from exc
+                time.sleep(0.02)
+        yield
+
+
+@contextmanager
+def _ledger(directory, *, write=False, wait_seconds=LOCK_WAIT_SECONDS):
     root = Path(directory).resolve()
     root.mkdir(parents=True, exist_ok=True)
-    with controller_lock(root):
+    with _ledger_lock(root, write=write, wait_seconds=wait_seconds):
         journal = Journal(root, IDENTITY)
         try:
             metadata = dict(journal.connection.execute("SELECT key,value FROM metadata"))
@@ -113,7 +138,7 @@ def register_study(directory, run_root, result, snapshot=None):
     """Retain completed research, with a forecast receipt only when one was selected."""
     run_root = str(Path(run_root).resolve())
     study_id = digest(run_root.encode())
-    with _ledger(directory) as (journal, store):
+    with _ledger(directory, write=True) as (journal, store):
         existing = _entries(journal, store).get(study_id)
         result_ref = store.put_json(result)
         if existing:
@@ -297,7 +322,7 @@ def observe_prices(directory, symbol, snapshot):
     now = market_contracts.trusted_now()
     if timestamp(snapshot["info"]["received_at"]) > timestamp(now):
         raise ValueError("Observation precedes price receipt")
-    with _ledger(directory) as (journal, store):
+    with _ledger(directory, write=True) as (journal, store):
         reference = store.put_json(snapshot)
         for entry in _entries(journal, store).values():
             if entry["symbol"] != symbol or not entry["source_ref"]:
