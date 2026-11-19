@@ -10,16 +10,16 @@ from test_forecast_features import prepare_inputs  # noqa: F401
 
 from quant_rsi.core.artifacts import canonical
 from quant_rsi.core.journal import Journal
-from quant_rsi.forecast.forecast_experiment import (
+from quant_rsi.legacy.forecast.forecast_experiment import (
     experiment_root,
     inspect_experiment,
     open_experiment,
     prepare_experiment,
     resume_experiment,
 )
-from quant_rsi.forecast.forecast_features import ordered_feature_values
-from quant_rsi.forecast.forecast_inputs import ForecastRecipe
-from quant_rsi.forecast.forecast_protocol import comparison_recipe
+from quant_rsi.legacy.forecast.forecast_features import ordered_feature_values
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastRecipe
+from quant_rsi.legacy.forecast.forecast_protocol import comparison_recipe
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def news_inputs(request, monkeypatch):
     # The extractor has its own evidence tests. This fixture isolates the worker interface.
     monkeypatch.setitem(
         sys.modules,
-        "quant_rsi.factors.news",
+        "quant_rsi.legacy.factors.news",
         SimpleNamespace(
             NEWS_FEATURE_DEFINITION=dict(
                 name="issuer_earnings_release_count_7d",
@@ -149,8 +149,8 @@ def test_retained_search_extraction_features_and_original_worker_end_to_end(
     from datetime import timedelta
 
     from quant_rsi.core.artifacts import ArtifactStore, digest
-    from quant_rsi.factors import news
-    from quant_rsi.forecast.forecast_inputs import ForecastInputs, SignalSnapshot
+    from quant_rsi.legacy.factors import news
+    from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs, SignalSnapshot
     from quant_rsi.market.market_contracts import utc_text
 
     if not real_model:
@@ -245,7 +245,7 @@ def test_retained_search_extraction_features_and_original_worker_end_to_end(
         assert cutoff < extraction.completed_at < boundary
         envelope = news.attach_news_result(envelope, result)
     monkeypatch.setattr(market_contracts, "trusted_now", trusted_clock)
-    from quant_rsi.forecast import forecast_experiment
+    from quant_rsi.legacy.forecast import forecast_experiment
 
     # A crash after the campaign claim cannot mint a fresh allowance under a new ID.
     freeze = forecast_experiment.freeze_protocol
@@ -313,7 +313,7 @@ def test_retained_search_extraction_features_and_original_worker_end_to_end(
     assert result == inspect_experiment("real-news-pair", replay=True)
     if not real_model:
         from quant_rsi.core.artifacts import atomic_write, decode
-        from quant_rsi.evaluation.evidence import authority_root
+        from quant_rsi.legacy.evaluation.evidence import authority_root
 
         campaign_path = authority_root() / "news_campaigns/prospective_fixture/news_campaign.json"
         saved = campaign_path.read_bytes()
@@ -341,9 +341,9 @@ def test_newly_observed_corpus_seals_insufficient_evidence_without_retrying(
     from datetime import timedelta
 
     from quant_rsi.core.artifacts import ArtifactStore, digest
-    from quant_rsi.factors import news
-    from quant_rsi.forecast import forecast_experiment
-    from quant_rsi.forecast.forecast_inputs import SignalSnapshot
+    from quant_rsi.legacy.factors import news
+    from quant_rsi.legacy.forecast import forecast_experiment
+    from quant_rsi.legacy.forecast.forecast_inputs import SignalSnapshot
     from quant_rsi.market import market_contracts
     from quant_rsi.market.market_contracts import timestamp, utc_text
 
@@ -419,8 +419,8 @@ def test_whole_query_omission_rejected_and_authoritative_results_frozen(
     from test_news_factor import request as news_request
 
     from quant_rsi.core.artifacts import ArtifactStore
-    from quant_rsi.factors import news
-    from quant_rsi.forecast.forecast_inputs import ForecastInputs
+    from quant_rsi.legacy.factors import news
+    from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
     from quant_rsi.market import market_contracts
 
     _, envelope = request.getfixturevalue("prepare_inputs")(
@@ -459,7 +459,7 @@ def test_whole_query_omission_rejected_and_authoritative_results_frozen(
     # Even an empty later result must not silently expand the frozen state while
     # the receipt retained by the experiment still names the original searches.
     from quant_rsi.core.artifacts import atomic_write, decode
-    from quant_rsi.evaluation.evidence import authority_root
+    from quant_rsi.legacy.evaluation.evidence import authority_root
 
     empty = deepcopy(value)
     empty.update(events=[], coverage=[])
@@ -497,8 +497,8 @@ def test_sec_sidecar_preserved_while_missing_and_forged_news_rejected(
     from test_news_factor import request as news_request
 
     from quant_rsi.core.artifacts import ArtifactStore, digest
-    from quant_rsi.factors import news
-    from quant_rsi.forecast.forecast_inputs import ForecastInputs
+    from quant_rsi.legacy.factors import news
+    from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
     from quant_rsi.market import market_contracts
 
     _, envelope = request.getfixturevalue("prepare_inputs")(

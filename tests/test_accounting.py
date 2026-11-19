@@ -3,9 +3,9 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
-from quant_rsi.core.accounting import evaluate, validate_predictions
 from quant_rsi.core.data import MarketData
 from quant_rsi.core.schemas import PortfolioSpec
+from quant_rsi.legacy.core.accounting import evaluate, validate_predictions
 
 
 def quotes(opens, closes=None):

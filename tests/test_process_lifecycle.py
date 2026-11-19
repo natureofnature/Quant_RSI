@@ -6,8 +6,8 @@ import sys
 import pytest
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical
-from quant_rsi.core.controller import controller_lock, job_for
 from quant_rsi.core.schemas import DevelopmentPlan
+from quant_rsi.legacy.core.controller import controller_lock, job_for
 
 
 def test_child_retains_run_lock_after_parent_descriptor_closes(tmp_path):
@@ -57,7 +57,7 @@ def test_worker_self_deadline_terminates_blocked_io(tmp_path, plan):
     path.write_bytes(canonical(job))
     with (work / "worker.log").open("wb") as log:
         process = subprocess.run(
-            [sys.executable, "-m", "quant_rsi.worker", str(path)],
+            [sys.executable, "-m", "quant_rsi.legacy.worker", str(path)],
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=subprocess.STDOUT,

@@ -46,12 +46,12 @@ def test_extended_manifest_names_existing_modules_and_retains_primary_safety_cov
         "test_study_discovery",
         "test_discovery_review_regressions",
         "test_study_resume",
-        "test_forecast_features",
-        "test_forecast_settlement",
+        "test_close_boundary",
+        "test_pipeline_boundary",
         "test_candidate_factor_runtime",
         "test_provider_process",
         "test_controller",
-        "test_research",
+        "test_history_watermark",
         "test_study_ui",
     ):
         assert f"tests/{name}.py" in critical

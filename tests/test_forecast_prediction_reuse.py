@@ -15,10 +15,10 @@ from test_forecast_recursive_market import prepared_inputs
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation.local_research import LocalResearchData, verify_local_result
-from quant_rsi.forecast import forecast_research
-from quant_rsi.forecast.forecast_contracts import ForecastDevelopmentPlan
-from quant_rsi.market import asof
+from quant_rsi.legacy.evaluation.local_research import LocalResearchData, verify_local_result
+from quant_rsi.legacy.forecast import forecast_research
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastDevelopmentPlan
+from quant_rsi.legacy.market import asof
 
 
 def _legacy_predict_view(model_text, view):

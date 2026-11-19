@@ -10,11 +10,15 @@ import pytest
 from test_local_packages import local_c4_fixture as _local_c4_fixture
 from test_trajectory import files, setup_plan
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical
-from quant_rsi.research import package_experiment, research, trajectory
-from quant_rsi.research.package_journal import PackageJournal
-from quant_rsi.research.trajectory_state import TrajectoryLedger, locked_trajectory, trajectory_root
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research import package_experiment, research, trajectory
+from quant_rsi.legacy.research.package_journal import PackageJournal
+from quant_rsi.legacy.research.trajectory_state import (
+    TrajectoryLedger,
+    locked_trajectory,
+    trajectory_root,
+)
 
 local_c4_fixture = _local_c4_fixture
 

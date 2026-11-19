@@ -2,7 +2,9 @@
 
 Target order (#159 D4), lower layers never importing higher ones:
 core < market (data) < factors < evaluation/execution/forecast
-< research/intraday/brokers < cli/worker < __main__.
+< research/intraday/brokers < cli/legacy < __main__.
+Frozen pipeline A lives in legacy/ (#159 D2) at the rank of cli: only cli and other
+legacy modules may import it; within legacy, ranks are not checked.
 Imports within one rank are allowed. Existing upward imports are listed in
 import_layering_allowlist.json as "<file relative to src/quant_rsi> -> <package>".
 """
@@ -26,7 +28,7 @@ RANK = {
     "intraday": 4,
     "brokers": 4,
     "cli": 5,
-    "worker": 5,
+    "legacy": 5,
     "__main__": 6,
 }
 

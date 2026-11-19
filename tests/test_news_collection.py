@@ -8,8 +8,9 @@ from urllib.error import HTTPError
 import pytest
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical
-from quant_rsi.factors import lifecycle
-from quant_rsi.market import market_contracts, news_collection, news_feed
+from quant_rsi.legacy.factors import lifecycle
+from quant_rsi.legacy.market import news_collection
+from quant_rsi.market import market_contracts, news_feed
 
 TITLE = "The Coca-Cola Company Reports Second Quarter 2025 Results"
 START = "2025-07-01T00:00:00Z"
@@ -203,7 +204,7 @@ def test_clock_rollback_rejects_new_request_before_network(collection):
 
 
 def test_readonly_replay_survives_runtime_change_but_new_dispatch_does_not(collection, monkeypatch):
-    from quant_rsi.core import controller
+    from quant_rsi.legacy.core import controller
 
     poll()
     report = news_collection.inspect("issuer-feed")
@@ -228,7 +229,7 @@ def test_incomplete_response_receipt_preserves_failure_and_budget(collection, mo
 
 
 def test_registered_feed_evidence_cannot_drop_raw_response(collection):
-    from quant_rsi.factors.news import retained_evidence_refs
+    from quant_rsi.legacy.factors.news import retained_evidence_refs
 
     result = poll()
     evidence = {ref: collection.store.get(ref) for ref in result["evidence_refs"]}

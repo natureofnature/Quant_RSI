@@ -10,10 +10,10 @@ from test_task_definition import recursive_value
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.journal import Journal
-from quant_rsi.forecast import forecast_campaign as comparison
-from quant_rsi.forecast.forecast_contracts import ForecastDevelopmentPlan
-from quant_rsi.forecast.recursive import forecast_recursive_campaign as recursive
-from quant_rsi.research.task_definition import ForecastRecursiveProfile
+from quant_rsi.legacy.forecast import forecast_campaign as comparison
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastDevelopmentPlan
+from quant_rsi.legacy.forecast.recursive import forecast_recursive_campaign as recursive
+from quant_rsi.legacy.research.task_definition import ForecastRecursiveProfile
 
 
 @pytest.fixture

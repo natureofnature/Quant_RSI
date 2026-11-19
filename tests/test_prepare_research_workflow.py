@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 from quant_rsi.core.artifacts import canonical, decode
-from quant_rsi.factors.discovery import DiscoveryPlan
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.factors.discovery import DiscoveryPlan
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
 from quant_rsi.market.market_contracts import AccountRules
 
 

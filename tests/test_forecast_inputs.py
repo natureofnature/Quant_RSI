@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast.forecast_inputs import SignalSnapshot, signal_view
+from quant_rsi.legacy.forecast.forecast_inputs import SignalSnapshot, signal_view
 
 
 def snapshot_value():

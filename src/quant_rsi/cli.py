@@ -739,7 +739,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2) if args.json else render_demo(result))
             return 0
         if args.command == "research-workflow":
-            from quant_rsi.research import workflow
+            from quant_rsi.legacy.research import workflow
 
             if args.workflow_command in {"prepare", "run"}:
                 report = workflow.prepare(json.loads(args.profile.read_bytes()))
@@ -761,7 +761,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(report, indent=2, allow_nan=False))
             return 0
         if args.command == "forecast-observe":
-            from quant_rsi.forecast import forecast_settlement
+            from quant_rsi.legacy.forecast import forecast_settlement
 
             if args.observation_command == "register":
                 report = forecast_settlement.register(args.experiment_id)
@@ -776,7 +776,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
         if args.command == "news-collect":
-            from quant_rsi.market import news_collection
+            from quant_rsi.legacy.market import news_collection
 
             if args.collection_command == "init":
                 report = news_collection.initialize(
@@ -793,7 +793,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
         if args.command == "factor-discovery":
-            from quant_rsi.factors import discovery
+            from quant_rsi.legacy.factors import discovery
 
             if args.discovery_command == "init":
                 plan = discovery.DiscoveryPlan.model_validate_json(args.plan.read_bytes())
@@ -813,8 +813,8 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
         if args.command == "forecast":
-            from quant_rsi.forecast.forecast_requests import inspect_forecast
-            from quant_rsi.forecast.forecast_workflow import display_forecast, run_forecast
+            from quant_rsi.legacy.forecast.forecast_requests import inspect_forecast
+            from quant_rsi.legacy.forecast.forecast_workflow import display_forecast, run_forecast
 
             if args.forecast_command == "run":
                 report = run_forecast(
@@ -828,12 +828,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(display_forecast(report), indent=2, allow_nan=False))
             return 0
         if args.command == "forecast-campaign":
-            from quant_rsi.forecast.forecast_campaign import init_campaign, inspect_campaign
+            from quant_rsi.legacy.forecast.forecast_campaign import init_campaign, inspect_campaign
 
             if args.campaign_command == "init":
                 report = init_campaign(json.loads(args.plan.read_text()))
             elif args.campaign_command == "recursive-init":
-                from quant_rsi.forecast.recursive.forecast_recursive_campaign import (
+                from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
                     init_recursive_campaign,
                 )
 
@@ -841,7 +841,7 @@ def main(argv: list[str] | None = None) -> int:
                     json.loads(args.plan.read_text()), market_preparation=args.market_preparation
                 )
             elif args.campaign_command == "recursive-prepare":
-                from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+                from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
                     prepare_market_campaign,
                 )
 
@@ -858,8 +858,8 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
         if args.command == "forecast-workflow":
-            from quant_rsi.forecast import forecast_usability as usability
-            from quant_rsi.forecast.enhanced_forecast_workflow import (
+            from quant_rsi.legacy.forecast import forecast_usability as usability
+            from quant_rsi.legacy.forecast.enhanced_forecast_workflow import (
                 inspect_workflow,
                 prepare_workflow,
                 run_workflow,
@@ -930,7 +930,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
         if args.command == "forecast-compare":
-            from quant_rsi.forecast.forecast_experiment import (
+            from quant_rsi.legacy.forecast.forecast_experiment import (
                 inspect_experiment,
                 prepare_experiment,
                 resume_experiment,
@@ -950,37 +950,45 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         # Pipeline A commands (frozen, #159 D2) load its modules only when one of them runs,
         # so the active research commands never import pipeline A.
-        from quant_rsi.core.controller import create_run, inspect_run, resume_run
-        from quant_rsi.evaluation.comparison import (
+        from quant_rsi.legacy.core.controller import create_run, inspect_run, resume_run
+        from quant_rsi.legacy.evaluation.comparison import (
             cancel_comparison,
             decide_comparison,
             inspect_comparison,
             register_comparison,
             resume_comparison,
         )
-        from quant_rsi.evaluation.evidence import ComparisonInput, init_evidence, parse_program
-        from quant_rsi.execution.baseline import infer_at, inspect_baseline, seal_baseline
-        from quant_rsi.execution.observer import (
+        from quant_rsi.legacy.evaluation.evidence import (
+            ComparisonInput,
+            init_evidence,
+            parse_program,
+        )
+        from quant_rsi.legacy.execution.baseline import infer_at, inspect_baseline, seal_baseline
+        from quant_rsi.legacy.execution.observer import (
             advance_observer,
             inspect_observer,
             register_observer,
             stop_observer,
         )
-        from quant_rsi.forecast.forecast_contracts import parse_development_plan
-        from quant_rsi.market.market_data import ingest, inspect_data
-        from quant_rsi.research.package_experiment import (
+        from quant_rsi.legacy.forecast.forecast_contracts import parse_development_plan
+        from quant_rsi.legacy.market.market_data import ingest, inspect_data
+        from quant_rsi.legacy.research.package_experiment import (
             create_package,
             inspect_package,
             resume_package,
         )
-        from quant_rsi.research.research import create_research, inspect_research, resume_research
-        from quant_rsi.research.researcher import ResearchPlan
-        from quant_rsi.research.trajectory import (
+        from quant_rsi.legacy.research.research import (
+            create_research,
+            inspect_research,
+            resume_research,
+        )
+        from quant_rsi.legacy.research.researcher import ResearchPlan
+        from quant_rsi.legacy.research.trajectory import (
             init_trajectory,
             inspect_trajectory,
             resume_trajectory,
         )
-        from quant_rsi.research.trajectory_state import TrajectoryPlan
+        from quant_rsi.legacy.research.trajectory_state import TrajectoryPlan
 
         if args.command == "trajectory":
             if args.trajectory_command == "init":

@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.research import research
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research import research
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 def plan():

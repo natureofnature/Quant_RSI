@@ -7,9 +7,9 @@ import pytest
 from pydantic import ValidationError
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical, digest
-from quant_rsi.forecast.forecast_contracts import ForecastDevelopmentPlan
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.task_definition import (
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastDevelopmentPlan
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.task_definition import (
     ForecastRecursiveProfile,
     RegisteredNeighborDomain,
     domain_ref,

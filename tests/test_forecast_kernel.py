@@ -7,8 +7,8 @@ from market_helpers import contract_and_events, write_events
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.forecast.forecast_contracts import ForecastObjective
-from quant_rsi.forecast.forecast_kernel import (
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastObjective
+from quant_rsi.legacy.forecast.forecast_kernel import (
     forecast_errors,
     forecast_feature_view,
     forecast_feature_views,
@@ -16,8 +16,9 @@ from quant_rsi.forecast.forecast_kernel import (
     mature_forecast_labels,
     target_session,
 )
-from quant_rsi.market import market_contracts, market_data
-from quant_rsi.market.asof import make_feature_view
+from quant_rsi.legacy.market import market_data
+from quant_rsi.legacy.market.asof import make_feature_view
+from quant_rsi.market import market_contracts
 
 
 def objective(notices=()):
@@ -205,7 +206,7 @@ def test_old_watermark_and_observed_receipts_cannot_use_historical_download(sour
 
 @pytest.mark.parametrize("visibility", [{}, {"basis": "observed_receipts"}, {"watermark": 0}])
 def test_label_batch_matches_individual_labels_and_projects_once(source, monkeypatch, visibility):
-    from quant_rsi.forecast import forecast_kernel
+    from quant_rsi.legacy.forecast import forecast_kernel
 
     contract, snapshot = source(
         instruments=("A", "B"), notice={"action_kind": "split", "ratio": "2:1"}
@@ -232,7 +233,7 @@ def test_label_batch_matches_individual_labels_and_projects_once(source, monkeyp
 
 
 def test_label_batch_preserves_lazy_visibility_and_instrument_rejection(source, monkeypatch):
-    from quant_rsi.forecast import forecast_kernel
+    from quant_rsi.legacy.forecast import forecast_kernel
 
     contract, snapshot = source()
     cutoff, spec = "2020-10-26T15:59:59Z", objective()

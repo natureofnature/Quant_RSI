@@ -9,7 +9,7 @@ import pytest
 from market_helpers import account_rules, contract_and_events
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.execution.strategy_replay import advance_paper_strategy, replay_strategy
+from quant_rsi.legacy.execution.strategy_replay import advance_paper_strategy, replay_strategy
 from quant_rsi.market.market_contracts import utc_text
 
 

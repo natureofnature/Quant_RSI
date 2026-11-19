@@ -38,11 +38,11 @@ pytest -q tests/test_factor_discovery.py
 
 The tests construct offline inputs, exercise the CLI and interruption paths, and include a real small LightGBM comparison. Fixture outcomes do not constitute a historical market study.
 
-The Python API is `initialize(envelope, DiscoveryPlan)`, `resume(campaign_id, max_fits=...)`, and `inspect(campaign_id, replay=...)` in `quant_rsi.factors.discovery`. `bind_catalog` explicitly maps instrument binding IDs to existing input roles; it does not infer that a source exists. Inline typed definitions can also express instrument-local hypotheses. All output artifacts remain under the registered workspace authority.
+The Python API is `initialize(envelope, DiscoveryPlan)`, `resume(campaign_id, max_fits=...)`, and `inspect(campaign_id, replay=...)` in `quant_rsi.legacy.factors.discovery`. `bind_catalog` explicitly maps instrument binding IDs to existing input roles; it does not infer that a source exists. Inline typed definitions can also express instrument-local hypotheses. All output artifacts remain under the registered workspace authority.
 
 ## Dynamic event lifecycle
 
-`quant_rsi.factors.lifecycle` provides versioned `EventTemplate`, `create`, `transition`, `snapshot`, `expire`, `attach_instance` and `value_at` interfaces. Instance identities are instrument-specific; templates contain no issuer binding. The finite states are:
+`quant_rsi.legacy.factors.lifecycle` provides versioned `EventTemplate`, `create`, `transition`, `snapshot`, `expire`, `attach_instance` and `value_at` interfaces. Instance identities are instrument-specific; templates contain no issuer binding. The finite states are:
 
 ```text
 proposed → validated → experimental → active_for_registered_research
@@ -65,8 +65,8 @@ retained headlines and call this observer directly. Its source coverage remains 
 it does not backfill historical observed evidence or authorize new fits.
 
 ```python
-from quant_rsi.factors.event_observer import observe
-from quant_rsi.factors.lifecycle import EventTemplate, snapshot, attach_instance
+from quant_rsi.legacy.factors.event_observer import observe
+from quant_rsi.legacy.factors.lifecycle import EventTemplate, snapshot, attach_instance
 from quant_rsi.core.artifacts import canonical, digest
 
 template = EventTemplate(

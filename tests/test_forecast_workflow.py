@@ -5,9 +5,9 @@ from market_helpers import contract_and_events, write_events
 
 from quant_rsi import cli
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast.forecast_workflow import run_forecast
+from quant_rsi.legacy.forecast.forecast_workflow import run_forecast
+from quant_rsi.legacy.research import research
 from quant_rsi.market import daily_data, market_contracts
-from quant_rsi.research import research
 
 
 @pytest.mark.parametrize("correction", ["quote", "dividend", "calendar"])
@@ -16,7 +16,7 @@ def test_new_request_accepts_source_correction_and_preserves_old_snapshot(
 ):
     from test_daily_data import CALENDAR, chart, install
 
-    from quant_rsi.market.market_data import load_snapshot
+    from quant_rsi.legacy.market.market_data import load_snapshot
 
     monkeypatch.setenv("QUANT_RSI_WORKSPACE", str(tmp_path))
     data = chart()
@@ -149,7 +149,7 @@ def test_one_command_baseline_collects_once_and_replays_without_fit(tmp_path, mo
 def test_completed_collection_recovers_without_new_download_or_fit(tmp_path, monkeypatch):
     from test_daily_data import install
 
-    from quant_rsi.forecast import forecast_workflow
+    from quant_rsi.legacy.forecast import forecast_workflow
 
     monkeypatch.setenv("QUANT_RSI_WORKSPACE", str(tmp_path))
     _, calls = install(monkeypatch)

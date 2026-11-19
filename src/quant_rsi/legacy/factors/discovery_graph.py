@@ -1,0 +1,210 @@
+"""Finite typed factor expressions; no generated code or implicit source discovery."""
+
+import math
+from dataclasses import dataclass
+from typing import Literal, Self
+
+from pydantic import Field, model_validator
+
+from quant_rsi.core.artifacts import canonical, digest
+from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.factors.contracts import Name, NumericFactorDefinition
+from quant_rsi.factors.expressions import ExpressionNode, FactorExpression, evaluate_expression
+from quant_rsi.factors.price_adapters import CandidatePriceRecipe, evaluate_price_adapter
+
+
+class FactorLeaf(StrictModel):
+    name: Name
+    role: Literal["target", "industry", "market", "news", "event"]
+    definition: NumericFactorDefinition | None = None
+    instance_ref: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    binding_ref: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def typed_source(self) -> Self:
+        if (self.role in {"news", "event"}) != (self.definition is None):
+            raise ValueError(
+                "price leaves require numeric definitions; news uses its registered task"
+            )
+        if (self.role == "event") != (self.instance_ref is not None):
+            raise ValueError("event leaves require exactly one frozen instance snapshot")
+        return self
+
+
+def leaf_expression(name):
+    return FactorExpression(nodes=(ExpressionNode(name="root", op="leaf", leaf=name),))
+
+
+def combine(left, right, op):
+    nodes = []
+    for prefix, graph in (("a_", left), ("b_", right)):
+        nodes.extend(
+            ExpressionNode(
+                name=prefix + node.name,
+                op=node.op,
+                inputs=tuple(prefix + name for name in node.inputs),
+                leaf=node.leaf,
+            )
+            for node in graph.nodes
+        )
+    nodes.append(
+        ExpressionNode(
+            name="root",
+            op=op,
+            inputs=("a_" + left.nodes[-1].name, "b_" + right.nodes[-1].name),
+        )
+    )
+    return FactorExpression(nodes=tuple(nodes))
+
+
+def grammar(leaves):
+    """Finite non-incumbent frontier: leaves plus all distinct two-leaf compositions."""
+    roots = [leaf_expression(leaf.name) for leaf in leaves]
+    graphs = list(roots)
+    for index, left in enumerate(roots):
+        for right in roots[index + 1 :]:
+            graphs.extend(combine(left, right, op) for op in ("add", "subtract", "multiply"))
+    return graphs
+
+
+def propose(frontier, history):
+    """Feedback selects an operator, while a failed candidate never discards the frontier.
+
+    Only development error deltas enter this pure interface. No protected fields,
+    unseen labels, randomness, or generated instructions are accepted.
+    """
+    visited = {item["expression_ref"] for item in history}
+    remaining = [graph for graph in frontier if graph.ref not in visited]
+    if not remaining:
+        return None
+    preferred = (
+        "leaf"
+        if not history
+        else (
+            "multiply"
+            if history[-1]["improvement_pp"] is not None and history[-1]["improvement_pp"] > 0
+            else "subtract"
+        )
+    )
+    return min(remaining, key=lambda g: (g.nodes[-1].op != preferred, frontier.index(g)))
+
+
+def source_leaves(inputs, leaves, origin, as_of, basis):
+    from quant_rsi.legacy.forecast.forecast_features import _history
+    from quant_rsi.legacy.market.asof import session_index
+
+    target = inputs.target[0]
+    index = session_index(target.contract, origin)
+    values, reasons, refs = {}, [], set()
+    for leaf in leaves:
+        if leaf.role == "event":
+            from quant_rsi.core.artifacts import decode
+            from quant_rsi.legacy.factors.lifecycle import value_at
+
+            event = decode(inputs.evidence[leaf.instance_ref])
+            result = value_at(event, as_of)
+            values[leaf.name] = result["value"]
+            reasons.extend(result["reasons"])
+            refs.update(result["source_refs"])
+            refs.add(leaf.instance_ref)
+            continue
+        if leaf.role == "news":
+            from quant_rsi.legacy.factors.news import news_scalar
+
+            result = news_scalar(inputs, origin, as_of)
+            reasons.extend(result["reasons"])
+            refs.update(result["source_refs"])
+            # Registered dimensionless indicator, not an inferred quantity.
+            values[leaf.name] = None if result["value"] is None else float(result["value"] > 0)
+            continue
+        source = inputs.target if leaf.role == "target" else inputs.contexts.get(leaf.role)
+        recipe = leaf.definition.recipe
+        observations = (
+            recipe.observations if isinstance(recipe, CandidatePriceRecipe) else recipe.window + 1
+        )
+        if source is None or index + 1 < observations:
+            reasons.append(leaf.name + ":source_or_history_missing")
+            values[leaf.name] = None
+            continue
+        closes = [
+            s.close_at
+            for s in target.contract.calendar.sessions[index + 1 - observations : index + 1]
+        ]
+        prices, problems, evidence = _history(source, closes, as_of, basis)
+        reasons.extend(leaf.name + ":" + p for p in problems)
+        refs.update(evidence)
+        value = None
+        if prices is not None:
+            if isinstance(recipe, CandidatePriceRecipe):
+                value = evaluate_price_adapter(recipe, prices)
+                if value is None:
+                    reasons.append(leaf.name + ":adapter_value_unavailable")
+            elif recipe.op == "momentum":
+                value = prices[-1] / prices[0] - 1
+            else:
+                value = (
+                    sum(b / a - 1 for a, b in zip(prices, prices[1:], strict=False)) / recipe.window
+                )
+        values[leaf.name] = value
+    return values, reasons, refs
+
+
+def evaluate(expression, leaves, inputs, origin, as_of, basis=None):
+    sources, reasons, refs = source_leaves(inputs, leaves, origin, as_of, basis)
+    # Freeze numerical eligibility over the whole registered two-leaf grammar,
+    # including unselected candidates: overflow must not change the sample pool.
+    numeric = [value for value in sources.values() if value is not None]
+    if any(not math.isfinite(value) for value in numeric) or any(
+        not math.isfinite(value)
+        for index, left in enumerate(numeric)
+        for right in numeric[index + 1 :]
+        for value in (left + right, left - right, left * right)
+    ):
+        return dict(
+            value=None,
+            reasons=sorted(set(reasons) | {"registered_grammar_nonfinite"}),
+            source_refs=sorted(refs),
+        )
+    result = evaluate_expression(expression, sources)
+    return dict(
+        value=result["value"],
+        reasons=sorted(set(reasons + result["reasons"])),
+        source_refs=sorted(refs),
+    )
+
+
+@dataclass(frozen=True)
+class DiscoveryRecipe:
+    """A frozen additional column, distinct from legacy ForecastRecipe identities."""
+
+    graph: FactorExpression
+    leaves: tuple[FactorLeaf, ...]
+    group: str = "D1"
+
+    @property
+    def names(self):
+        return ("momentum_5", "return_1", "intraday_return", "discovered_" + self.graph.ref[:16])
+
+    @property
+    def definition(self):
+        return dict(
+            schema_version=3,
+            kind="discovered_factor_recipe",
+            group=self.group,
+            expression=self.graph.model_dump(mode="json"),
+            leaves=[leaf.model_dump(mode="json") for leaf in self.leaves],
+            feature_names=list(self.names),
+            feature_units=["dimensionless_return"] * 3 + ["dimensionless"],
+            missingness="common_registered_leaf_universe",
+        )
+
+    @property
+    def ref(self):
+        return digest(canonical(self.definition))
+
+
+def recipe_from_binding(binding):
+    return DiscoveryRecipe(
+        FactorExpression.model_validate_json(canonical(binding["expression"])),
+        tuple(FactorLeaf.model_validate_json(canonical(v)) for v in binding["leaves"]),
+    )

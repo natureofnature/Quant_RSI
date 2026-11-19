@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Quant RSI is a Python quantitative research and forecast system. Shared code lives in `src/quant_rsi/`, organized into `core/`, `market/`, `forecast/`, `research/`, `evaluation/`, and `execution/`. Instrument profiles live in `instruments/` and operating/design documentation in `docs/`. Preserve the reference document `2505.15155v2.pdf`.
+Quant RSI is a Python quantitative research and forecast system. Shared code lives in `src/quant_rsi/`, organized into `core/`, `market/`, `factors/`, `research/`, `execution/`, `intraday/` and `brokers/`. Frozen pipeline A (the recursive campaign, package/controller flow and forecast workflow, including its `forecast/` and `evaluation/` packages) lives under `legacy/`: no new features, and active code never imports it. Instrument profiles live in `instruments/` and operating/design documentation in `docs/`. Preserve the reference document `2505.15155v2.pdf`.
 
 Place source code in `src/`, automated tests in `tests/`, and runnable examples in `examples/`. Keep [README.md](README.md) synchronized with the project purpose, prerequisites, and directory layout. Create directories only when they contain useful files.
 
@@ -21,8 +21,8 @@ one frozen final revision, locally or in CI. The profiler defaults to the critic
 tier and two whole-module shards. Use a fresh output directory. PR CI has a
 five-minute job limit; timeout or test failure is not passing evidence.
 
-Nineteen explicitly listed integration modules are deferred to scheduled/manual
-full validation. Use `--suite full` for the complete suite; plain `pytest -q` also
+Fifty explicitly listed modules (19 expensive integration modules and 31 frozen
+pipeline A modules) are deferred to scheduled/manual full validation. Use `--suite full` for the complete suite; plain `pytest -q` also
 remains complete. Explicit profiler file/node selectors always run as requested.
 New modules default to critical; critical regressions must not be added only to
 an extended module. See [validation cost](docs/validation_cost.md) for coverage,

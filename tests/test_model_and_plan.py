@@ -4,8 +4,8 @@ from pydantic import ValidationError
 
 from quant_rsi.core.artifacts import canonical
 from quant_rsi.core.data import MarketData, features, synthetic_data
-from quant_rsi.core.model import fit_predict
 from quant_rsi.core.schemas import DevelopmentPlan, FactorSpec
+from quant_rsi.legacy.core.model import fit_predict
 
 
 @pytest.mark.parametrize("op", ["momentum", "mean_return"])

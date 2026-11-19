@@ -11,14 +11,14 @@ from test_forecast_features import prepare_inputs as inputs_fixture
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.factors import discovery
 from quant_rsi.factors.contracts import NumericFactorDefinition
-from quant_rsi.factors.discovery_graph import FactorLeaf, evaluate, leaf_expression
 from quant_rsi.factors.price_adapters import (
     QLIB_REVISION,
     CandidatePriceRecipe,
     evaluate_price_adapter,
 )
+from quant_rsi.legacy.factors import discovery
+from quant_rsi.legacy.factors.discovery_graph import FactorLeaf, evaluate, leaf_expression
 
 ROOT = Path(__file__).parents[1]
 

@@ -3,12 +3,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode
 from quant_rsi.core.journal import Journal
-from quant_rsi.research import research, researcher
-from quant_rsi.research.research_journal import ResearchJournal
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research import research, researcher
+from quant_rsi.legacy.research.research_journal import ResearchJournal
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 @pytest.fixture

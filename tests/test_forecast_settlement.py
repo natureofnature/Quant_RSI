@@ -11,15 +11,16 @@ from test_forecast_features import prepare_inputs  # noqa: F401
 from test_news_comparison import news_inputs  # noqa: F401
 
 from quant_rsi import cli
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical, decode, digest
-from quant_rsi.forecast import forecast_settlement as observation
-from quant_rsi.forecast.forecast_experiment import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.forecast import forecast_settlement as observation
+from quant_rsi.legacy.forecast.forecast_experiment import (
     experiment_root,
     prepare_experiment,
     resume_experiment,
 )
-from quant_rsi.market import market_contracts, market_data
+from quant_rsi.legacy.market import market_data
+from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import timestamp, utc_text
 
 
@@ -252,7 +253,7 @@ def test_news_comparison_publication_uses_original_confirmation(request):
 def test_discovery_publication_binds_allocated_child_without_new_fits(request):
     from test_factor_discovery import plan
 
-    from quant_rsi.factors import discovery
+    from quant_rsi.legacy.factors import discovery
 
     prepare = request.getfixturevalue("prepare_inputs")
     worker_state = request.getfixturevalue("dummy_worker")

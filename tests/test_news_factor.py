@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode, digest
-from quant_rsi.factors import news
-from quant_rsi.forecast.forecast_inputs import SignalSnapshot
+from quant_rsi.legacy.factors import news
+from quant_rsi.legacy.forecast.forecast_inputs import SignalSnapshot
 from quant_rsi.market import market_contracts
 
 START = "2025-07-01T00:00:00Z"

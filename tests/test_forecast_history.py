@@ -8,7 +8,7 @@ import pytest
 from market_helpers import contract_and_events
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast.forecast_features import _history
+from quant_rsi.legacy.forecast.forecast_features import _history
 
 
 def append_event(data, event, *, received=None):

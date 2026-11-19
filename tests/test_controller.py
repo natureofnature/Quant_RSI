@@ -2,10 +2,10 @@ import subprocess
 
 import pytest
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode, digest
 from quant_rsi.core.journal import Journal
 from quant_rsi.core.schemas import DevelopmentPlan
+from quant_rsi.legacy.core import controller
 
 
 def modified(plan, *, one=False, **budget):
@@ -33,23 +33,23 @@ def test_runtime_identity_covers_nested_sources_without_name_collisions(tmp_path
     sources = {
         "__init__.py": "",
         "worker.py": "worker = 1\n",
-        "core/controller.py": "controller = 1\n",
+        "legacy/core/controller.py": "controller = 1\n",
         "core/shared.py": "core = 1\n",
-        "forecast/recursive/shared.py": "forecast = 1\n",
+        "legacy/forecast/recursive/shared.py": "forecast = 1\n",
     }
     for name, body in sources.items():
         path = package / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body)
     (package / "ignored.json").write_text("{}")
-    monkeypatch.setattr(controller, "__file__", str(package / "core/controller.py"))
+    monkeypatch.setattr(controller, "__file__", str(package / "legacy/core/controller.py"))
 
     before = controller.runtime_identity()
     assert before["sources"] == {name: digest(body.encode()) for name, body in sources.items()}
     assert list(before["sources"]) == sorted(sources)
     assert controller.runtime_identity() == before
 
-    changed = "forecast/recursive/shared.py"
+    changed = "legacy/forecast/recursive/shared.py"
     (package / changed).write_text("forecast = 2\n")
     after = controller.runtime_identity()
     assert after["sources"][changed] != before["sources"][changed]
