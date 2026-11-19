@@ -6,23 +6,11 @@ from pydantic import Field, model_validator
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS  # noqa: F401  (re-export)
 from quant_rsi.core.schemas import BudgetSpec, LocalDataSpec
 from quant_rsi.forecast.forecast_features import build_common_mask, build_feature_view
 from quant_rsi.forecast.forecast_inputs import ForecastRecipe
 from quant_rsi.market.market_contracts import Hash, Identifier, timestamp, utc_text
-
-MODEL_PARAMETERS = dict(
-    objective="regression",
-    verbosity=-1,
-    num_threads=1,
-    deterministic=True,
-    force_col_wise=True,
-    num_leaves=7,
-    min_data_in_leaf=5,
-    learning_rate=0.05,
-    feature_pre_filter=False,
-)
-BOOST_ROUNDS = 24
 
 GROUPS = ("B0", "B1", "B2")
 NEWS_GROUPS = ("B0", "N1")

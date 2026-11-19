@@ -90,15 +90,15 @@ def test_peer_columns_enter_fits_and_revisions_share_baselines(tmp_path, monkeyp
 
         monkeypatch.setattr(lgb, "train", captured)
     else:
-        from quant_rsi.research import demo_model
+        from quant_rsi.research import study_estimators
 
-        ridge = demo_model.StandardizedRidge
+        class Captured(study_estimators.StandardizedRidge):
+            def __init__(self, x, y, alpha):
+                fits.append(x.copy())
+                super().__init__(x, y, alpha)
 
-        def captured(x, y, alpha):
-            fits.append(x.copy())
-            return ridge(x, y, alpha)
-
-        monkeypatch.setattr(demo_model, "StandardizedRidge", captured)
+        # Every research fit goes through study_estimators.fit_estimator (#159 Phase 3).
+        monkeypatch.setattr(study_estimators, "StandardizedRidge", Captured)
     first_id, second_id = "peer.PEER.peer_return_5", "peer.PEER.relative_return_10"
     first = model.predict({}, select_factors(model.library, {"factor_ids": [first_id]}), {})
     second = model.predict({}, select_factors(model.library, {"factor_ids": [second_id]}), {})

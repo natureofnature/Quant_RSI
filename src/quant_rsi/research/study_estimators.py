@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 
 
 def model_configuration(name="lightgbm", ridge_alpha=None, *, horizon_sessions=5):
@@ -120,3 +120,41 @@ class StandardizedRidge:
             "intercept": self.intercept,
             "coefficient_basis": "standardized_features_in_factor_ids_order",
         }
+
+
+# One fit and one target implementation for every research fit whose semantics match
+# (#159 Phase 3): research-study attempts, latest refits, walk-forward folds, model and
+# financial comparisons, and rolling research. Row selection (fixed, expanding or latest
+# window) stays with each caller, because those windows deliberately differ.
+FIT_SEED = 7
+
+
+def log_close_ratio_labels(closes, rows, horizon):
+    """Close-to-close training labels log(close[t + h] / close[t]) on retained closes."""
+    rows = np.asarray(rows)
+    return np.log(closes[rows + horizon, 0] / closes[rows, 0])
+
+
+def fit_estimator(name, x, labels, *, alpha=1.0):
+    """Standardized ridge, or LightGBM with the fixed shared parameters and seed."""
+    if name == "ridge":
+        return StandardizedRidge(x, labels, alpha)
+    import lightgbm as lgb
+
+    return lgb.train(
+        MODEL_PARAMETERS | {"seed": FIT_SEED},
+        lgb.Dataset(x, label=labels),
+        num_boost_round=BOOST_ROUNDS,
+    )
+
+
+def predict_estimator(estimator, x):
+    if isinstance(estimator, StandardizedRidge):
+        return estimator.predict(x)
+    return estimator.predict(x, num_threads=1)
+
+
+def estimator_state(estimator):
+    if isinstance(estimator, StandardizedRidge):
+        return estimator.state()
+    return {"model_string": estimator.model_to_string()}

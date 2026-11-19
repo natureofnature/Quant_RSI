@@ -9,8 +9,8 @@ from test_daily_data import chart, install
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.market.daily_data import collect_daily
+from quant_rsi.market.event_csv import parse_csv
 from quant_rsi.market.market_contracts import DataContract
-from quant_rsi.market.market_data import parse_csv
 from quant_rsi.research.reviewed_price_basis import FILES, review_price_basis
 
 

@@ -2,7 +2,8 @@
 
 import re
 import xml.etree.ElementTree as ET
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Literal
 from urllib.error import HTTPError
@@ -13,9 +14,33 @@ from pydantic import Field, model_validator
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.factors.lifecycle import EventTemplate
 from quant_rsi.market import market_contracts
-from quant_rsi.market.signal_sources import _publication
+
+
+def _publication(raw):
+    """RSS/feed publication text to (UTC timestamp, date, precision); never guessed."""
+    raw = raw.strip()
+    if not raw:
+        return None, None, "unknown"
+    if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", raw):
+        return None, date.fromisoformat(raw).isoformat(), "day"
+    try:
+        value = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None, None, "unknown"
+    if value.tzinfo is None:
+        return None, None, "unknown"
+    return value.astimezone(timezone.utc).isoformat(), None, "second"
+
+
+# Event-signal template shared with the frozen factor lifecycle (#159 D2).
+class EventTemplate(StrictModel):
+    schema_version: Literal[1] = 1
+    template_id: str = Field(pattern=r"^[a-z][a-z0-9_.]{0,95}$")
+    description: str = Field(min_length=1, max_length=4096)
+    ttl_hours: int = Field(ge=1, le=720)
+    decay: Literal["none", "linear"] = "none"
+    output_unit: Literal["dimensionless"] = "dimensionless"
 
 
 class FeedSource(StrictModel):

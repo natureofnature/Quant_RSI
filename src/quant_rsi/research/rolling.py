@@ -12,7 +12,7 @@ import numpy as np
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
 from quant_rsi.core.data import MarketData
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.market.geopolitical_data import align_gpr_features, load_gpr_history
 from quant_rsi.market.market_contracts import timestamp
 from quant_rsi.market.risk_data import align_risk_features, load_risk_history
@@ -40,7 +40,12 @@ from quant_rsi.research.rolling_research import (
     propose,
 )
 from quant_rsi.research.rolling_windows import monthly_plan, period_id, read_calendar, session_plan
-from quant_rsi.research.study_estimators import StandardizedRidge
+from quant_rsi.research.study_estimators import (
+    estimator_state,
+    fit_estimator,
+    log_close_ratio_labels,
+    predict_estimator,
+)
 from quant_rsi.research.study_news import load_archive
 from quant_rsi.research.study_peers import aligned_closes
 from quant_rsi.research.study_resume import StudyCache, run_lock
@@ -200,24 +205,15 @@ def fit_forecast(matrix, labels, train, name, factor_ids):
     x = matrix[train]
     if not np.isfinite(x).all() or not np.isfinite(matrix[-1]).all():
         raise ValueError("Features must cover all fixed training and prediction rows")
+    estimator = fit_estimator(name, x, labels, alpha=1.0)
+    prediction = float(predict_estimator(estimator, matrix[-1:])[0])
+    state = estimator_state(estimator)
     if name == "ridge":
-        estimator = StandardizedRidge(x, labels, 1.0)
-        prediction = float(estimator.predict(matrix[-1:])[0])
-        state = estimator.state()
         usage = {
             identity: {"standardized_coefficient": float(weight)}
             for identity, weight in zip(factor_ids, estimator.coefficients, strict=True)
         }
     else:
-        import lightgbm as lgb
-
-        estimator = lgb.train(
-            MODEL_PARAMETERS | {"seed": 7},
-            lgb.Dataset(x, label=labels),
-            num_boost_round=BOOST_ROUNDS,
-        )
-        prediction = float(estimator.predict(matrix[-1:], num_threads=1)[0])
-        state = {"model_string": estimator.model_to_string()}
         usage = {
             identity: {"split_count": int(count), "gain": float(gain)}
             for identity, count, gain in zip(
@@ -445,9 +441,7 @@ def run_months(
                 ]
             )
         matrix = np.column_stack([columns[name] for name in baseline])
-        labels = np.log(
-            prefix.closes[train + fold["horizon_sessions"], 0] / prefix.closes[train, 0]
-        )
+        labels = log_close_ratio_labels(prefix.closes, train, fold["horizon_sessions"])
         folder = root / period_id(fold)
         folder.mkdir(exist_ok=True)
         fold["forecasts"], fold["fits"] = {}, {}

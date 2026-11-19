@@ -4,10 +4,14 @@ from copy import deepcopy
 
 import numpy as np
 
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_strategy import evaluate_strategy
-from quant_rsi.research.study_estimators import StandardizedRidge
+from quant_rsi.research.study_estimators import (
+    StandardizedRidge,
+    estimator_state,
+    fit_estimator,
+    log_close_ratio_labels,
+)
 
 NOTICE = (
     "Post-selection retrospective diagnostic: factors and model settings are frozen after "
@@ -70,7 +74,7 @@ def evaluate_windows(model, selected_round, policy):
     for window in model.walk_forward_plan["folds"]:
         origins = np.asarray(window["origin_indices"])
         requested = np.arange(30, origins[0] - h)
-        labels = np.log(model.data.closes[requested + h, 0] / model.data.closes[requested, 0])
+        labels = log_close_ratio_labels(model.data.closes, requested, h)
         available = np.isfinite(matrix[requested]).all(axis=1) & np.isfinite(labels)
         training, labels = requested[available], labels[available]
         missing = origins[~np.isfinite(matrix[origins]).all(axis=1)]
@@ -94,18 +98,8 @@ def evaluate_windows(model, selected_round, policy):
         x = matrix[training]
 
         def fit(x=x, labels=labels):
-            if model.estimator == "ridge":
-                return StandardizedRidge(
-                    x, labels, model.model_configuration["parameters"]["alpha"]
-                ).state()
-            import lightgbm as lgb
-
-            estimator = lgb.train(
-                MODEL_PARAMETERS | {"seed": 7},
-                lgb.Dataset(x, label=labels),
-                num_boost_round=BOOST_ROUNDS,
-            )
-            return {"model_string": estimator.model_to_string()}
+            alpha = model.model_configuration["parameters"].get("alpha", 1.0)
+            return estimator_state(fit_estimator(model.estimator, x, labels, alpha=alpha))
 
         if model.fit_cache:
             state = model.fit_cache.call(

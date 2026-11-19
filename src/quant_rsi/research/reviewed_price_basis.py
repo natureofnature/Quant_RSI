@@ -14,8 +14,8 @@ from pydantic import AwareDatetime, Field, field_validator
 
 from quant_rsi.core.artifacts import decode, digest
 from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.market.event_csv import parse_csv
 from quant_rsi.market.market_contracts import DataContract, Hash, decimal_text
-from quant_rsi.market.market_data import parse_csv
 
 FILES = ("collection_receipt.json", "yahoo_chart_raw.json", "data_contract.json", "events.csv")
 ROLES = {

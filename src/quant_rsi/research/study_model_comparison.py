@@ -5,10 +5,13 @@ from copy import deepcopy
 import numpy as np
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_strategy import evaluate_strategy
-from quant_rsi.research.study_estimators import StandardizedRidge, model_configuration
+from quant_rsi.research.study_estimators import (
+    fit_estimator,
+    model_configuration,
+    predict_estimator,
+)
 
 NOTICE = (
     "One additional model fit on identical selected factors, mature training labels and "
@@ -33,20 +36,10 @@ def compare_models(bundle, data, selected, terminal, *, policy):
     x, labels = np.asarray(train["features"], dtype=float), np.asarray(train["labels"], dtype=float)
     if not np.isfinite(x).all() or not np.isfinite(labels).all():
         raise ValueError("Model comparison requires finite training inputs")
-    if alternate == "ridge":
-        fitted = StandardizedRidge(x, labels, 1.0)
-        predict = fitted.predict
-    else:
-        import lightgbm as lgb
+    fitted = fit_estimator(alternate, x, labels, alpha=1.0)
 
-        fitted = lgb.train(
-            MODEL_PARAMETERS | {"seed": 7},
-            lgb.Dataset(x, label=labels),
-            num_boost_round=BOOST_ROUNDS,
-        )
-
-        def predict(values):
-            return fitted.predict(values, num_threads=1)
+    def predict(values):
+        return predict_estimator(fitted, values)
 
     result = {
         "status": "completed",

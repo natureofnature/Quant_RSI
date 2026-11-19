@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast.forecast_protocol import BOOST_ROUNDS, MODEL_PARAMETERS
+from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS
 from quant_rsi.research.demo_features import price_metrics
 from quant_rsi.research.demo_strategy import evaluate_strategy
 

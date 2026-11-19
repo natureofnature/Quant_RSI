@@ -2,8 +2,8 @@
 
 import math
 
-from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.forecast.forecast_kernel import action_assessment, target_session
+from quant_rsi.market.forecast_records import confirmed_report  # noqa: F401  (re-export)
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.market.market_data import visible_revisions
 
@@ -115,25 +115,4 @@ def publication_report(inputs, plan, protocol, store, result_ref, selection_ref,
             )
         ),
         economic_or_statistical_advantage_claim=False,
-    )
-
-
-def confirmed_report(report, confirmation):
-    ref = digest(canonical(report))
-    if confirmation["forecast_ref"] != ref or timestamp(confirmation["confirmed_at"]) < timestamp(
-        report["issued_at"]
-    ):
-        raise ValueError("publication confirmation does not bind the committed report")
-    forward = (
-        report["status"] == "forecast"
-        and timestamp(report["origin_close_at"])
-        <= timestamp(report["issued_at"])
-        < timestamp(report["forward_deadline"])
-        and timestamp(confirmation["confirmed_at"]) < timestamp(report["forward_deadline"])
-    )
-    return report | dict(
-        forecast_ref=ref,
-        post_commit_confirmed_at=confirmation["confirmed_at"],
-        forward=forward,
-        mode="forward" if forward else "retrospective_or_abstained",
     )
