@@ -8,11 +8,11 @@ from copy import deepcopy
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation.local_research import known_notices, quotes_asof
 from quant_rsi.execution import execution_account as account
-from quant_rsi.market.asof import make_feature_view, predict_view, session_index
+from quant_rsi.legacy.evaluation.local_research import known_notices, quotes_asof
+from quant_rsi.legacy.market.asof import make_feature_view, predict_view, session_index
+from quant_rsi.legacy.market.market_data import visible_revisions
 from quant_rsi.market.market_contracts import ObservationPlan, timestamp, utc_text
-from quant_rsi.market.market_data import visible_revisions
 
 
 def initial_state(episode_id, plan, runtime_ref, created_at, watermark):

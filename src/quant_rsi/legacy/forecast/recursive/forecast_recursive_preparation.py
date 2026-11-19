@@ -3,13 +3,13 @@
 from pathlib import Path
 
 from quant_rsi.core.artifacts import canonical, decode, digest
-from quant_rsi.forecast.forecast_contracts import ForecastDevelopmentPlan
-from quant_rsi.forecast.recursive.forecast_recursive_market import (
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastDevelopmentPlan
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_market import (
     ForecastRecursiveMarketEvidence,
     project_market_target,
 )
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.task_definition import ForecastRecursiveProfile
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.task_definition import ForecastRecursiveProfile
 
 
 def market_research_plan(projection):
@@ -80,7 +80,7 @@ def market_research_plan(projection):
 
 def read_prepared_projection(preparation):
     """Verify the original preparation/registry before projecting its preserved bytes."""
-    from quant_rsi.forecast.forecast_context_data import verify_preparation
+    from quant_rsi.legacy.forecast.forecast_context_data import verify_preparation
 
     prepared = verify_preparation(Path(preparation))
     projection = project_market_target(
@@ -124,7 +124,7 @@ def verify_market_registration(grant, store, *, data_ref=None):
 def verify_actual_export(projection):
     """Use the ordinary source exporter; a serialized plan alone is not parity evidence."""
     from quant_rsi.core.schemas import LocalDataSpec
-    from quant_rsi.evaluation.local_research import export_local_data
+    from quant_rsi.legacy.evaluation.local_research import export_local_data
 
     spec = LocalDataSpec.model_validate_json(canonical(projection["target_data"]["specification"]))
     exported = export_local_data(spec)
@@ -140,11 +140,14 @@ def prepare_market_campaign(profile, output, *, campaign_id, source_campaign_id)
     import re
 
     from quant_rsi.core.artifacts import atomic_write, decode
-    from quant_rsi.forecast.forecast_campaign import _id
-    from quant_rsi.forecast.forecast_context_collection import collect_context
-    from quant_rsi.forecast.forecast_context_data import prepare_context_data
-    from quant_rsi.forecast.forecast_workflow_config import ForecastWorkflowConfig
-    from quant_rsi.forecast.recursive.forecast_frontier_policy import POLICY, proposer_definition
+    from quant_rsi.legacy.forecast.forecast_campaign import _id
+    from quant_rsi.legacy.forecast.forecast_context_collection import collect_context
+    from quant_rsi.legacy.forecast.forecast_context_data import prepare_context_data
+    from quant_rsi.legacy.forecast.forecast_workflow_config import ForecastWorkflowConfig
+    from quant_rsi.legacy.forecast.recursive.forecast_frontier_policy import (
+        POLICY,
+        proposer_definition,
+    )
 
     config = ForecastWorkflowConfig.model_validate_json(canonical(profile))
     if config.history_sessions != 756:
@@ -209,7 +212,7 @@ def prepare_market_campaign(profile, output, *, campaign_id, source_campaign_id)
         exposure_mode="historical_market_exploration",
         market_evidence_ref=projection["market_evidence_ref"],
     )
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import _normalize
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import _normalize
 
     campaign_plan = _normalize(campaign_plan)
     for name, value in (

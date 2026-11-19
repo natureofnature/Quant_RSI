@@ -10,16 +10,16 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from quant_rsi.core.accounting import evaluate
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.data import MarketData, synthetic_data
 from quant_rsi.core.journal import TERMINAL, BudgetExhausted, Journal
 from quant_rsi.core.schemas import DevelopmentPlan, FactorSpec
-from quant_rsi.forecast.forecast_contracts import parse_development_plan
+from quant_rsi.legacy.core.accounting import evaluate
+from quant_rsi.legacy.forecast.forecast_contracts import parse_development_plan
 
 
 def runtime_identity() -> dict:
-    package = Path(__file__).parent.parent
+    package = Path(__file__).parents[2]  # src/quant_rsi
     return {
         "python": platform.python_version(),
         "platform": platform.system(),
@@ -159,14 +159,14 @@ def accept_worker_result(work: Path, job: dict, store: ArtifactStore, plan, data
     if digest(result["model_text"].encode()) != result["model_digest"]:
         raise ValueError("model artifact digest mismatch")
     if plan.plan_type == "forecast_comparison":
-        from quant_rsi.forecast.forecast_comparison import verify_comparison_result
+        from quant_rsi.legacy.forecast.forecast_comparison import verify_comparison_result
 
         proposal = plan.proposals[job["binding"]["proposal_index"]]
         report = verify_comparison_result(
             data, plan, proposal, store, job["binding"]["manifest"], result, result["model_text"]
         )
     elif plan.data.source == "local_event_snapshot":
-        from quant_rsi.evaluation.local_research import evaluate_local, verify_local_result
+        from quant_rsi.legacy.evaluation.local_research import evaluate_local, verify_local_result
 
         factor = FactorSpec.model_validate_json(canonical(job["binding"]["proposal"]["factor"]))
         verify_local_result(data, plan, factor, result, result["model_text"])
@@ -224,7 +224,7 @@ def execute_attempt(root: Path, ordinal, proposal, manifest, plan, data, store, 
     with (work / "worker.log").open("wb") as log:
         try:
             process = subprocess.run(
-                [sys.executable, "-m", "quant_rsi.worker", str(work / "job.json")],
+                [sys.executable, "-m", "quant_rsi.legacy.worker", str(work / "job.json")],
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=subprocess.STDOUT,
@@ -382,7 +382,7 @@ def replay_result(store, bundle, expected_job, plan, data):
     ):
         raise ValueError("stored worker identity mismatch")
     if plan.data.source == "local_event_snapshot":
-        from quant_rsi.evaluation.local_research import evaluate_local, verify_local_result
+        from quant_rsi.legacy.evaluation.local_research import evaluate_local, verify_local_result
 
         predictions = store.json(bundle["predictions_ref"])
         factor = FactorSpec.model_validate_json(

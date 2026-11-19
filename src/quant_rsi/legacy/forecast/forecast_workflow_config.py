@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.forecast import forecast_context_data as context
+from quant_rsi.legacy.forecast import forecast_context_data as context
 
 
 class ForecastWorkflowConfig(StrictModel):

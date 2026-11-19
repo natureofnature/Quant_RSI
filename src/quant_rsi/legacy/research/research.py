@@ -5,20 +5,25 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.data import MarketData, synthetic_data
 from quant_rsi.core.journal import TERMINAL
 from quant_rsi.core.schemas import FactorSpec, Proposal
-from quant_rsi.forecast.forecast_contracts import parse_development_plan
-from quant_rsi.forecast.recursive.forecast_recursive_registration import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.forecast.forecast_contracts import parse_development_plan
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
     effective_budget,
     registered_creation,
     registered_resume,
 )
-from quant_rsi.research import researcher
-from quant_rsi.research.research_journal import ResearchJournal
-from quant_rsi.research.researcher import ResearchPlan, advance, factor_identity, initial_state
+from quant_rsi.legacy.research import researcher
+from quant_rsi.legacy.research.research_journal import ResearchJournal
+from quant_rsi.legacy.research.researcher import (
+    ResearchPlan,
+    advance,
+    factor_identity,
+    initial_state,
+)
 
 
 def authorize_managed(
@@ -48,7 +53,7 @@ def authorize_managed(
         if view is not None:
             raise ValueError("bound development data requires a controller grant")
         if plan.schema_version == 3:
-            from quant_rsi.forecast.recursive.forecast_recursive_registration import (
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
                 require_root_identity,
             )
 
@@ -57,18 +62,20 @@ def authorize_managed(
     if owner_fd is None and plan.development.data.source != "local_event_snapshot":
         raise ValueError("managed research arm requires package resume")
     if plan.schema_version == 3:
-        from quant_rsi.forecast.recursive.forecast_recursive_campaign import require_recursive_owner
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
+            require_recursive_owner,
+        )
 
         require_recursive_owner()
     arguments = dict(steps=steps, committed=committed)
     if view is not None:
-        from quant_rsi.evaluation.local_evidence import authorized_view
+        from quant_rsi.legacy.evaluation.local_evidence import authorized_view
 
         if view != authorized_view(root, plan, campaign_id, context, owner_fd, **arguments):
             raise ValueError("bound development view differs from the authority grant")
         validate_bound_view(view, plan)
     else:
-        from quant_rsi.research.package_experiment import authorized_local_input
+        from quant_rsi.legacy.research.package_experiment import authorized_local_input
 
         authorized_local_input(
             root,
@@ -149,13 +156,13 @@ def create_research(
     )
     if plan.development.data.source == "local_event_snapshot":
         if bound_view is not None:
-            from quant_rsi.evaluation.local_evidence import authorized_view
+            from quant_rsi.legacy.evaluation.local_evidence import authorized_view
 
             if bound_view != authorized_view(root, plan, campaign_id, launch_context, owner_fd):
                 raise ValueError("local C5 view differs from the authority grant")
             validate_bound_view(bound_view, plan)
         elif launch_context is not None:
-            from quant_rsi.research.package_experiment import authorized_local_input
+            from quant_rsi.legacy.research.package_experiment import authorized_local_input
 
             authorized_local_input(
                 root,
@@ -238,15 +245,15 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
             raise ValueError("package artifact reference mismatch")
         store.put_json(value)
     if plan.package_lineage is not None:
-        from quant_rsi.research.changes import validate_lineage
+        from quant_rsi.legacy.research.changes import validate_lineage
 
         validate_lineage(plan, store)
     bound_view = saved.get("bound_view")
     if plan.development.data.source == "local_event_snapshot":
-        from quant_rsi.evaluation.local_research import export_local_data
+        from quant_rsi.legacy.evaluation.local_research import export_local_data
 
         if bound_view is not None:
-            from quant_rsi.evaluation.local_evidence import authorized_view
+            from quant_rsi.legacy.evaluation.local_evidence import authorized_view
 
             if bound_view != authorized_view(
                 root, plan, saved["campaign_id"], saved.get("launch_context"), owner_fd
@@ -257,7 +264,7 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
         elif saved.get("launch_context") is None:
             local_data = export_local_data(plan.development.data)
         else:
-            from quant_rsi.research.package_experiment import authorized_local_input
+            from quant_rsi.legacy.research.package_experiment import authorized_local_input
 
             local_data = authorized_local_input(
                 root,
@@ -276,7 +283,7 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
             raise ValueError("bound development data requires a controller grant")
         data_ref = store.put_json(bound_view["data"])
     template_ref = store.put_json(plan.development.model_dump(mode="json"))
-    from quant_rsi.research.task_definition import task_definition
+    from quant_rsi.legacy.research.task_definition import task_definition
 
     task_ref = store.put_json(task_definition(plan, data_ref, template_ref))
     package_ref = store.put_json(researcher.package_definition(plan))
@@ -307,7 +314,7 @@ def finish_initialization(root: Path, *, owner_fd=None, trajectory_owner_fd=None
     if saved.get("launch_context") is not None:
         manifest["launch_context_ref"] = store.put_json(saved["launch_context"])
     if plan.schema_version == 3 and saved.get("launch_context") is None:
-        from quant_rsi.forecast.recursive.forecast_recursive_registration import (
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
             bind_root_market_evidence,
             require_root_identity,
         )
@@ -361,13 +368,13 @@ def open_research(root: Path, *, verify_runtime=True):
         store.get(manifest["runtime_ref"])
         store.get(manifest["package_ref"])
         if plan.package_lineage is not None:
-            from quant_rsi.research.changes import validate_lineage
+            from quant_rsi.legacy.research.changes import validate_lineage
 
             validate_lineage(plan, store)
-        from quant_rsi.forecast.recursive.forecast_recursive_registration import (
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
             verify_root_manifest,
         )
-        from quant_rsi.research.task_definition import task_definition, verify_domain
+        from quant_rsi.legacy.research.task_definition import task_definition, verify_domain
 
         verify_domain(plan, store)
         verify_root_manifest(plan, store, manifest)
@@ -376,7 +383,7 @@ def open_research(root: Path, *, verify_runtime=True):
         ):
             raise ValueError("research task binding mismatch")
         data = MarketData.from_json(store.json(manifest["data_ref"]))
-        from quant_rsi.evaluation.local_research import LocalResearchData
+        from quant_rsi.legacy.evaluation.local_research import LocalResearchData
 
         if isinstance(data, LocalResearchData):
             if data.spec != plan.development.data:
@@ -776,7 +783,7 @@ def resume_research(
                     committed=sum(r["observation_ref"] is not None for r in journal.requests()),
                 )
                 if "bound_view_ref" in manifest:
-                    from quant_rsi.evaluation.local_evidence import authorized_view
+                    from quant_rsi.legacy.evaluation.local_evidence import authorized_view
 
                     view = authorized_view(
                         root, plan, manifest["campaign_id"], context, owner_fd, **arguments
@@ -785,7 +792,7 @@ def resume_research(
                         raise ValueError("local C5 view differs from its frozen grant")
                     frozen = view["data"]
                 else:
-                    from quant_rsi.research.package_experiment import authorized_local_input
+                    from quant_rsi.legacy.research.package_experiment import authorized_local_input
 
                     frozen = authorized_local_input(
                         root,
@@ -806,7 +813,7 @@ def resume_research(
                     trajectory_owner_fd,
                 )
             if plan.schema_version == 3:
-                from quant_rsi.forecast.recursive.forecast_recursive_campaign import (
+                from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
                     require_recursive_owner,
                 )
 

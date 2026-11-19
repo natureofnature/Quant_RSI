@@ -8,15 +8,20 @@ import numpy as np
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import LocalDataSpec
 from quant_rsi.execution import execution_account as account
-from quant_rsi.market import market_contracts
-from quant_rsi.market.asof import _view_predictor, make_feature_views, mature_label, qualifications
-from quant_rsi.market.market_contracts import DataContract, timestamp, utc_text
-from quant_rsi.market.market_data import (
+from quant_rsi.legacy.market.asof import (
+    _view_predictor,
+    make_feature_views,
+    mature_label,
+    qualifications,
+)
+from quant_rsi.legacy.market.market_data import (
     economic_identity,
     market_context,
     parse_csv,
     visible_revisions,
 )
+from quant_rsi.market import market_contracts
+from quant_rsi.market.market_contracts import DataContract, timestamp, utc_text
 
 
 def export_local_data(spec):
@@ -66,7 +71,7 @@ class LocalResearchData:
         if self.snapshot["source_id"] != self.contract.source_id:
             raise ValueError("local research source binding mismatch")
         if projected:
-            from quant_rsi.evaluation.local_projection import verify_projection
+            from quant_rsi.legacy.evaluation.local_projection import verify_projection
 
             verify_projection(value, self.contract)
         elif self.contract.availability_evidence_ref is not None:
@@ -156,7 +161,7 @@ class LocalResearchData:
 
 def training_view(data, plan, factor):
     if plan.plan_type == "forecast_development":
-        from quant_rsi.forecast import forecast_research
+        from quant_rsi.legacy.forecast import forecast_research
 
         return forecast_research.training_view(data, plan, factor)
     if data.spec != plan.data:
@@ -221,7 +226,7 @@ def training_view(data, plan, factor):
 
 def development_predictions(data, plan, factor, model_text):
     if plan.plan_type == "forecast_development":
-        from quant_rsi.forecast import forecast_research
+        from quant_rsi.legacy.forecast import forecast_research
 
         return forecast_research.development_predictions(data, plan, factor, model_text)
     views = make_feature_views(
@@ -317,7 +322,7 @@ def known_notices(snapshot, contract, as_of, *, basis=None):
 
 def evaluate_local(data, plan, predictions):
     if plan.plan_type == "forecast_development":
-        from quant_rsi.forecast import forecast_research
+        from quant_rsi.legacy.forecast import forecast_research
 
         return forecast_research.evaluate(data, plan, predictions)
     rules = plan.portfolio

@@ -6,7 +6,7 @@ from typing import Literal
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import StrictModel
-from quant_rsi.research.researcher import ResearchPlan, package_definition
+from quant_rsi.legacy.research.researcher import ResearchPlan, package_definition
 
 
 class PolicyPatch(StrictModel):
@@ -33,11 +33,11 @@ def registered_proposer(binding=None):
     if binding is not None and any(
         key in binding for key in ("proposer_policy", "proposer_definition")
     ):
-        from quant_rsi.forecast.recursive import forecast_frontier_policy
+        from quant_rsi.legacy.forecast.recursive import forecast_frontier_policy
 
         forecast_frontier_policy._require_descriptor(binding)
         return forecast_frontier_policy
-    from quant_rsi.forecast.recursive import forecast_recursive_changes
+    from quant_rsi.legacy.forecast.recursive import forecast_recursive_changes
 
     return forecast_recursive_changes
 
@@ -206,8 +206,12 @@ def validate_response(response, request_ref, request, evidence):
     expected = expected_change(request_ref, request, evidence)
     if canonical(response) == canonical(expected):
         if response["patch"] is not None:
-            from quant_rsi.forecast.recursive.forecast_frontier_policy import FrontierCapPatch
-            from quant_rsi.forecast.recursive.forecast_recursive_changes import RegisteredCapPatch
+            from quant_rsi.legacy.forecast.recursive.forecast_frontier_policy import (
+                FrontierCapPatch,
+            )
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_changes import (
+                RegisteredCapPatch,
+            )
 
             patch_type = PolicyPatch
             if request["allowed_path"] == "policy.window_max":
@@ -278,7 +282,7 @@ def validate_lineage(plan, store):
 
 def validate_registered_lineage(plan, store):
     """Authenticate exact immediate parents; never replace their prior lineage with gen0."""
-    from quant_rsi.research.task_definition import verify_domain
+    from quant_rsi.legacy.research.task_definition import verify_domain
 
     verify_domain(plan, store)
     seen = set()
@@ -324,7 +328,7 @@ def lineage_artifact_refs(plan, store):
     validate_lineage(plan, store)
     refs = set()
     if plan.neighbor_domain is not None:
-        from quant_rsi.research.task_definition import domain_ref, forecast_profile_ref
+        from quant_rsi.legacy.research.task_definition import domain_ref, forecast_profile_ref
 
         refs.add(domain_ref(plan))
         refs.add(forecast_profile_ref(plan))
@@ -341,7 +345,7 @@ def lineage_artifact_refs(plan, store):
             )
         )
         parent = store.json(lineage.base_package_ref)
-        from quant_rsi.research.researcher import PackageLineage
+        from quant_rsi.legacy.research.researcher import PackageLineage
 
         lineage = (
             PackageLineage.model_validate(parent["lineage"])

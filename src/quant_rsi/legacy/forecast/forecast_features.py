@@ -5,14 +5,14 @@ from bisect import bisect_right
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.forecast.forecast_kernel import (
+from quant_rsi.legacy.forecast.forecast_kernel import (
     action_assessment,
     forecast_feature_view,
     mature_forecast_label,
 )
-from quant_rsi.market.asof import session_index
+from quant_rsi.legacy.market.asof import session_index
+from quant_rsi.legacy.market.market_data import visible_revisions
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.market.market_data import visible_revisions
 
 
 def _history(source, closes, as_of, basis):
@@ -129,7 +129,7 @@ def build_feature_view(inputs, recipe, origin, as_of, *, basis=None):
                             ]
                         )
     if recipe.group == "N1":
-        from quant_rsi.factors.news import news_scalar
+        from quant_rsi.legacy.factors.news import news_scalar
 
         news = news_scalar(inputs, origin, as_of)
         reasons.extend(news["reasons"])
@@ -137,7 +137,7 @@ def build_feature_view(inputs, recipe, origin, as_of, *, basis=None):
         if values is not None and not news["reasons"]:
             values.append(news["value"])
     if recipe.group == "D1":
-        from quant_rsi.factors.discovery_graph import evaluate
+        from quant_rsi.legacy.factors.discovery_graph import evaluate
 
         result = evaluate(recipe.graph, recipe.leaves, inputs, origin, as_of, basis)
         reasons.extend(result["reasons"])

@@ -39,15 +39,16 @@ one process; scheduling hints only affect placement, never which tests run.
 
 ## What remains in the daily gate
 
-All modules except the 19 explicitly listed in
-[`EXTENDED_MODULES`](../examples/profile_validation.py) are selected. The gate
+All modules except the 50 explicitly listed in
+[`EXTENDED_MODULES`](../examples/profile_validation.py) are selected: 19 expensive
+integration modules, and 31 frozen pipeline A modules (#159 D2). The gate
 continues to include actual model workers and the primary research/discovery UI.
 
 | Invariant | Representative retained modules |
 | --- | --- |
 | Actual discovery, acquisition, model fit, feedback and revision | `test_study_discovery`, `test_discovery_loop`, `test_candidate_factor_runtime` |
-| Future information, source timing and frozen samples | `test_forecast_features`, `test_study_incremental`, `test_study_horizon`, `test_discovery_review_regressions` |
-| Budgets, recovery, evidence identities and tampering | `test_controller`, `test_research`, `test_study_resume`, `test_discovery_lineage`, `test_audit_regressions` |
+| Future information, source timing and frozen samples | `test_close_boundary`, `test_study_incremental`, `test_study_horizon`, `test_discovery_review_regressions` |
+| Budgets, recovery, evidence identities and tampering | `test_controller`, `test_study_resume`, `test_discovery_lineage`, `test_audit_regressions` |
 | Account conservation, costs and prospective settlement | `test_execution_account`, `test_protected_accounting`, `test_strategy_replay`, `test_forecast_settlement` |
 | Provider process cleanup, CLI and UI isolation | `test_provider_process`, `test_research_study`, `test_study_ui`, `test_validation_profile` |
 
@@ -338,3 +339,17 @@ results are retained outside Git at
 Full Python and Qlib CI are still required before merge. Neither this measurement
 nor the older feature-batching measurement establishes a complete recursive-run
 speedup; their percentages must not be added together.
+
+## Frozen pipeline A modules (#159 D2)
+
+Pipeline A moved to `src/quant_rsi/legacy/` and is frozen. Its test modules moved to
+the extended tier, except those that alone covered shared (non-legacy) code in the
+critical tier. The selection was measured, not assumed: on `5b618c2`, the critical
+tier ran once under `coverage` with per-test contexts. Every line of non-legacy code,
+other than `cli.py` dispatch of legacy commands, covered only by pipeline A test
+modules keeps at least one of them critical. Nine stay critical for that reason:
+`test_audit_regressions`, `test_candidate_factor_runtime`, `test_controller`,
+`test_forecast_kernel`, `test_local_research`, `test_model_and_plan`,
+`test_news_collection`, `test_protected_accounting` and `test_strategy_replay`. The
+other 31 are listed in `EXTENDED_MODULES`. Lines reached only through subprocesses
+were not measured.

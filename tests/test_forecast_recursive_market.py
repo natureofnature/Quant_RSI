@@ -11,14 +11,14 @@ from market_helpers import contract_and_events
 from test_forecast_inputs import snapshot_value
 
 from quant_rsi.core.artifacts import canonical, decode, digest
-from quant_rsi.evaluation.local_research import LocalResearchData
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
-from quant_rsi.forecast.recursive.forecast_recursive_market import (
+from quant_rsi.legacy.evaluation.local_research import LocalResearchData
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_market import (
     ForecastRecursiveMarketEvidence,
     project_market_target,
 )
+from quant_rsi.legacy.market.market_data import parse_csv
 from quant_rsi.market.market_contracts import DataContract, utc_text
-from quant_rsi.market.market_data import parse_csv
 
 FIRST_SEEN = "2026-10-27T00:00:00Z"
 
@@ -398,8 +398,8 @@ def test_short_history_does_not_truncate_or_fallback_to_another_cutoff():
 def test_projection_has_no_file_registry_network_or_training_calls(monkeypatch):
     import urllib.request
 
-    from quant_rsi.evaluation import local_research
-    from quant_rsi.market import market_data
+    from quant_rsi.legacy.evaluation import local_research
+    from quant_rsi.legacy.market import market_data
 
     inputs, receipt = prepared_inputs()
 

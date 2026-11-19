@@ -9,10 +9,10 @@ from unittest.mock import patch
 import pytest
 
 from quant_rsi.core.artifacts import ArtifactStore, decode, digest
-from quant_rsi.evaluation import comparison, evidence
-from quant_rsi.evaluation.evidence import ComparisonInput, ProgramInput
-from quant_rsi.research import package_experiment, research, researcher
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.evaluation import comparison, evidence
+from quant_rsi.legacy.evaluation.evidence import ComparisonInput, ProgramInput
+from quant_rsi.legacy.research import package_experiment, research, researcher
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +31,7 @@ def c5_snapshots(tmp_path_factory):
         spec = ProgramInput(
             name="integration", package_campaign=str(root / "package"), task_count=1
         )
-        with patch("quant_rsi.evaluation.evidence.secrets.randbits", return_value=12345):
+        with patch("quant_rsi.legacy.evaluation.evidence.secrets.randbits", return_value=12345):
             evidence.init_evidence(spec)
         saved = root / "available"
         shutil.copytree(workspace / ".quant_rsi", saved)

@@ -63,8 +63,8 @@ as the existing forecasts:
 ```python
 from pathlib import Path
 from quant_rsi.core.artifacts import ArtifactStore
-from quant_rsi.factors.news import NewsRequest, run_news, attach_news_result
-from quant_rsi.forecast.forecast_experiment import prepare_experiment, resume_experiment
+from quant_rsi.legacy.factors.news import NewsRequest, run_news, attach_news_result
+from quant_rsi.legacy.forecast.forecast_experiment import prepare_experiment, resume_experiment
 
 # snapshot: existing SignalSnapshot with retained_issuer_news / KO records.
 # evidence: {sha256: raw_bytes}, including original payload/query/receipt evidence.

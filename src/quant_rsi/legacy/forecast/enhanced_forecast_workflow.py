@@ -2,14 +2,14 @@
 
 import re
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.journal import Journal
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.forecast import forecast_context_data as context
-from quant_rsi.forecast import forecast_experiment as experiment
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
-from quant_rsi.forecast.forecast_workflow_config import ForecastWorkflowConfig
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.forecast import forecast_context_data as context
+from quant_rsi.legacy.forecast import forecast_experiment as experiment
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.forecast.forecast_workflow_config import ForecastWorkflowConfig
 from quant_rsi.market import daily_data, market_contracts
 
 
@@ -217,7 +217,7 @@ def _prepare_workflow(value, workflow_id, managed):
         try:
             if config != saved:
                 raise ValueError("workflow ID already binds another configuration")
-            from quant_rsi.forecast.forecast_campaign import bind_workflow
+            from quant_rsi.legacy.forecast.forecast_campaign import bind_workflow
 
             bind_workflow(managed, manifest)
             report = _bound_report(root, journal, config)
@@ -225,7 +225,7 @@ def _prepare_workflow(value, workflow_id, managed):
                 return _display(root, journal, manifest, report)
             collected = _payload(journal, "collection_committed")
             if not collected:
-                from quant_rsi.forecast.forecast_context_collection import collect_context
+                from quant_rsi.legacy.forecast.forecast_context_collection import collect_context
 
                 # An initialized collection cannot silently disappear on recovery.
                 started = _payload(journal, "collection_started")
@@ -341,7 +341,7 @@ def _inspect_workflow(workflow_id, managed, *, replay=False):
 def _controls(root, report):
     if not report or not report["selection"] or not report["selection"]["selected_recipe"]:
         return None
-    from quant_rsi.forecast.forecast_kernel import forecast_errors
+    from quant_rsi.legacy.forecast.forecast_kernel import forecast_errors
 
     selection = report["selection"]
     group = selection["selected_recipe"]
@@ -400,7 +400,7 @@ def _display(root, journal, manifest, report):
 
 
 def _run_scope(workflow_id):
-    from quant_rsi.forecast.forecast_campaign import run_scope
+    from quant_rsi.legacy.forecast.forecast_campaign import run_scope
 
     path = workflow_root(workflow_id) / "manifest.json"
     manifest = decode(path.read_bytes()) if path.exists() else None

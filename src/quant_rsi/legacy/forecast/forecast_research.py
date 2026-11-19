@@ -6,7 +6,7 @@ import numpy as np
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.forecast.forecast_kernel import (
+from quant_rsi.legacy.forecast.forecast_kernel import (
     forecast_errors,
     forecast_feature_view,
     forecast_feature_views,
@@ -14,7 +14,7 @@ from quant_rsi.forecast.forecast_kernel import (
     mature_forecast_labels,
     target_session,
 )
-from quant_rsi.market.asof import _view_predictor, qualifications
+from quant_rsi.legacy.market.asof import _view_predictor, qualifications
 from quant_rsi.market.market_contracts import timestamp, utc_text
 
 

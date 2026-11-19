@@ -40,7 +40,7 @@ class MarketData:
     @classmethod
     def from_json(cls, value: dict) -> "MarketData":
         if value["kind"] in {"LocalResearchData", "DerivedLocalResearchData"}:
-            from quant_rsi.evaluation.local_research import LocalResearchData
+            from quant_rsi.legacy.evaluation.local_research import LocalResearchData
 
             return LocalResearchData.from_json(value)
         if value["kind"] != "synthetic_weekday_quotes_not_market_data":

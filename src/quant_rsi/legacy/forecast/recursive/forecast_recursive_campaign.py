@@ -15,9 +15,9 @@ from pydantic import Field, model_validator
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.forecast import forecast_campaign as campaign
+from quant_rsi.legacy.forecast import forecast_campaign as campaign
+from quant_rsi.legacy.research.researcher import ResearchPlan
 from quant_rsi.market.market_contracts import Hash
-from quant_rsi.research.researcher import ResearchPlan
 
 EXPOSURE = {
     "prior_exposure": "engineering_fixture",
@@ -88,7 +88,7 @@ class _FrontierPlan(_Plan):
 
     @model_validator(mode="after")
     def explicit_policy_and_exposure(self):
-        from quant_rsi.forecast.recursive.forecast_frontier_policy import _require_descriptor
+        from quant_rsi.legacy.forecast.recursive.forecast_frontier_policy import _require_descriptor
 
         _require_descriptor(self.model_dump(mode="json"))
         if (self.exposure_mode == "historical_market_exploration") != (
@@ -111,7 +111,7 @@ def exposure_definition(plan):
 
 def policy_binding(grant):
     """Only the outer grant may introduce the immutable new policy selector."""
-    from quant_rsi.forecast.recursive.forecast_frontier_policy import _require_descriptor
+    from quant_rsi.legacy.forecast.recursive.forecast_frontier_policy import _require_descriptor
 
     fields = ("proposer_policy", "proposer_definition")
     if grant.get("schema_version") == 3:
@@ -172,7 +172,7 @@ def validate_registration(authority, payload):
         or authority.store.json(grant["exposure_ref"]) != exposure_definition(normalized)
     ):
         raise ValueError("recursive grant, plan or exposure binding differs")
-    from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
         verify_market_registration,
     )
 
@@ -230,8 +230,8 @@ def init_recursive_campaign(plan, *, market_preparation=None):
     normalized = _normalize(plan)
     projection = None
     if normalized.get("exposure_mode") == "historical_market_exploration":
-        from quant_rsi.evaluation.evidence import authority_root
-        from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+        from quant_rsi.legacy.evaluation.evidence import authority_root
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
             market_research_plan,
             read_prepared_projection,
             verify_actual_export,
@@ -276,7 +276,7 @@ def init_recursive_campaign(plan, *, market_preparation=None):
         authority.store.put_json(normalized["research_plan"])
         authority.store.put_json(exposure_definition(normalized))
         if projection is not None:
-            from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
                 store_market_projection,
             )
 

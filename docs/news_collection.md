@@ -56,8 +56,8 @@ flowchart LR
 ```python
 from pathlib import Path
 from quant_rsi.core.artifacts import ArtifactStore, canonical, digest
-from quant_rsi.factors.lifecycle import snapshot, attach_instance
-from quant_rsi.market.news_collection import inspect, process
+from quant_rsi.legacy.factors.lifecycle import snapshot, attach_instance
+from quant_rsi.legacy.market.news_collection import inspect, process
 
 report = inspect("ko-news-observed-001")
 store = ArtifactStore(Path(report["artifact_directory"]))

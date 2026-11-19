@@ -13,23 +13,23 @@ from pydantic import Field
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.forecast.recursive.forecast_recursive_changes import (
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_changes import (
     RegisteredCapPatch,
     ResetOpportunity,
 )
-from quant_rsi.forecast.recursive.forecast_recursive_changes import (
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_changes import (
     extend_capsule as _extend_legacy_capsule,
 )
-from quant_rsi.forecast.recursive.forecast_recursive_changes import (
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_changes import (
     validate_registered_evidence as _validate_legacy_evidence,
 )
-from quant_rsi.market.market_contracts import Hash
-from quant_rsi.research.researcher import ResearchPlan, next_factor
-from quant_rsi.research.task_definition import (
+from quant_rsi.legacy.research.researcher import ResearchPlan, next_factor
+from quant_rsi.legacy.research.task_definition import (
     domain_ref,
     forecast_profile_ref,
     training_row_capacity,
 )
+from quant_rsi.market.market_contracts import Hash
 
 POLICY = "terminal_frontier_first_divergence_v1"
 

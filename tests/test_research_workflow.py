@@ -11,12 +11,13 @@ from market_helpers import account_rules, contract_and_events, write_events
 
 from quant_rsi import cli
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.factors import discovery
-from quant_rsi.factors.discovery_graph import grammar, propose
-from quant_rsi.forecast import forecast_settlement
-from quant_rsi.market import market_contracts, market_data
+from quant_rsi.legacy.factors import discovery
+from quant_rsi.legacy.factors.discovery_graph import grammar, propose
+from quant_rsi.legacy.forecast import forecast_settlement
+from quant_rsi.legacy.market import market_data
+from quant_rsi.legacy.research import workflow
+from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.research import workflow
 
 ROOT = Path(__file__).resolve().parents[1]
 prepare_inputs = test_forecast_features.prepare_inputs

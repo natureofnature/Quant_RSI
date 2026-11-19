@@ -7,11 +7,11 @@ from test_enhanced_forecast_workflow import setup_workflow as _workflow_fixture
 from test_forecast_comparison import dummy_worker  # noqa: F401
 
 from quant_rsi.cli import main
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast import forecast_context_collection as collection
-from quant_rsi.forecast import forecast_context_data as context
-from quant_rsi.forecast import forecast_usability as usability
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.forecast import forecast_context_collection as collection
+from quant_rsi.legacy.forecast import forecast_context_data as context
+from quant_rsi.legacy.forecast import forecast_usability as usability
 from quant_rsi.market import market_contracts
 
 setup_workflow = _workflow_fixture
@@ -285,7 +285,7 @@ def test_remaining_attempts_include_rejected_zero_charge_proposals():
 def test_stale_completed_publication_recovers_without_collection_or_new_charge(
     setup_workflow, tmp_path, request, monkeypatch, capsys, recovery_path
 ):
-    from quant_rsi.forecast import forecast_experiment as experiment
+    from quant_rsi.legacy.forecast import forecast_experiment as experiment
 
     prepare, calls = setup_workflow
     config, _ = prepare()

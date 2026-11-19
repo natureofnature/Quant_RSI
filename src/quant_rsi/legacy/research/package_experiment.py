@@ -5,12 +5,12 @@ import os
 import uuid
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
-from quant_rsi.research import changes, research, researcher
-from quant_rsi.research.package_journal import PackageJournal, targets_for
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.trajectory_delegation import authorize_package, verify_delegation
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research import changes, research, researcher
+from quant_rsi.legacy.research.package_journal import PackageJournal, targets_for
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.trajectory_delegation import authorize_package, verify_delegation
 
 
 def evidence_capsule(root, *, replay=True, authorization=None):
@@ -50,7 +50,7 @@ def evidence_capsule(root, *, replay=True, authorization=None):
                 "reuse": "historical_development_not_independent_validation",
             }
             if plan.neighbor_domain is not None:
-                from quant_rsi.research.trajectory_evidence import require_settled_research
+                from quant_rsi.legacy.research.trajectory_evidence import require_settled_research
 
                 require_settled_research(
                     journal, research.summarize(journal, store, manifest, plan, trace)
@@ -507,7 +507,7 @@ def authorized_local_input(
         from quant_rsi.core.data import MarketData
 
         data = MarketData.from_json(value)
-        from quant_rsi.research.task_definition import task_definition, verify_domain
+        from quant_rsi.legacy.research.task_definition import task_definition, verify_domain
 
         verify_domain(plan, source)
         if (

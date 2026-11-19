@@ -7,10 +7,10 @@ from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write, canonical, decode, digest
 from quant_rsi.core.schemas import LocalDataSpec
-from quant_rsi.evaluation.local_research import export_local_data
-from quant_rsi.factors.discovery import DiscoveryPlan, bind_catalog
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
-from quant_rsi.market import market_data
+from quant_rsi.legacy.evaluation.local_research import export_local_data
+from quant_rsi.legacy.factors.discovery import DiscoveryPlan, bind_catalog
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.market import market_data
 from quant_rsi.market.market_contracts import CSV_FIELDS, AccountRules, DataContract
 
 

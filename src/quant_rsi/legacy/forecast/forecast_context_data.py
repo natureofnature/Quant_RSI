@@ -19,13 +19,13 @@ from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write, canonical, decode, digest
 from quant_rsi.core.schemas import LocalDataSpec
-from quant_rsi.evaluation.local_research import export_local_data
-from quant_rsi.forecast.forecast_contracts import ForecastNotice, ForecastObjective
-from quant_rsi.forecast.forecast_inputs import ForecastInputs, SignalSnapshot
-from quant_rsi.forecast.forecast_kernel import cash_interpretation_matches
+from quant_rsi.legacy.evaluation.local_research import export_local_data
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastNotice, ForecastObjective
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs, SignalSnapshot
+from quant_rsi.legacy.forecast.forecast_kernel import cash_interpretation_matches
+from quant_rsi.legacy.market.market_data import DataRegistry, ingest, market_context
 from quant_rsi.market import daily_data
 from quant_rsi.market.market_contracts import CSV_FIELDS, DataContract, timestamp
-from quant_rsi.market.market_data import DataRegistry, ingest, market_context
 
 ROLES = {"target": "SOXL", "industry": "XSD", "market": "SPY"}
 CALENDAR_SOURCES = {
@@ -734,7 +734,7 @@ def _finish_preparation(out, *, parent_lock_fd=None):
     env = dict(
         os.environ,
         QUANT_RSI_WORKSPACE=str(workspace),
-        PYTHONPATH=str(Path(__file__).absolute().parents[2]),
+        PYTHONPATH=str(Path(__file__).absolute().parents[3]),
         PYTHONDONTWRITEBYTECODE="1",
     )
     with (out / "ingest.log").open("ab") as log:
@@ -743,7 +743,7 @@ def _finish_preparation(out, *, parent_lock_fd=None):
                 sys.executable,
                 "-c",
                 "import sys; "
-                "from quant_rsi.forecast.forecast_context_data import _ingest_prepared; "
+                "from quant_rsi.legacy.forecast.forecast_context_data import _ingest_prepared; "
                 "_ingest_prepared(sys.argv[1])",
                 str(prepared_path),
             ],

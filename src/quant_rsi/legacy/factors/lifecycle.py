@@ -7,11 +7,11 @@ admission/extraction remains the caller's registered source task's responsibilit
 import re
 from datetime import timedelta
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.journal import Journal
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.forecast.forecast_experiment import commit_event, event_payload
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.forecast.forecast_experiment import commit_event, event_payload
 from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import timestamp, utc_text
 from quant_rsi.market.news_feed import EventTemplate  # noqa: F401  (re-export)
@@ -216,7 +216,7 @@ def value_at(value, as_of):
 
 def attach_instance(envelope, value):
     """Freeze one observed instance snapshot into an existing ForecastInputs envelope."""
-    from quant_rsi.forecast.forecast_inputs import ForecastInputs
+    from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
 
     verify_snapshot(value, latest=True)
     manifest, journal, store = _open(value["manifest"]["binding"]["instance_id"])

@@ -6,8 +6,8 @@ import numpy as np
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
+from quant_rsi.legacy.market.market_data import knowledge_time, visible_revisions
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.market.market_data import knowledge_time, visible_revisions
 
 
 def session_index(contract, session_id):
@@ -152,7 +152,7 @@ def _make_feature_view(
             if forecast_objective is None:
                 reasons.append("unsupported_corporate_action_notice")
             else:
-                from quant_rsi.forecast.forecast_kernel import action_assessment
+                from quant_rsi.legacy.forecast.forecast_kernel import action_assessment
 
                 start = contract.calendar.sessions[max(0, index - factor.window)].close_at
                 action_reasons, _ = action_assessment(

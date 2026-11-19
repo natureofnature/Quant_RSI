@@ -6,15 +6,16 @@ import lightgbm as lgb
 import pytest
 from market_helpers import account_rules, contract_and_events, write_events
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical, digest
-from quant_rsi.execution import observer
-from quant_rsi.execution.baseline import seal_baseline
-from quant_rsi.execution.observer_journal import ObserverJournal
-from quant_rsi.market import market_contracts, market_data
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.execution import observer
+from quant_rsi.legacy.execution.baseline import seal_baseline
+from quant_rsi.legacy.execution.observer_journal import ObserverJournal
+from quant_rsi.legacy.market import market_data
+from quant_rsi.legacy.research import research, researcher
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import DataContract, parse_observation_plan
-from quant_rsi.research import research, researcher
-from quant_rsi.research.researcher import ResearchPlan
 
 
 @pytest.fixture
@@ -297,7 +298,7 @@ def test_stop_receipt_before_equal_and_after_target(live_fixture, when, cancelle
 
 
 def test_inference_crosses_open_or_confirmation_persists_later(live_fixture, monkeypatch):
-    from quant_rsi.execution import observer_engine
+    from quant_rsi.legacy.execution import observer_engine
 
     observer.register_observer(live_fixture["plan"], "episode")
     live_fixture["clock"][0] = "2028-01-01T16:01:00Z"

@@ -6,13 +6,13 @@ This deterministic admission rule grants no predictive or production status.
 
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode, digest
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.factors import lifecycle
-from quant_rsi.factors.news import Extraction, NewsRequest, retained_evidence_refs
-from quant_rsi.forecast.forecast_experiment import commit_event
-from quant_rsi.forecast.forecast_inputs import SignalSnapshot
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.factors import lifecycle
+from quant_rsi.legacy.factors.news import Extraction, NewsRequest, retained_evidence_refs
+from quant_rsi.legacy.forecast.forecast_experiment import commit_event
+from quant_rsi.legacy.forecast.forecast_inputs import SignalSnapshot
 from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import timestamp
 

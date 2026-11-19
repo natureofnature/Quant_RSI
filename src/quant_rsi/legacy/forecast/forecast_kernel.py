@@ -5,10 +5,10 @@ import math
 from decimal import Decimal, InvalidOperation
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.market.asof import make_feature_views, session_index
+from quant_rsi.legacy.market.asof import make_feature_views, session_index
+from quant_rsi.legacy.market.market_data import knowledge_time, visible_revisions
 from quant_rsi.market.forecast_records import forecast_errors  # noqa: F401  (re-export)
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.market.market_data import knowledge_time, visible_revisions
 
 
 def target_session(contract, origin, objective):

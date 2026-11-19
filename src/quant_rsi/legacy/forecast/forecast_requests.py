@@ -3,17 +3,17 @@
 import math
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.execution.baseline import read_forecast_bundle
-from quant_rsi.forecast.forecast_contracts import ForecastObjective
-from quant_rsi.forecast.forecast_kernel import (
+from quant_rsi.legacy.execution.baseline import read_forecast_bundle
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastObjective
+from quant_rsi.legacy.forecast.forecast_kernel import (
     action_assessment,
     forecast_feature_view,
     target_session,
 )
+from quant_rsi.legacy.market.asof import predict_view, session_index
+from quant_rsi.legacy.market.market_data import market_context, visible_revisions
 from quant_rsi.market import market_contracts
-from quant_rsi.market.asof import predict_view, session_index
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.market.market_data import market_context, visible_revisions
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS forecast_requests (

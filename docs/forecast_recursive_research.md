@@ -32,11 +32,11 @@ import os
 from pathlib import Path
 
 from quant_rsi.core.artifacts import canonical
-from quant_rsi.forecast.recursive.forecast_recursive_campaign import init_recursive_campaign
-from quant_rsi.research.research import create_research
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.trajectory import init_trajectory, resume_trajectory
-from quant_rsi.research.trajectory_state import TrajectoryPlan
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import init_recursive_campaign
+from quant_rsi.legacy.research.research import create_research
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.trajectory import init_trajectory, resume_trajectory
+from quant_rsi.legacy.research.trajectory_state import TrajectoryPlan
 
 workspace = Path(os.environ["QUANT_RSI_WORKSPACE"]).resolve()
 plan = ResearchPlan.model_validate_json(Path("research-v3.json").read_bytes())

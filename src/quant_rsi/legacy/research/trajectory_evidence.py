@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical, decode, digest
 from quant_rsi.core.journal import TERMINAL
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation import local_research
-from quant_rsi.research import package_experiment, research
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation import local_research
+from quant_rsi.legacy.research import package_experiment, research
 
 
 def semantic_definition(package):
@@ -248,11 +248,11 @@ def source_evidence_capsule(store, receipt, authorization=None):
         "historical_worker_slots": receipt["costs"]["registered_worker_seconds"],
         "reuse": "historical_development_not_independent_validation",
     }
-    from quant_rsi.research.researcher import ResearchPlan
+    from quant_rsi.legacy.research.researcher import ResearchPlan
 
     plan = ResearchPlan.model_validate_json(store.get(receipt["research_plan_ref"]))
     if plan.neighbor_domain is not None:
-        from quant_rsi.research.changes import registered_proposer
+        from quant_rsi.legacy.research.changes import registered_proposer
 
         capsule = registered_proposer(authorization).extend_capsule(
             capsule,
@@ -288,11 +288,13 @@ def frozen_journal(store, receipt, journal_type):
 
 def verify_research_receipt(store, receipt):
     from quant_rsi.core.data import MarketData
-    from quant_rsi.forecast.recursive.forecast_recursive_registration import verify_root_manifest
-    from quant_rsi.research import changes, researcher
-    from quant_rsi.research.research_journal import ResearchJournal
-    from quant_rsi.research.researcher import ResearchPlan
-    from quant_rsi.research.task_definition import task_definition, verify_domain
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
+        verify_root_manifest,
+    )
+    from quant_rsi.legacy.research import changes, researcher
+    from quant_rsi.legacy.research.research_journal import ResearchJournal
+    from quant_rsi.legacy.research.researcher import ResearchPlan
+    from quant_rsi.legacy.research.task_definition import task_definition, verify_domain
 
     journal = frozen_journal(store, receipt, ResearchJournal)
     try:
@@ -403,7 +405,7 @@ def verify_research_receipt(store, receipt):
 
 
 def verify_package_receipt(store, receipt, arm_receipts):
-    from quant_rsi.research.package_journal import PackageJournal
+    from quant_rsi.legacy.research.package_journal import PackageJournal
 
     journal = frozen_journal(store, receipt, PackageJournal)
     try:

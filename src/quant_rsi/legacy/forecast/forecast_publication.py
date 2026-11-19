@@ -2,10 +2,10 @@
 
 import math
 
-from quant_rsi.forecast.forecast_kernel import action_assessment, target_session
+from quant_rsi.legacy.forecast.forecast_kernel import action_assessment, target_session
+from quant_rsi.legacy.market.market_data import visible_revisions
 from quant_rsi.market.forecast_records import confirmed_report  # noqa: F401  (re-export)
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.market.market_data import visible_revisions
 
 
 def publication_report(inputs, plan, protocol, store, result_ref, selection_ref, issued_at):

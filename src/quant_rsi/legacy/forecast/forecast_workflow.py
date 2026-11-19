@@ -2,16 +2,16 @@
 
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import atomic_write, canonical, decode, digest
-from quant_rsi.execution.baseline import seal_forecast
-from quant_rsi.forecast.forecast_requests import inspect_forecast, issue_forecast
-from quant_rsi.forecast.forecast_research import evaluation_origins
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.execution.baseline import seal_forecast
+from quant_rsi.legacy.forecast.forecast_requests import inspect_forecast, issue_forecast
+from quant_rsi.legacy.forecast.forecast_research import evaluation_origins
+from quant_rsi.legacy.market.market_data import ingest, market_context
+from quant_rsi.legacy.research import research
+from quant_rsi.legacy.research.researcher import ResearchPlan
 from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import DataContract
-from quant_rsi.market.market_data import ingest, market_context
-from quant_rsi.research import research
-from quant_rsi.research.researcher import ResearchPlan
 
 
 def build_plan(collection, snapshot_ref):

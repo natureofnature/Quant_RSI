@@ -6,15 +6,15 @@ from market_helpers import contract_and_events, write_events
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec, LocalDataSpec
-from quant_rsi.evaluation.local_research import export_local_data
-from quant_rsi.forecast.forecast_features import (
+from quant_rsi.legacy.evaluation.local_research import export_local_data
+from quant_rsi.legacy.forecast.forecast_features import (
     build_common_mask,
     build_feature_view,
     ordered_feature_values,
 )
-from quant_rsi.forecast.forecast_inputs import ForecastInputs, ForecastRecipe
-from quant_rsi.forecast.forecast_kernel import forecast_feature_view
-from quant_rsi.market import market_data
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs, ForecastRecipe
+from quant_rsi.legacy.forecast.forecast_kernel import forecast_feature_view
+from quant_rsi.legacy.market import market_data
 from quant_rsi.market.market_contracts import DataContract
 
 

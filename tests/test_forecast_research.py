@@ -4,11 +4,11 @@ import pytest
 from market_helpers import contract_and_events, write_events
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.execution import baseline
-from quant_rsi.forecast import forecast_requests
-from quant_rsi.market import market_data
-from quant_rsi.research import package_experiment, research
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.execution import baseline
+from quant_rsi.legacy.forecast import forecast_requests
+from quant_rsi.legacy.market import market_data
+from quant_rsi.legacy.research import package_experiment, research
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 @pytest.fixture
@@ -181,8 +181,8 @@ def test_mean_benchmark_uses_the_model_training_mask(forecast_plan):
     import math
 
     from quant_rsi.core.schemas import FactorSpec
-    from quant_rsi.evaluation.local_research import LocalResearchData, export_local_data
-    from quant_rsi.forecast.forecast_research import training_mean_baseline, training_view
+    from quant_rsi.legacy.evaluation.local_research import LocalResearchData, export_local_data
+    from quant_rsi.legacy.forecast.forecast_research import training_mean_baseline, training_view
 
     data = LocalResearchData.from_json(export_local_data(forecast_plan.development.data))
     factor = FactorSpec(op="momentum", window=5)
@@ -207,9 +207,9 @@ def test_training_batch_matches_fresh_views_and_hashes_snapshot_once(
     import numpy as np
 
     from quant_rsi.core.schemas import FactorSpec
-    from quant_rsi.evaluation.local_research import LocalResearchData, export_local_data
-    from quant_rsi.forecast import forecast_research
-    from quant_rsi.market import asof
+    from quant_rsi.legacy.evaluation.local_research import LocalResearchData, export_local_data
+    from quant_rsi.legacy.forecast import forecast_research
+    from quant_rsi.legacy.market import asof
 
     data = LocalResearchData.from_json(export_local_data(forecast_plan.development.data))
     factor = FactorSpec(op=op, window=5)
@@ -244,7 +244,7 @@ def test_training_batch_matches_fresh_views_and_hashes_snapshot_once(
         return canonical(value)
 
     monkeypatch.setattr(asof, "canonical", encode)
-    from quant_rsi.forecast import forecast_kernel
+    from quant_rsi.legacy.forecast import forecast_kernel
 
     project = forecast_kernel.visible_revisions
     label_projections = []

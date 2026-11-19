@@ -4,23 +4,23 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.journal import Journal
-from quant_rsi.factors import discovery
-from quant_rsi.forecast import forecast_settlement
-from quant_rsi.forecast.forecast_experiment import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.factors import discovery
+from quant_rsi.legacy.forecast import forecast_settlement
+from quant_rsi.legacy.forecast.forecast_experiment import (
     commit_event,
     event_payload,
     experiment_root,
     inspect_experiment,
     open_experiment,
 )
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.market.market_data import load_snapshot
 from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import AccountRules, timestamp, utc_text
-from quant_rsi.market.market_data import load_snapshot
 
 
 class WorkflowProfile(StrictModel):
@@ -138,7 +138,7 @@ def prepare(value):
 
 
 def _fold_accounts(experiment_id, profile, inputs):
-    from quant_rsi.execution.strategy_replay import replay_strategy
+    from quant_rsi.legacy.execution.strategy_replay import replay_strategy
 
     journal, store, _, plan, _ = open_experiment(experiment_root(experiment_id))
     try:
@@ -230,7 +230,7 @@ def _publication_prediction(forecast):
 
 
 def _initialize_paper(journal, store, profile, inputs, experiment_id):
-    from quant_rsi.execution.strategy_replay import advance_paper_strategy
+    from quant_rsi.legacy.execution.strategy_replay import advance_paper_strategy
 
     receipt = forecast_settlement.register(experiment_id)
     forecast = receipt["publication"]["forecast"]
@@ -348,7 +348,7 @@ def _paper_state(history, paper, store):
 
 
 def observe(campaign_id, snapshot_ref, *, request_id):
-    from quant_rsi.execution.strategy_replay import advance_paper_strategy
+    from quant_rsi.legacy.execution.strategy_replay import advance_paper_strategy
 
     if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:
         raise ValueError("request ID must contain 1..128 characters")
@@ -442,7 +442,7 @@ def observe(campaign_id, snapshot_ref, *, request_id):
 
 
 def _replay_paper(journal, store, profile, inputs, report, observations):
-    from quant_rsi.execution.strategy_replay import advance_paper_strategy
+    from quant_rsi.legacy.execution.strategy_replay import advance_paper_strategy
 
     states, forecasts, settlements = {}, {}, {}
     for trial in report["trials"]:

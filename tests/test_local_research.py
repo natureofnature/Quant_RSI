@@ -4,13 +4,17 @@ import lightgbm as lgb
 import pytest
 from market_helpers import account_rules, contract_and_events, write_events
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation.local_research import LocalResearchData, export_local_data, training_view
-from quant_rsi.market import market_data
-from quant_rsi.research import research, researcher
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.local_research import (
+    LocalResearchData,
+    export_local_data,
+    training_view,
+)
+from quant_rsi.legacy.market import market_data
+from quant_rsi.legacy.research import research, researcher
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 @pytest.fixture
@@ -104,7 +108,7 @@ def test_synthetic_generator_refuses_local_input(local_plan):
 def test_actual_incumbent_seals_and_infers_last_session_without_fit(
     local_plan, tmp_path, monkeypatch
 ):
-    from quant_rsi.execution.baseline import infer_at, inspect_baseline, seal_baseline
+    from quant_rsi.legacy.execution.baseline import infer_at, inspect_baseline, seal_baseline
 
     root = tmp_path / "research"
     outcome = research.create_research(local_plan, root, steps=1)
@@ -155,8 +159,8 @@ def test_actual_incumbent_seals_and_infers_last_session_without_fit(
 
 @pytest.mark.parametrize("op", ["momentum", "mean_return"])
 def test_batched_development_predictions_match_fresh_single_view_inference(local_plan, op):
-    from quant_rsi.evaluation.local_research import fit_predict_local
-    from quant_rsi.market.asof import make_feature_view, predict_view
+    from quant_rsi.legacy.evaluation.local_research import fit_predict_local
+    from quant_rsi.legacy.market.asof import make_feature_view, predict_view
 
     plan = local_plan.development
     data = LocalResearchData.from_json(export_local_data(plan.data))

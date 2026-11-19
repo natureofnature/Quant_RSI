@@ -7,11 +7,11 @@ from pydantic import Field, model_validator
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.schemas import DevelopmentPlan
-from quant_rsi.forecast.forecast_contracts import ForecastDevelopmentPlan
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastDevelopmentPlan
 from quant_rsi.market.market_contracts import Hash
 
 if TYPE_CHECKING:
-    from quant_rsi.research.researcher import ResearchPlan
+    from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 class RegisteredNeighborDomain(StrictModel):

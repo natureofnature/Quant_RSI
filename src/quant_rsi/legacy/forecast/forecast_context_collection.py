@@ -14,7 +14,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from quant_rsi.core.artifacts import atomic_write, canonical, decode, digest
-from quant_rsi.forecast.forecast_context_data import CALENDAR_SOURCES
+from quant_rsi.legacy.forecast.forecast_context_data import CALENDAR_SOURCES
 from quant_rsi.market import daily_data
 from quant_rsi.market.market_contracts import timestamp
 

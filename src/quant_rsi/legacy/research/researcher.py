@@ -8,8 +8,8 @@ from pydantic import Field, model_serializer, model_validator
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import DevelopmentPlan, FactorSpec, StrictModel
-from quant_rsi.forecast.forecast_contracts import ForecastDevelopmentPlan
-from quant_rsi.research.task_definition import (
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastDevelopmentPlan
+from quant_rsi.legacy.research.task_definition import (
     ForecastRecursiveProfile,
     RegisteredNeighborDomain,
     domain_ref,

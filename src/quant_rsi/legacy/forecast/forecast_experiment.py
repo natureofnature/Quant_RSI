@@ -2,19 +2,19 @@
 
 import re
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.journal import Journal
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.forecast.forecast_comparison import select_recipe, verify_comparison_result
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
-from quant_rsi.forecast.forecast_protocol import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.forecast.forecast_comparison import select_recipe, verify_comparison_result
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.forecast.forecast_protocol import (
     DEFAULT_FOLDS,
     ForecastComparisonPlan,
     comparison_recipe,
     freeze_protocol,
 )
-from quant_rsi.forecast.forecast_publication import confirmed_report, publication_report
+from quant_rsi.legacy.forecast.forecast_publication import confirmed_report, publication_report
 from quant_rsi.market import market_contracts
 
 
@@ -37,7 +37,7 @@ def _prepare_experiment(
 ):
     inputs = ForecastInputs(value)
     if discovery is not None:
-        from quant_rsi.factors.discovery import verify_allocation
+        from quant_rsi.legacy.factors.discovery import verify_allocation
 
         verify_allocation(discovery, experiment_id, inputs.ref, fold_origins)
     if managed is not None and (news_factor or discovery is not None):
@@ -48,7 +48,7 @@ def _prepare_experiment(
     origins = [list(values) for values in fold_origins]
     news_accounting = None
     if news_factor:
-        from quant_rsi.factors.news import authorize_news_comparison
+        from quant_rsi.legacy.factors.news import authorize_news_comparison
 
         news_accounting = authorize_news_comparison(inputs, experiment_id, origins)
     root.parent.mkdir(parents=True, exist_ok=True)
@@ -180,7 +180,7 @@ def _news_terminal(root, *, verify_runtime=False):
     intent = decode(marker.read_bytes())
     if not intent.get("terminal_result_ref"):
         return None
-    from quant_rsi.factors.news import authorize_news_comparison
+    from quant_rsi.legacy.factors.news import authorize_news_comparison
 
     store = ArtifactStore(root / "artifacts")
     result = store.json(intent["terminal_result_ref"])
@@ -226,7 +226,7 @@ def _open_experiment(root, *, verify_runtime=True, managed=None):
         if plan.input_ref != inputs.ref or plan.protocol_ref != manifest["protocol_ref"]:
             raise ValueError("forecast experiment inputs/protocol differ")
         if plan.schema_version == 3:
-            from quant_rsi.factors.discovery import verify_allocation
+            from quant_rsi.legacy.factors.discovery import verify_allocation
 
             protocol = store.json(plan.protocol_ref)
             verify_allocation(
@@ -237,7 +237,7 @@ def _open_experiment(root, *, verify_runtime=True, managed=None):
                 verify_runtime=verify_runtime,
             )
         if plan.schema_version == 2:
-            from quant_rsi.factors.news import authorize_news_comparison
+            from quant_rsi.legacy.factors.news import authorize_news_comparison
 
             protocol = store.json(plan.protocol_ref)
             receipt = authorize_news_comparison(
@@ -417,7 +417,7 @@ def _resume_experiment(
                 if dispatched >= max_fits:
                     break
                 if managed is not None:
-                    from quant_rsi.forecast.enhanced_forecast_workflow import (
+                    from quant_rsi.legacy.forecast.enhanced_forecast_workflow import (
                         validate_managed_dispatch,
                     )
 
@@ -532,7 +532,7 @@ def _inspect_experiment(experiment_id, *, replay=False):
 
 
 def _campaign_scope(experiment_id, manifest=None):
-    from quant_rsi.forecast.forecast_campaign import run_scope
+    from quant_rsi.legacy.forecast.forecast_campaign import run_scope
 
     return run_scope(experiment_id, manifest=manifest)
 
@@ -544,14 +544,14 @@ def _saved_manifest(experiment_id):
 
 def _bind_parent(managed, manifest, plan):
     if managed is not None:
-        from quant_rsi.forecast.forecast_campaign import bind_experiment
+        from quant_rsi.legacy.forecast.forecast_campaign import bind_experiment
 
         bind_experiment(managed, manifest, plan)
 
 
 def _verify_parent(managed, manifest, plan, *, for_dispatch=False):
     if managed is not None:
-        from quant_rsi.forecast.forecast_campaign import verify_experiment
+        from quant_rsi.legacy.forecast.forecast_campaign import verify_experiment
 
         verify_experiment(managed, manifest, plan, for_dispatch=for_dispatch)
     elif "managed_run" in manifest:

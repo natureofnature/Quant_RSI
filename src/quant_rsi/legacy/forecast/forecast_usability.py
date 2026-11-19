@@ -11,12 +11,12 @@ from urllib.error import URLError
 
 from pydantic import ValidationError
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import atomic_write, canonical
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.forecast import enhanced_forecast_workflow as workflow
-from quant_rsi.forecast import forecast_campaign as campaign
-from quant_rsi.forecast.forecast_workflow_config import ForecastWorkflowConfig
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.forecast import enhanced_forecast_workflow as workflow
+from quant_rsi.legacy.forecast import forecast_campaign as campaign
+from quant_rsi.legacy.forecast.forecast_workflow_config import ForecastWorkflowConfig
 
 HANDLED_ERRORS = (ValueError, OSError, sqlite3.DatabaseError, subprocess.TimeoutExpired)
 ACTION_ERRORS = (*HANDLED_ERRORS, KeyboardInterrupt)
@@ -303,7 +303,7 @@ def failure_report(workflow_id, error, *, stage, retry=None):
 
 
 def write_reports(report, parent, output):
-    from quant_rsi.forecast.forecast_report import render_forecast_report
+    from quant_rsi.legacy.forecast.forecast_report import render_forecast_report
 
     output = Path(output).resolve()
     base = authority_root()

@@ -6,13 +6,13 @@ from typing import Literal
 
 from pydantic import AwareDatetime, Field
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.journal import Journal
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.forecast.forecast_experiment import commit_event, event_payload
-from quant_rsi.forecast.forecast_inputs import SignalSnapshot
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.forecast.forecast_experiment import commit_event, event_payload
+from quant_rsi.legacy.forecast.forecast_inputs import SignalSnapshot
 from quant_rsi.market import market_contracts, news_feed
 from quant_rsi.market.market_contracts import timestamp, utc_text
 
@@ -334,8 +334,8 @@ def inspect(campaign_id):
 
 def process(campaign_id, request_id, news_campaign_id):
     """Feed a sealed poll into the existing retained-title and lifecycle path; no network/fits."""
-    from quant_rsi.factors.event_observer import observe
-    from quant_rsi.factors.news import NewsRequest, run_news
+    from quant_rsi.legacy.factors.event_observer import observe
+    from quant_rsi.legacy.factors.news import NewsRequest, run_news
 
     with controller.controller_lock(collection_root(campaign_id)):
         manifest, journal, store, plan, source = _open(campaign_id, execute=True)

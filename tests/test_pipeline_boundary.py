@@ -1,8 +1,9 @@
 """The active pipeline never imports pipeline A (#159 D1/D2, Milestone 1 Phase 3).
 
 Pipeline A (the recursive campaign, package/controller flow and forecast workflow) is
-frozen. The import-layering ratchet cannot see these leaks, because they run downward
-(research -> market -> evaluation), so this test checks the import closure directly.
+frozen under quant_rsi.legacy. The layering ratchet ranks legacy beside cli, so it flags
+direct imports from lower layers; this test also checks the import closure, including
+cli, which may import legacy only inside the dispatch of A commands.
 Moved shared symbols keep critical-tier unit tests here.
 """
 
@@ -17,40 +18,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "instruments" / "shared" / "equities.json"
 
-PIPELINE_A = (
-    "quant_rsi.evaluation",
-    "quant_rsi.forecast",
-    "quant_rsi.worker",
-    "quant_rsi.core.controller",
-    "quant_rsi.core.model",
-    "quant_rsi.core.accounting",
-    "quant_rsi.execution.baseline",
-    "quant_rsi.execution.observer",
-    "quant_rsi.execution.observer_engine",
-    "quant_rsi.execution.observer_journal",
-    "quant_rsi.execution.strategy_replay",
-    "quant_rsi.factors.discovery",
-    "quant_rsi.factors.discovery_graph",
-    "quant_rsi.factors.lifecycle",
-    "quant_rsi.factors.news",
-    "quant_rsi.factors.event_observer",
-    "quant_rsi.market.asof",
-    "quant_rsi.market.market_data",
-    "quant_rsi.market.signal_sources",
-    "quant_rsi.market.news_collection",
-    "quant_rsi.research.researcher",
-    "quant_rsi.research.research",
-    "quant_rsi.research.research_journal",
-    "quant_rsi.research.package_experiment",
-    "quant_rsi.research.package_journal",
-    "quant_rsi.research.task_definition",
-    "quant_rsi.research.changes",
-    "quant_rsi.research.trajectory",
-    "quant_rsi.research.trajectory_state",
-    "quant_rsi.research.trajectory_evidence",
-    "quant_rsi.research.trajectory_delegation",
-    "quant_rsi.research.workflow",
-)
+PIPELINE_A = ("quant_rsi.legacy",)  # every frozen pipeline A module lives here
 
 ACTIVE = (
     "quant_rsi.cli",
@@ -126,9 +94,11 @@ def test_an_offline_study_run_loads_no_pipeline_a_module(tmp_path, mode):
 def test_pipeline_a_reexports_the_moved_symbols():
     # Frozen pipeline A keeps working unchanged through re-exports of the neutral homes.
     code = (
-        "from quant_rsi.forecast import forecast_kernel, forecast_protocol, forecast_publication\n"
-        "from quant_rsi.factors import lifecycle\n"
-        "from quant_rsi.market import market_data, signal_sources\n"
+        "from quant_rsi.legacy.forecast import (\n"
+        "    forecast_kernel, forecast_protocol, forecast_publication,\n"
+        ")\n"
+        "from quant_rsi.legacy.factors import lifecycle\n"
+        "from quant_rsi.legacy.market import market_data, signal_sources\n"
         "from quant_rsi.core import model_parameters\n"
         "from quant_rsi.market import event_csv, forecast_records, news_feed\n"
         "assert forecast_kernel.forecast_errors is forecast_records.forecast_errors\n"

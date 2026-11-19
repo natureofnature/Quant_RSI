@@ -9,11 +9,11 @@ from copy import deepcopy
 from decimal import ROUND_FLOOR, Decimal
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.evaluation.local_research import known_notices, quotes_asof
 from quant_rsi.execution import execution_account as account
-from quant_rsi.market.asof import session_index
+from quant_rsi.legacy.evaluation.local_research import known_notices, quotes_asof
+from quant_rsi.legacy.market.asof import session_index
+from quant_rsi.legacy.market.market_data import visible_revisions
 from quant_rsi.market.market_contracts import timestamp, utc_text
-from quant_rsi.market.market_data import visible_revisions
 
 HORIZON = 5
 

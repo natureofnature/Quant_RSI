@@ -9,8 +9,8 @@ from typing import Literal
 
 from quant_rsi.core.artifacts import canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.evaluation.local_research import LocalResearchData
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.evaluation.local_research import LocalResearchData
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
 from quant_rsi.market.market_contracts import Hash
 
 

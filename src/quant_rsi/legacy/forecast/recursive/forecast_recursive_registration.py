@@ -5,10 +5,10 @@ from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.trajectory_state import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.trajectory_state import (
     TrajectoryPlan,
     anchor_path,
     locked_trajectory,
@@ -36,7 +36,7 @@ def require_disjoint_source(source, root):
 
 def identity_definition(plan, campaign_id, binding, grant):
     """Pure frozen identity; no mutable campaign or registration path is consulted."""
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import (
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
         _normalize,
         exposure_definition,
         policy_binding,
@@ -94,7 +94,9 @@ def identity_definition(plan, campaign_id, binding, grant):
 
 
 def require_root_identity(plan, root, campaign_id, owner_fd):
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import require_recursive_owner
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
+        require_recursive_owner,
+    )
 
     scope = require_recursive_owner()
     require_owner(trajectory_root(), owner_fd)
@@ -119,7 +121,7 @@ def require_root_identity(plan, root, campaign_id, owner_fd):
 
 @contextmanager
 def root_execution(plan, root, campaign_id, owner_fd, *, create):
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import recursive_scope
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import recursive_scope
 
     with recursive_scope(plan=plan, source_directory=root, campaign_id=campaign_id) as scope:
         campaign_id = scope.grant["source_campaign_id"]
@@ -231,8 +233,10 @@ def bind_root_market_evidence(identity, store, data_ref):
     """Carry the original full market closure into the actual initialized source."""
     if identity["grant"].get("exposure_mode") != "historical_market_exploration":
         return
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import require_recursive_owner
-    from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
+        require_recursive_owner,
+    )
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
         store_market_projection,
         verify_market_registration,
     )
@@ -251,7 +255,7 @@ def verify_root_manifest(plan, store, manifest):
             plan, manifest["campaign_id"], identity["binding"], identity["grant"]
         ):
             raise ValueError("forecast root manifest differs from its frozen grant/identity")
-        from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
             verify_market_registration,
         )
 
@@ -285,10 +289,12 @@ def match_trajectory_input(plan, grant):
 
 
 def begin_handoff(plan, owner_fd):
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import require_recursive_owner
-    from quant_rsi.research import research
-    from quant_rsi.research.trajectory import substantive
-    from quant_rsi.research.trajectory_evidence import capture_research
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
+        require_recursive_owner,
+    )
+    from quant_rsi.legacy.research import research
+    from quant_rsi.legacy.research.trajectory import substantive
+    from quant_rsi.legacy.research.trajectory_evidence import capture_research
 
     scope = require_recursive_owner()
     require_owner(trajectory_root(), owner_fd)
@@ -337,17 +343,17 @@ def begin_handoff(plan, owner_fd):
 
 
 def verify_frozen_handoff(program, initial, store):
-    from quant_rsi.research.trajectory import substantive
+    from quant_rsi.legacy.research.trajectory import substantive
 
     record = store.json(program["root_registration_ref"])
     source_plan = ResearchPlan.model_validate_json(store.get(initial["research_plan_ref"]))
     manifest = store.json(initial["manifest_ref"])
     identity = record["identity"]
     grant = identity["grant"]
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import policy_binding
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import policy_binding
 
     policy = policy_binding(grant)
-    from quant_rsi.forecast.recursive.forecast_recursive_preparation import (
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_preparation import (
         verify_market_registration,
     )
 
@@ -386,7 +392,7 @@ def registered_trajectory_creation(function):
     def wrapped(plan):
         if plan.schema_version != 3:
             return function(plan)
-        from quant_rsi.forecast.recursive.forecast_recursive_campaign import recursive_scope
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import recursive_scope
 
         with recursive_scope(source_directory=plan.source_directory):
             return function(plan)
@@ -404,7 +410,7 @@ def registered_trajectory_resume(function):
         program = ArtifactStore(root / "artifacts").json(anchor["program_ref"])
         if program.get("schema_version") != 3:
             return function(steps=steps)
-        from quant_rsi.forecast.recursive.forecast_recursive_campaign import recursive_scope
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import recursive_scope
 
         with recursive_scope(grant_ref=program["recursive_campaign_binding"]["grant_ref"]):
             return function(steps=steps)

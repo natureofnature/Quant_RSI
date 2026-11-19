@@ -20,8 +20,8 @@ from pydantic import Field, model_validator
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.journal import Journal
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.forecast.forecast_workflow_config import ForecastWorkflowConfig
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.forecast.forecast_workflow_config import ForecastWorkflowConfig
 
 ALLOCATION = {"max_attempts": 10, "max_worker_seconds": 1800}
 EXPOSURE = {
@@ -404,7 +404,7 @@ def _registry(authority):
                 registrations[run["run_id"]] = (ref, record)
 
         elif event["kind"] == "recursive_campaign_registered":
-            from quant_rsi.forecast.recursive.forecast_recursive_campaign import (
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
                 validate_registration,
             )
 
@@ -549,8 +549,8 @@ def _workflow_state(scope, record, acks):
 
 
 def _input_contract(scope, value, plan, protocol):
-    from quant_rsi.forecast.forecast_contracts import ForecastObjective
-    from quant_rsi.forecast.forecast_protocol import DEFAULT_FOLDS
+    from quant_rsi.legacy.forecast.forecast_contracts import ForecastObjective
+    from quant_rsi.legacy.forecast.forecast_protocol import DEFAULT_FOLDS
 
     if value.get("kind") != "ForecastInputs" or value.get("schema_version") != 1:
         raise ValueError("managed experiment requires ForecastInputs")
@@ -589,8 +589,8 @@ def _input_contract(scope, value, plan, protocol):
 
 
 def _experiment_state(scope, record, acks, workflow, *, supplied=None, for_dispatch=False):
-    from quant_rsi.forecast.forecast_experiment import validate_ledger
-    from quant_rsi.forecast.forecast_protocol import DEFAULT_FOLDS, ForecastComparisonPlan
+    from quant_rsi.legacy.forecast.forecast_experiment import validate_ledger
+    from quant_rsi.legacy.forecast.forecast_protocol import DEFAULT_FOLDS, ForecastComparisonPlan
 
     root = Path(record["experiment_path"])
     ack = acks.get((record["run_id"], "experiment_bound"))
@@ -667,7 +667,7 @@ def _experiment_state(scope, record, acks, workflow, *, supplied=None, for_dispa
     if runtime != workflow["manifest"]["runtime"]:
         raise ValueError("workflow and experiment runtime identities differ")
     if for_dispatch:
-        from quant_rsi.core.controller import runtime_identity
+        from quant_rsi.legacy.core.controller import runtime_identity
 
         if runtime != runtime_identity():
             raise ValueError("managed dispatch requires its original runtime")
@@ -833,7 +833,7 @@ def _report(authority, campaign_id, *, replay):
             },
         }
         if replay and result["experiment_state"] == "acknowledged":
-            from quant_rsi.forecast.forecast_experiment import inspect_experiment
+            from quant_rsi.legacy.forecast.forecast_experiment import inspect_experiment
 
             result["experiment_report"] = inspect_experiment(row["run_id"], replay=True)
         runs.append(result)

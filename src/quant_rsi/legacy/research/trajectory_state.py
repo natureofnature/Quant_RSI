@@ -10,9 +10,9 @@ from typing import Literal
 
 from pydantic import Field, field_validator, model_serializer, model_validator
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode, digest
 from quant_rsi.core.schemas import StrictModel
+from quant_rsi.legacy.core import controller
 
 
 class TrajectoryBudget(StrictModel):

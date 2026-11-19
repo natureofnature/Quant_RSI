@@ -13,11 +13,11 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from quant_rsi.core.artifacts import atomic_write, canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.forecast.forecast_inputs import SignalSnapshot
+from quant_rsi.legacy.forecast.forecast_inputs import SignalSnapshot
 from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import Identifier, timestamp, utc_text
 
-CONFIG_ROOT = Path(__file__).resolve().parents[3] / "instruments"
+CONFIG_ROOT = Path(__file__).resolve().parents[4] / "instruments"
 NEWS_TASK = decode((CONFIG_ROOT / "shared" / "issuer_title_task.json").read_bytes())
 NEWS_BINDING = decode((CONFIG_ROOT / "US" / "KO" / "news.json").read_bytes())
 NEWS_FEATURE_DEFINITION = NEWS_TASK["aggregation"]
@@ -172,8 +172,8 @@ def run_news(request, snapshot, evidence, store, root: Path | None = None, *, co
     interrupted local rule may be recomputed only if its output was not committed;
     no remote operation or charge is possible in this adapter.
     """
-    from quant_rsi.core.controller import controller_lock
-    from quant_rsi.evaluation.evidence import authority_root
+    from quant_rsi.legacy.core.controller import controller_lock
+    from quant_rsi.legacy.evaluation.evidence import authority_root
 
     now = timestamp(market_contracts.trusted_now())
     if completed_at is not None and timestamp(completed_at) != now:
@@ -319,7 +319,7 @@ def run_news(request, snapshot, evidence, store, root: Path | None = None, *, co
         retained = {ref: evidence[ref] for ref in old["retained_refs"]}
         retained[query_ref] = store.get(query_ref)
         events = []
-        from quant_rsi.forecast.forecast_inputs import SignalEvent
+        from quant_rsi.legacy.forecast.forecast_inputs import SignalEvent
 
         for item in old["selected"]:
             event = SignalEvent.model_validate_json(canonical(item))
@@ -493,7 +493,7 @@ def attach_news_result(envelope, result):
     require new revision IDs. The returned ForecastInputs envelope remains v1,
     with all new definitions bound by its existing evidence and signal references.
     """
-    from quant_rsi.forecast.forecast_inputs import ForecastInputs
+    from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
 
     value = decode(canonical(envelope))
     previous = value["signals"] or dict(events=[], coverage=[])
@@ -525,8 +525,8 @@ def authorize_news_comparison(
     allowance. A completed or failed comparison cannot be renamed to fit again.
     """
     from quant_rsi.core.artifacts import ArtifactStore
-    from quant_rsi.core.controller import controller_lock
-    from quant_rsi.evaluation.evidence import authority_root
+    from quant_rsi.legacy.core.controller import controller_lock
+    from quant_rsi.legacy.evaluation.evidence import authority_root
 
     snapshot = inputs.signals
     if snapshot is None or not snapshot.coverage:

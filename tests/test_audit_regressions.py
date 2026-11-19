@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical, decode, digest
 from quant_rsi.core.journal import Journal
 from quant_rsi.core.schemas import DevelopmentPlan
+from quant_rsi.legacy.core import controller
 
 
 def one_candidate(plan):

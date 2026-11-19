@@ -4,23 +4,23 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
-from quant_rsi.forecast.recursive.forecast_recursive_registration import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
     registered_trajectory_creation,
     registered_trajectory_resume,
     trajectory_units,
 )
-from quant_rsi.research import changes, package_experiment, research, researcher
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.trajectory_evidence import (
+from quant_rsi.legacy.research import changes, package_experiment, research, researcher
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.trajectory_evidence import (
     capture_package,
     capture_research,
     source_evidence_capsule,
     verify_package_receipt,
     verify_research_receipt,
 )
-from quant_rsi.research.trajectory_state import (
+from quant_rsi.legacy.research.trajectory_state import (
     TrajectoryLedger,
     TrajectoryPlan,
     anchor_path,
@@ -72,7 +72,9 @@ def init_trajectory(plan: TrajectoryPlan):
                 return summarize(authority)
         registration = None
         if plan.schema_version == 3:
-            from quant_rsi.forecast.recursive.forecast_recursive_registration import begin_handoff
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
+                begin_handoff,
+            )
 
             registration = begin_handoff(plan, owner_fd)
         marker = root.parent / "trajectory_initialization.json"
@@ -146,11 +148,16 @@ def init_trajectory(plan: TrajectoryPlan):
                 boundary="development_only_no_protected_evidence_or_promotion",
             )
             if plan.schema_version == 3:
-                from quant_rsi.forecast.recursive.forecast_recursive_campaign import policy_binding
-                from quant_rsi.forecast.recursive.forecast_recursive_trajectory import (
+                from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
+                    policy_binding,
+                )
+                from quant_rsi.legacy.forecast.recursive.forecast_recursive_trajectory import (
                     terminal_proposer,
                 )
-                from quant_rsi.research.task_definition import domain_ref, forecast_profile_ref
+                from quant_rsi.legacy.research.task_definition import (
+                    domain_ref,
+                    forecast_profile_ref,
+                )
 
                 policy = policy_binding(registration["identity"]["grant"])
                 program.update(
@@ -174,7 +181,7 @@ def init_trajectory(plan: TrajectoryPlan):
             atomic_write(marker, canonical(saved))
         program = store.json(saved["program_ref"])
         if registration is not None:
-            from quant_rsi.forecast.recursive.forecast_recursive_registration import (
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
                 verify_frozen_handoff,
             )
 
@@ -341,7 +348,7 @@ def round_committed(receipt, pending):
     if len(rounds) != pending["round_index"] + 1:
         raise ValueError("child advanced beyond the parent round")
     row = rounds[-1]
-    from quant_rsi.research.package_journal import targets_for
+    from quant_rsi.legacy.research.package_journal import targets_for
 
     if row["steps"] != 1 or targets_for(row) != pending["targets"]:
         raise ValueError("child round target differs from the parent reservation")
@@ -631,7 +638,9 @@ def _resume_locked(authority, owner_fd, steps):
         if state["status"] == "SEALED":
             break
         if authority.program.get("schema_version") == 3:
-            from quant_rsi.forecast.recursive.forecast_recursive_trajectory import resume_step
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_trajectory import (
+                resume_step,
+            )
 
             resume_step(authority, owner_fd)
             continue
@@ -677,7 +686,9 @@ def verify_authority_receipts(authority):
     """Bind every committed parent decision and cost to its sealed child evidence."""
     state, program, store = authority.state, authority.program, authority.store
     if program.get("schema_version") == 3:
-        from quant_rsi.forecast.recursive.forecast_recursive_trajectory import verify_authority
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_trajectory import (
+            verify_authority,
+        )
 
         verify_authority(authority)
         verify_terminal(authority)
@@ -878,7 +889,9 @@ def summarize(authority):
         boundary=program["boundary"],
     )
     if program.get("schema_version") == 3:
-        from quant_rsi.forecast.recursive.forecast_recursive_trajectory import execution_counts
+        from quant_rsi.legacy.forecast.recursive.forecast_recursive_trajectory import (
+            execution_counts,
+        )
 
         report["execution_counts"] = execution_counts(authority)
         report["recursive_campaign_binding"] = program["recursive_campaign_binding"]

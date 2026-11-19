@@ -14,8 +14,8 @@ from test_forecast_frontier_policy import frontier_packet
 from test_forecast_recursive_changes import plan_value
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical
-from quant_rsi.forecast.recursive import forecast_frontier_policy
-from quant_rsi.research import (
+from quant_rsi.legacy.forecast.recursive import forecast_frontier_policy
+from quant_rsi.legacy.research import (
     changes,
     package_experiment,
     research,

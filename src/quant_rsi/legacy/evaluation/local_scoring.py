@@ -6,9 +6,9 @@ from decimal import Decimal
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation.local_research import amount_costs, known_notices, quotes_asof
 from quant_rsi.execution import execution_account as account
-from quant_rsi.market.asof import make_feature_view, predict_view
+from quant_rsi.legacy.evaluation.local_research import amount_costs, known_notices, quotes_asof
+from quant_rsi.legacy.market.asof import make_feature_view, predict_view
 from quant_rsi.market.market_contracts import AccountRules, trusted_now, utc_text
 
 
@@ -230,7 +230,7 @@ def local_score(authority, attempt_id, *, replay=False):
         return replay_local_score(authority, attempt_id)
     from lightgbm.basic import LightGBMError
 
-    from quant_rsi.evaluation.protected_scoring import authorize_score, read_episode
+    from quant_rsi.legacy.evaluation.protected_scoring import authorize_score, read_episode
 
     _, binding = authorize_score(authority, attempt_id, replay=replay)
     envelope = dict(
@@ -265,7 +265,7 @@ def local_score(authority, attempt_id, *, replay=False):
 
 def replay_local_score(authority, attempt_id):
     """A replay capability cannot reopen or create a score input/result."""
-    from quant_rsi.evaluation.protected_scoring import authorize_score
+    from quant_rsi.legacy.evaluation.protected_scoring import authorize_score
 
     attempt, _ = authorize_score(authority, attempt_id, replay=True)
     if attempt["result_ref"] is None:
@@ -276,7 +276,7 @@ def replay_local_score(authority, attempt_id):
 
 
 def validate_accepted_score(authority, attempt_id, result, *, first_acceptance=False, raw_ref=None):
-    from quant_rsi.evaluation.protected_scoring import authorize_score
+    from quant_rsi.legacy.evaluation.protected_scoring import authorize_score
 
     attempt, binding = authorize_score(authority, attempt_id, replay=not first_acceptance)
     result_ref = digest(canonical(result))

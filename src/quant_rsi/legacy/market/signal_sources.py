@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from quant_rsi.core.artifacts import canonical, digest, reject_constant
-from quant_rsi.forecast.forecast_inputs import SignalEvent, SignalSnapshot
+from quant_rsi.legacy.forecast.forecast_inputs import SignalEvent, SignalSnapshot
 from quant_rsi.market.market_contracts import timestamp
 from quant_rsi.market.news_feed import _publication
 

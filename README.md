@@ -409,7 +409,8 @@ See [factor ownership and types](docs/factor_layers.md).
 
 | Location | Responsibility |
 | --- | --- |
-| `src/quant_rsi/` | Shared data, factor contracts, research, forecast, evaluation and execution code |
+| `src/quant_rsi/` | Shared data, factor contracts, research and execution code |
+| `src/quant_rsi/legacy/` | Frozen pipeline A: recursive campaign, package/controller flow, forecast workflow and protected evaluation; commands still work, no new features |
 | `instruments/shared/` | Reusable stock factor templates |
 | `instruments/<MARKET>/<SYMBOL>/` | Instrument profiles, factor bindings and local relationships |
 | [`experimental/candidate_factors/`](experimental/candidate_factors/README.md) | Source-pinned survey and licenses; detailed records are searchable in discovery, with four explicitly implemented Qlib adapters whose inputs must be available |
@@ -700,7 +701,7 @@ coverage includes real LightGBM discovery/revision, time boundaries, budgets,
 settlement, recovery, provider cleanup and the UI. It validates engineering
 behavior, not predictive quality.
 
-Nineteen expensive integration modules run in the [extended workflow](.github/workflows/extended.yml)
+Fifty modules (19 expensive integration modules and 31 frozen pipeline A modules) run in the [extended workflow](.github/workflows/extended.yml)
 every day at 04:00 UTC and via **Actions → Extended regression → Run workflow**.
 That workflow runs the full suite plus real pinned Qlib integration. These checks
 no longer block every PR; regressions unique to them may be detected later.

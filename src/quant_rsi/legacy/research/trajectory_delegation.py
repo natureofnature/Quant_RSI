@@ -3,8 +3,12 @@
 from pathlib import Path
 
 from quant_rsi.core.artifacts import ArtifactStore, canonical, decode, digest
-from quant_rsi.research.package_journal import PackageJournal, targets_for
-from quant_rsi.research.trajectory_state import TrajectoryLedger, require_owner, trajectory_root
+from quant_rsi.legacy.research.package_journal import PackageJournal, targets_for
+from quant_rsi.legacy.research.trajectory_state import (
+    TrajectoryLedger,
+    require_owner,
+    trajectory_root,
+)
 
 
 def stored_binding(root):
@@ -58,7 +62,7 @@ def verify_delegation(manifest, store):
         raise ValueError("delegated C4 immutable binding mismatch")
     if authorization.get("profile") == "registered_forecast_cap_v3":
         evidence = store.json(manifest["evidence_ref"])
-        from quant_rsi.research.changes import registered_proposer
+        from quant_rsi.legacy.research.changes import registered_proposer
 
         descriptor = registered_proposer(authorization).proposer_definition()
         if (
@@ -132,13 +136,13 @@ def authorize_package(root, owner_fd, *, context=None, source=None, steps=1):
         stage = state["stages"][stage_index]
         registered = program.get("schema_version") == 3
         if registered:
-            from quant_rsi.forecast.recursive.forecast_recursive_campaign import (
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import (
                 require_recursive_owner,
             )
-            from quant_rsi.forecast.recursive.forecast_recursive_trajectory import (
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_trajectory import (
                 authorization_definition,
             )
-            from quant_rsi.research.trajectory import summarize
+            from quant_rsi.legacy.research.trajectory import summarize
 
             if require_recursive_owner().binding != program["recursive_campaign_binding"]:
                 raise ValueError("trajectory differs from its original shared campaign grant")

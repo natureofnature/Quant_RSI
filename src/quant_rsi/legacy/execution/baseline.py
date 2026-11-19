@@ -2,16 +2,16 @@
 
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation.local_research import LocalResearchData
-from quant_rsi.forecast.forecast_contracts import parse_development_plan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.local_research import LocalResearchData
+from quant_rsi.legacy.forecast.forecast_contracts import parse_development_plan
+from quant_rsi.legacy.market.asof import make_feature_view, predict_view
+from quant_rsi.legacy.market.market_data import market_context
+from quant_rsi.legacy.research import research
 from quant_rsi.market import market_contracts
-from quant_rsi.market.asof import make_feature_view, predict_view
 from quant_rsi.market.market_contracts import timestamp
-from quant_rsi.market.market_data import market_context
-from quant_rsi.research import research
 
 
 def seal_baseline(root: Path):
@@ -107,7 +107,7 @@ def _seal_model(root: Path, *, forecast):
                         primary_metric=plan.development.primary_metric,
                     )
                 if forecast and plan.schema_version == 3:
-                    from quant_rsi.forecast.recursive.forecast_recursive_output import (
+                    from quant_rsi.legacy.forecast.recursive.forecast_recursive_output import (
                         bind_final_forecast,
                     )
 
@@ -139,7 +139,7 @@ def validate_forecast_evidence(registry, objective, snapshot):
         for item in snapshot["events"]
         if item["event"]["kind"] == "CORPORATE_ACTION_NOTICE"
     }
-    from quant_rsi.forecast.forecast_kernel import cash_interpretation_matches
+    from quant_rsi.legacy.forecast.forecast_kernel import cash_interpretation_matches
 
     for notice in objective.notices:
         registry.store.get(notice.evidence_ref)
@@ -175,7 +175,9 @@ def _read_model(registry, bundle_ref, *, forecast):
             store.get(manifest["research_plan_ref"])
         )
         if source_plan.schema_version == 3:
-            from quant_rsi.forecast.recursive.forecast_recursive_output import verify_final_forecast
+            from quant_rsi.legacy.forecast.recursive.forecast_recursive_output import (
+                verify_final_forecast,
+            )
 
             verify_final_forecast(store, bundle)
         elif bundle.get("schema_version") != 1 or "recursive_lineage_ref" in bundle:

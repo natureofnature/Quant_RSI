@@ -35,7 +35,7 @@ def predict_fixed(data: MarketData, factor: FactorSpec, model_text: str, cutoff:
 
 def fit_predict(data: MarketData, plan: DevelopmentPlan, factor: FactorSpec) -> dict:
     if plan.data.source == "local_event_snapshot":
-        from quant_rsi.evaluation.local_research import fit_predict_local
+        from quant_rsi.legacy.evaluation.local_research import fit_predict_local
 
         return fit_predict_local(data, plan, factor)
     import lightgbm as lgb

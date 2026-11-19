@@ -5,9 +5,9 @@ import math
 import numpy as np
 
 from quant_rsi.core.artifacts import digest
-from quant_rsi.forecast.forecast_features import ordered_feature_values
-from quant_rsi.forecast.forecast_kernel import forecast_errors
-from quant_rsi.forecast.forecast_protocol import (
+from quant_rsi.legacy.forecast.forecast_features import ordered_feature_values
+from quant_rsi.legacy.forecast.forecast_kernel import forecast_errors
+from quant_rsi.legacy.forecast.forecast_protocol import (
     BOOST_ROUNDS,
     MODEL_PARAMETERS,
     comparison_groups,

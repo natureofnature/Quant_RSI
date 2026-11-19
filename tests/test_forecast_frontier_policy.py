@@ -12,11 +12,13 @@ import pytest
 from test_forecast_recursive_changes import packet, plan_value, ref
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.forecast.recursive import forecast_frontier_policy as frontier
-from quant_rsi.forecast.recursive.forecast_recursive_changes import expected_change as legacy_change
-from quant_rsi.research import research, research_journal, researcher, task_definition
-from quant_rsi.research.changes import request_definition
-from quant_rsi.research.researcher import package_definition
+from quant_rsi.legacy.forecast.recursive import forecast_frontier_policy as frontier
+from quant_rsi.legacy.forecast.recursive.forecast_recursive_changes import (
+    expected_change as legacy_change,
+)
+from quant_rsi.legacy.research import research, research_journal, researcher, task_definition
+from quant_rsi.legacy.research.changes import request_definition
+from quant_rsi.legacy.research.researcher import package_definition
 
 
 def bind(evidence, package_ref):

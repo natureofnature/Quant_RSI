@@ -6,8 +6,8 @@ import re
 from copy import deepcopy
 
 from quant_rsi.core.artifacts import canonical, digest
+from quant_rsi.legacy.market.market_data import knowledge_time
 from quant_rsi.market.market_contracts import timestamp, trusted_now, utc_text
-from quant_rsi.market.market_data import knowledge_time
 
 
 def permitted(row, sessions, cutoff, basis):
@@ -22,7 +22,7 @@ def permitted(row, sessions, cutoff, basis):
 
 def development_projection(data, sessions, *, created_at=None):
     """The authority calls this with verified originals, never inside a developer worker."""
-    from quant_rsi.evaluation.local_research import LocalResearchData
+    from quant_rsi.legacy.evaluation.local_research import LocalResearchData
 
     if data.value["kind"] != "LocalResearchData" or not 24 <= sessions < data.spec.sessions:
         raise ValueError("projection requires original local data and a strict development prefix")

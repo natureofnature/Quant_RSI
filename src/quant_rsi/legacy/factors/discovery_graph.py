@@ -90,8 +90,8 @@ def propose(frontier, history):
 
 
 def source_leaves(inputs, leaves, origin, as_of, basis):
-    from quant_rsi.forecast.forecast_features import _history
-    from quant_rsi.market.asof import session_index
+    from quant_rsi.legacy.forecast.forecast_features import _history
+    from quant_rsi.legacy.market.asof import session_index
 
     target = inputs.target[0]
     index = session_index(target.contract, origin)
@@ -99,7 +99,7 @@ def source_leaves(inputs, leaves, origin, as_of, basis):
     for leaf in leaves:
         if leaf.role == "event":
             from quant_rsi.core.artifacts import decode
-            from quant_rsi.factors.lifecycle import value_at
+            from quant_rsi.legacy.factors.lifecycle import value_at
 
             event = decode(inputs.evidence[leaf.instance_ref])
             result = value_at(event, as_of)
@@ -109,7 +109,7 @@ def source_leaves(inputs, leaves, origin, as_of, basis):
             refs.add(leaf.instance_ref)
             continue
         if leaf.role == "news":
-            from quant_rsi.factors.news import news_scalar
+            from quant_rsi.legacy.factors.news import news_scalar
 
             result = news_scalar(inputs, origin, as_of)
             reasons.extend(result["reasons"])

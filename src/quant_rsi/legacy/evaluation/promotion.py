@@ -2,7 +2,7 @@
 
 import copy
 
-from quant_rsi.evaluation.evidence import ref
+from quant_rsi.legacy.evaluation.evidence import ref
 
 
 def transition(state, request_id, binding, decision, *, fixture=False):

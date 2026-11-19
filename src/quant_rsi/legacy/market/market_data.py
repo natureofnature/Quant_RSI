@@ -6,9 +6,9 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
-from quant_rsi.evaluation.evidence import authority_root
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
 from quant_rsi.market import market_contracts as contracts
 from quant_rsi.market.event_csv import parse_csv, validate_event  # noqa: F401  (re-export)
 from quant_rsi.market.market_contracts import DataContract, SourceEvent, timestamp, utc_text

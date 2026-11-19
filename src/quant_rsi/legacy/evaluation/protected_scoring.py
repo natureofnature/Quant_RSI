@@ -6,12 +6,12 @@ from pathlib import Path
 
 import numpy as np
 
-from quant_rsi.core.accounting import evaluate, returns_from_equities
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical
 from quant_rsi.core.data import MarketData
-from quant_rsi.core.model import predict_fixed
 from quant_rsi.core.schemas import FactorSpec, PortfolioSpec
-from quant_rsi.evaluation.evidence import Authority, authority_root, ref
+from quant_rsi.legacy.core.accounting import evaluate, returns_from_equities
+from quant_rsi.legacy.core.model import predict_fixed
+from quant_rsi.legacy.evaluation.evidence import Authority, authority_root, ref
 
 
 def score_binding(authority, key):
@@ -106,7 +106,7 @@ def read_episode(authority, attempt_id, *, replay=False):
 
 def compute_score(authority, attempt_id, *, replay=False):
     if authority.program.get("source_kind") == "local_event_snapshot":
-        from quant_rsi.evaluation.local_scoring import local_score
+        from quant_rsi.legacy.evaluation.local_scoring import local_score
 
         return local_score(authority, attempt_id, replay=replay)
     _, binding = authorize_score(authority, attempt_id, replay=replay)
@@ -185,7 +185,7 @@ def main():
     os.fstat(int(fd))  # The live child keeps the authority lock even if its controller dies.
     with Authority(authority_root()) as authority:
         if authority.program.get("source_kind") == "local_event_snapshot":
-            from quant_rsi.evaluation.local_scoring import require_score_owner
+            from quant_rsi.legacy.evaluation.local_scoring import require_score_owner
 
             require_score_owner(authority.root, int(fd))
         result = compute_score(authority, attempt_id)

@@ -7,16 +7,16 @@ from pathlib import Path
 
 import numpy as np
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import atomic_write, canonical, decode
 from quant_rsi.core.data import features
-from quant_rsi.core.model import predict_fixed
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.evaluation import promotion
-from quant_rsi.evaluation.evidence import Authority, ComparisonInput, locked_authority, ref
-from quant_rsi.evaluation.protected_scoring import compute_score, score_binding
-from quant_rsi.research import research
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.core.model import predict_fixed
+from quant_rsi.legacy.evaluation import promotion
+from quant_rsi.legacy.evaluation.evidence import Authority, ComparisonInput, locked_authority, ref
+from quant_rsi.legacy.evaluation.protected_scoring import compute_score, score_binding
+from quant_rsi.legacy.research import research
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 def compiled_plan(authority):
@@ -114,7 +114,7 @@ def compiled_plan(authority):
         "runtime_ref": p["runtime_ref"],
     }
     if p.get("source_kind") == "local_event_snapshot":
-        from quant_rsi.evaluation.local_evidence import local_comparison_metadata
+        from quant_rsi.legacy.evaluation.local_evidence import local_comparison_metadata
 
         local_comparison_metadata(result, store.json(p["plans"]["parent"]))
     return result
@@ -281,7 +281,7 @@ def inspect_child(authority, key, *, selection=False, publish=False):
                 model_ref = bundle["model_ref"]
                 metadata = store.json(bundle["worker_metadata_ref"])
                 if plan.development.data.source == "local_event_snapshot":
-                    from quant_rsi.evaluation.local_evidence import seal_training
+                    from quant_rsi.legacy.evaluation.local_evidence import seal_training
 
                     training_ref = seal_training(
                         data,
@@ -448,7 +448,7 @@ def verify_comparison(authority, *, replay=False):
                 ):
                     raise ValueError("score output substitution")
                 if authority.program.get("source_kind") == "local_event_snapshot":
-                    from quant_rsi.evaluation.local_scoring import validate_accepted_score
+                    from quant_rsi.legacy.evaluation.local_scoring import validate_accepted_score
 
                     validate_accepted_score(authority, attempt_id, result)
                 elif replay and result != compute_score(authority, attempt_id, replay=True):
@@ -630,7 +630,7 @@ def process_score(authority, operation, owner_fd):
                     [
                         sys.executable,
                         "-m",
-                        "quant_rsi.evaluation.protected_scoring",
+                        "quant_rsi.legacy.evaluation.protected_scoring",
                         attempt_id,
                         str(result_path),
                         str(owner_fd),
@@ -651,7 +651,7 @@ def process_score(authority, operation, owner_fd):
             result = decode(raw)
             canonical(result)
             if authority.program.get("source_kind") == "local_event_snapshot":
-                from quant_rsi.evaluation.local_scoring import validate_accepted_score
+                from quant_rsi.legacy.evaluation.local_scoring import validate_accepted_score
 
                 source_validation_ref = authority.store.put_json(
                     validate_accepted_score(

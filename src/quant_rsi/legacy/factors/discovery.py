@@ -9,13 +9,13 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.journal import Journal
-from quant_rsi.evaluation.evidence import authority_root
-from quant_rsi.factors.discovery_graph import FactorLeaf, grammar, propose
-from quant_rsi.forecast.forecast_experiment import (
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.evaluation.evidence import authority_root
+from quant_rsi.legacy.factors.discovery_graph import FactorLeaf, grammar, propose
+from quant_rsi.legacy.forecast.forecast_experiment import (
     commit_event,
     event_payload,
     experiment_root,
@@ -23,8 +23,8 @@ from quant_rsi.forecast.forecast_experiment import (
     prepare_experiment,
     resume_experiment,
 )
-from quant_rsi.forecast.forecast_inputs import ForecastInputs
-from quant_rsi.forecast.forecast_protocol import InsufficientComparisonEvidence
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastInputs
+from quant_rsi.legacy.forecast.forecast_protocol import InsufficientComparisonEvidence
 from quant_rsi.market import market_contracts
 
 
@@ -100,7 +100,7 @@ def _load(campaign_id, *, verify_runtime=True):
         if verify_runtime and store.json(manifest["runtime_ref"]) != controller.runtime_identity():
             raise ValueError("discovery requires its frozen source/runtime")
         if manifest["news_accounting"] is not None:
-            from quant_rsi.factors.news import authorize_news_comparison
+            from quant_rsi.legacy.factors.news import authorize_news_comparison
 
             receipt = authorize_news_comparison(
                 inputs,
@@ -119,7 +119,7 @@ def _load(campaign_id, *, verify_runtime=True):
 
 
 def _verify_instances(inputs, plan, *, latest):
-    from quant_rsi.factors.lifecycle import verify_snapshot
+    from quant_rsi.legacy.factors.lifecycle import verify_snapshot
 
     for leaf in plan.leaves:
         if leaf.binding_ref is not None:
@@ -219,7 +219,7 @@ def initialize(value, plan):
         store.put_json(plan.model_dump(mode="json"))
         accounting = None
         if any(leaf.role == "news" for leaf in plan.leaves):
-            from quant_rsi.factors.news import authorize_news_comparison
+            from quant_rsi.legacy.factors.news import authorize_news_comparison
 
             accounting = authorize_news_comparison(
                 inputs,
@@ -379,7 +379,7 @@ def resume(campaign_id, *, max_fits=1):
                     delta = (
                         candidates["B0"]["pooled"]["mae_pp"] - candidates["D1"]["pooled"]["mae_pp"]
                     )
-                from quant_rsi.factors.discovery_graph import recipe_from_binding
+                from quant_rsi.legacy.factors.discovery_graph import recipe_from_binding
 
                 graph = recipe_from_binding(binding).graph
                 outcome = dict(

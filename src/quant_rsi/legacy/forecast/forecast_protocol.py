@@ -8,8 +8,8 @@ from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.model_parameters import BOOST_ROUNDS, MODEL_PARAMETERS  # noqa: F401  (re-export)
 from quant_rsi.core.schemas import BudgetSpec, LocalDataSpec
-from quant_rsi.forecast.forecast_features import build_common_mask, build_feature_view
-from quant_rsi.forecast.forecast_inputs import ForecastRecipe
+from quant_rsi.legacy.forecast.forecast_features import build_common_mask, build_feature_view
+from quant_rsi.legacy.forecast.forecast_inputs import ForecastRecipe
 from quant_rsi.market.market_contracts import Hash, Identifier, timestamp, utc_text
 
 GROUPS = ("B0", "B1", "B2")
@@ -26,7 +26,7 @@ def comparison_groups(plan):
 
 def comparison_recipe(group, discovery=None):
     if group == "D1":
-        from quant_rsi.factors.discovery_graph import recipe_from_binding
+        from quant_rsi.legacy.factors.discovery_graph import recipe_from_binding
 
         if discovery is None:
             raise ValueError("discovered recipe requires its frozen definition")

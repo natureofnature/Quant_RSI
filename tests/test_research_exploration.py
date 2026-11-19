@@ -7,11 +7,11 @@ from pydantic import ValidationError
 from test_research import forbidden, ledger, limited
 from test_research import research_plan as research_plan
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, canonical
-from quant_rsi.research import research, researcher
-from quant_rsi.research.research_journal import ResearchJournal
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research import research, researcher
+from quant_rsi.legacy.research.research_journal import ResearchJournal
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 def exploring(plan, **limits):

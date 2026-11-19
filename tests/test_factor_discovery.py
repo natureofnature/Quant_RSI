@@ -8,8 +8,8 @@ from test_forecast_comparison import dummy_worker as worker_fixture
 from test_forecast_features import prepare_inputs as inputs_fixture
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.factors import discovery, lifecycle
-from quant_rsi.factors.discovery_graph import (
+from quant_rsi.legacy.factors import discovery, lifecycle
+from quant_rsi.legacy.factors.discovery_graph import (
     FactorExpression,
     combine,
     evaluate,
@@ -17,7 +17,7 @@ from quant_rsi.factors.discovery_graph import (
     leaf_expression,
     propose,
 )
-from quant_rsi.forecast.forecast_experiment import (
+from quant_rsi.legacy.forecast.forecast_experiment import (
     experiment_root,
     prepare_experiment,
 )
@@ -96,7 +96,7 @@ def test_typed_dag_rejects_cycles_unused_nodes_and_unbounded_expressions():
 
 @pytest.mark.parametrize("values", [(1e200, 1e200), (float("inf"), 1.0)])
 def test_numeric_overflow_excludes_the_same_rows_for_all_candidates(monkeypatch, values):
-    from quant_rsi.factors import discovery_graph
+    from quant_rsi.legacy.factors import discovery_graph
 
     monkeypatch.setattr(
         discovery_graph,
@@ -279,7 +279,7 @@ def test_catalog_binding_executes_shared_definitions(prepare_inputs):
 
 
 def test_common_rows_are_identical_across_discovery_rounds(prepare_inputs, dummy_worker):
-    from quant_rsi.forecast.forecast_experiment import open_experiment
+    from quant_rsi.legacy.forecast.forecast_experiment import open_experiment
 
     _, envelope = prepare_inputs(future_calendar=5, target_instrument="KO", missing_market=70)
     leaves = [leaf.model_dump(mode="json") for leaf in plan().leaves]
@@ -425,7 +425,7 @@ def test_cli_init_status_resume_replay(prepare_inputs, dummy_worker, tmp_path, c
 def test_news_authorization_cannot_mint_an_extra_legacy_pair(prepare_inputs, tmp_path):
     from test_news_factor import run
 
-    from quant_rsi.factors.news import attach_news_result
+    from quant_rsi.legacy.factors.news import attach_news_result
 
     _, envelope = prepare_inputs(future_calendar=5, target_instrument="KO")
     result = run(tmp_path)
@@ -450,7 +450,7 @@ def test_news_observer_creates_retires_and_does_not_resurrect(
 ):
     from test_news_factor import END, corpus, request, run
 
-    from quant_rsi.factors.event_observer import observe
+    from quant_rsi.legacy.factors.event_observer import observe
 
     prepare_inputs(future_calendar=5, target_instrument="KO")
     monkeypatch.setattr(market_contracts, "trusted_now", lambda: END)
@@ -502,7 +502,7 @@ def test_expiry_archives_without_erasing_earlier_active_values(prepare_inputs, m
 def test_unresolved_revision_suspends_without_becoming_false(prepare_inputs, tmp_path, monkeypatch):
     from test_news_factor import END, corpus, request, run
 
-    from quant_rsi.factors.event_observer import observe
+    from quant_rsi.legacy.factors.event_observer import observe
 
     prepare_inputs(future_calendar=5, target_instrument="KO")
     monkeypatch.setattr(market_contracts, "trusted_now", lambda: END)

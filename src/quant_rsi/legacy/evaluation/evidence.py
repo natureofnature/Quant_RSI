@@ -17,12 +17,12 @@ from typing import Literal
 import numpy as np
 from pydantic import Field
 
-from quant_rsi.core import controller
 from quant_rsi.core.artifacts import ArtifactStore, atomic_write, canonical, decode, digest
 from quant_rsi.core.data import MarketData, synthetic_data
 from quant_rsi.core.schemas import DataSpec, StrictModel
-from quant_rsi.research import package_experiment
-from quant_rsi.research.researcher import ResearchPlan
+from quant_rsi.legacy.core import controller
+from quant_rsi.legacy.research import package_experiment
+from quant_rsi.legacy.research.researcher import ResearchPlan
 
 
 class ProgramInput(StrictModel):
@@ -120,7 +120,7 @@ def import_packages(path, *, local=False):
 
 def parse_program(raw):
     if decode(raw).get("source") == "local_event_snapshot":
-        from quant_rsi.evaluation.local_evidence import LocalProgramInput
+        from quant_rsi.legacy.evaluation.local_evidence import LocalProgramInput
 
         return LocalProgramInput.model_validate_json(raw)
     return ProgramInput.model_validate_json(raw)
@@ -155,7 +155,7 @@ def init_evidence(spec: ProgramInput):
                 raise ValueError("bootstrap belongs to another input/runtime")
         else:
             if local:
-                from quant_rsi.evaluation.local_evidence import validate_existing_market
+                from quant_rsi.legacy.evaluation.local_evidence import validate_existing_market
 
                 validate_existing_market(root)
             if any(
@@ -173,7 +173,7 @@ def init_evidence(spec: ProgramInput):
                 "imported": import_packages(inputs["package_campaign"], local=local),
             }
             if local:
-                from quant_rsi.evaluation.local_evidence import freeze_sources
+                from quant_rsi.legacy.evaluation.local_evidence import freeze_sources
 
                 saved["local_sources"] = freeze_sources(spec)
             atomic_write(bootstrap, canonical(saved))
@@ -186,7 +186,7 @@ def init_evidence(spec: ProgramInput):
                 raise ValueError("imported package artifact mismatch")
         local_metadata = {}
         if local:
-            from quant_rsi.evaluation.local_evidence import register_tasks
+            from quant_rsi.legacy.evaluation.local_evidence import register_tasks
 
             source_ref, tasks, local_metadata = register_tasks(
                 spec, imported, saved["local_sources"], store, private

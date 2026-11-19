@@ -12,14 +12,19 @@ from pydantic import Field
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.market.market_contracts import Hash
-from quant_rsi.research.researcher import ResearchPlan, advance, next_factor, package_definition
-from quant_rsi.research.task_definition import (
+from quant_rsi.legacy.research.researcher import (
+    ResearchPlan,
+    advance,
+    next_factor,
+    package_definition,
+)
+from quant_rsi.legacy.research.task_definition import (
     domain_ref,
     forecast_profile_ref,
     task_definition,
     training_row_capacity,
 )
+from quant_rsi.market.market_contracts import Hash
 
 
 class ResetOpportunity(StrictModel):
@@ -169,7 +174,7 @@ def extend_capsule(
 
 def validate_registered_evidence(request, evidence):
     # Deferred import keeps the shared dispatch module free of an import cycle.
-    from quant_rsi.research.changes import validate_evidence
+    from quant_rsi.legacy.research.changes import validate_evidence
 
     validate_evidence(request, evidence)
     plan = ResearchPlan.model_validate_json(canonical(evidence["research_plan"]))

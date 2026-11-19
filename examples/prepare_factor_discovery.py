@@ -4,8 +4,8 @@ import argparse
 from pathlib import Path
 
 from quant_rsi.core.artifacts import atomic_write, canonical, decode
-from quant_rsi.factors.discovery import DiscoveryPlan, bind_catalog
-from quant_rsi.forecast.forecast_protocol import DEFAULT_FOLDS
+from quant_rsi.legacy.factors.discovery import DiscoveryPlan, bind_catalog
+from quant_rsi.legacy.forecast.forecast_protocol import DEFAULT_FOLDS
 
 
 def main():

@@ -12,11 +12,11 @@ from pydantic import Field, model_validator
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.core.schemas import LocalDataSpec
-from quant_rsi.evaluation.local_projection import development_projection
-from quant_rsi.evaluation.local_research import LocalResearchData, export_local_data
-from quant_rsi.market.asof import qualifications
+from quant_rsi.legacy.evaluation.local_projection import development_projection
+from quant_rsi.legacy.evaluation.local_research import LocalResearchData, export_local_data
+from quant_rsi.legacy.market.asof import qualifications
+from quant_rsi.legacy.research.researcher import ResearchPlan, package_definition
 from quant_rsi.market.market_contracts import Identifier, trusted_now, utc_text
-from quant_rsi.research.researcher import ResearchPlan, package_definition
 
 
 class LocalTaskInput(StrictModel):
@@ -64,7 +64,7 @@ def freeze_sources(spec):
 
 def validate_existing_market(root):
     """A market identity may precede C5; it never substitutes for a missing C5 anchor."""
-    from quant_rsi.market.market_data import DataRegistry
+    from quant_rsi.legacy.market.market_data import DataRegistry
 
     if (root / "market").is_dir():
         with DataRegistry(root / "market"):
@@ -214,8 +214,8 @@ def register_tasks(spec, imported, frozen, store, private):
 
 
 def authorized_view(root, plan, campaign_id, context, owner_fd, *, steps=None, committed=0):
-    from quant_rsi.evaluation.comparison import child_root, compiled_plan, launch_context
-    from quant_rsi.evaluation.evidence import Authority, authority_root
+    from quant_rsi.legacy.evaluation.comparison import child_root, compiled_plan, launch_context
+    from quant_rsi.legacy.evaluation.evidence import Authority, authority_root
 
     if (
         not isinstance(context, dict)
@@ -311,7 +311,7 @@ def local_comparison_metadata(result, parent):
 
 def seal_training(data, plan, factor, metadata, model_text, predictions, result_ref, grant, save):
     from quant_rsi.core.schemas import FactorSpec
-    from quant_rsi.evaluation.local_research import training_view, verify_local_result
+    from quant_rsi.legacy.evaluation.local_research import training_view, verify_local_result
 
     parsed = FactorSpec.model_validate_json(canonical(factor))
     verify_local_result(data, plan, parsed, metadata | {"predictions": predictions}, model_text)

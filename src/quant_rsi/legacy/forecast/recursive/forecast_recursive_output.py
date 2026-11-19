@@ -3,8 +3,8 @@
 from pathlib import Path
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.research.trajectory import summarize
-from quant_rsi.research.trajectory_state import TrajectoryLedger, trajectory_root
+from quant_rsi.legacy.research.trajectory import summarize
+from quant_rsi.legacy.research.trajectory_state import TrajectoryLedger, trajectory_root
 
 
 def bind_final_forecast(source_root, manifest, checkpoint_ref, bundle, output_store):

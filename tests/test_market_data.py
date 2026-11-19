@@ -7,8 +7,9 @@ from market_helpers import contract_and_events, write_events
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.schemas import FactorSpec
-from quant_rsi.market import market_contracts, market_data
-from quant_rsi.market.asof import make_feature_view, mature_label, predict_view
+from quant_rsi.legacy.market import market_data
+from quant_rsi.legacy.market.asof import make_feature_view, mature_label, predict_view
+from quant_rsi.market import market_contracts
 from quant_rsi.market.market_contracts import PredictionOnlyPlan
 
 
@@ -234,7 +235,7 @@ def test_known_action_excludes_mature_label_and_observed_basis_has_correct_quali
 @pytest.mark.parametrize("watermark", [0, 1])
 @pytest.mark.parametrize("op", ["momentum", "mean_return"])
 def test_feature_batch_preserves_each_decision_and_source(imported, basis, watermark, op):
-    from quant_rsi.market.asof import make_feature_views
+    from quant_rsi.legacy.market.asof import make_feature_views
 
     contract, _, _, snapshot, _ = imported
     decisions = [
@@ -258,7 +259,7 @@ def test_feature_batch_preserves_each_decision_and_source(imported, basis, water
 
 
 def test_feature_batch_hashes_once_and_refreshes_after_input_change(imported, monkeypatch):
-    from quant_rsi.market import asof
+    from quant_rsi.legacy.market import asof
 
     contract, _, _, snapshot, _ = imported
     decisions = [("s2", "2020-10-21T16:00:00Z"), ("s3", "2020-10-22T16:00:00Z")]

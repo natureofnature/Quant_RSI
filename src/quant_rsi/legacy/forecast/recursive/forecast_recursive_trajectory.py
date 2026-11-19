@@ -3,11 +3,18 @@
 import uuid
 
 from quant_rsi.core.artifacts import canonical, digest
-from quant_rsi.research import changes
-from quant_rsi.research.researcher import ResearchPlan
-from quant_rsi.research.task_definition import domain_ref, forecast_profile_ref, verify_domain
-from quant_rsi.research.trajectory_evidence import source_evidence_capsule, verify_research_receipt
-from quant_rsi.research.trajectory_state import occupied_capacity, require_owner
+from quant_rsi.legacy.research import changes
+from quant_rsi.legacy.research.researcher import ResearchPlan
+from quant_rsi.legacy.research.task_definition import (
+    domain_ref,
+    forecast_profile_ref,
+    verify_domain,
+)
+from quant_rsi.legacy.research.trajectory_evidence import (
+    source_evidence_capsule,
+    verify_research_receipt,
+)
+from quant_rsi.legacy.research.trajectory_state import occupied_capacity, require_owner
 
 UNITS = ("worker_attempts", "registered_worker_seconds")
 
@@ -26,7 +33,7 @@ def authorization_definition(authority, index, source_head, source_cas_ref):
     receipt = store.json(source_head["research_receipt_ref"])
     manifest = store.json(receipt["manifest_ref"])
     plan = ResearchPlan.model_validate_json(store.get(receipt["research_plan_ref"]))
-    from quant_rsi.forecast.recursive.forecast_recursive_campaign import policy_binding
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_campaign import policy_binding
 
     registration = store.json(program["root_registration_ref"])
     policy = policy_binding(registration["identity"]["grant"])
@@ -108,7 +115,7 @@ def terminal_definition(authority, reason):
 
 
 def reserve_stage(authority):
-    from quant_rsi.research.trajectory import package_operation, seal
+    from quant_rsi.legacy.research.trajectory import package_operation, seal
 
     require_owner(authority.root, authority.owner_fd)
     state = authority.state
@@ -145,7 +152,7 @@ def reserve_stage(authority):
 
 
 def resume_step(authority, owner_fd):
-    from quant_rsi.research.trajectory import advance_head, execute_package_round, seal
+    from quant_rsi.legacy.research.trajectory import advance_head, execute_package_round, seal
 
     state, program = authority.state, authority.program
     if str(authority.root) != program["authority_root"]:
@@ -183,13 +190,15 @@ def resume_step(authority, owner_fd):
 
 
 def verify_authority(authority):
-    from quant_rsi.research.trajectory import head_from
+    from quant_rsi.legacy.research.trajectory import head_from
 
     state, program, store = authority.state, authority.program, authority.store
     initial_ref = program["initial_head"]["research_receipt_ref"]
     initial = store.json(initial_ref)
     root_plan = ResearchPlan.model_validate_json(store.get(initial["research_plan_ref"]))
-    from quant_rsi.forecast.recursive.forecast_recursive_registration import verify_frozen_handoff
+    from quant_rsi.legacy.forecast.recursive.forecast_recursive_registration import (
+        verify_frozen_handoff,
+    )
 
     verify_frozen_handoff(program, initial, store)
     verify_domain(root_plan, store)
@@ -340,7 +349,7 @@ def verify_authority(authority):
 
 
 def verify_pending(authority):
-    from quant_rsi.research.trajectory import package_operation
+    from quant_rsi.legacy.research.trajectory import package_operation
 
     state, store = authority.state, authority.store
     expected = None

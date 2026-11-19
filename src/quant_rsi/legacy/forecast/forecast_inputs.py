@@ -7,9 +7,9 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from quant_rsi.core.artifacts import canonical, decode, digest
 from quant_rsi.core.contracts_base import StrictModel
-from quant_rsi.evaluation.local_research import LocalResearchData
-from quant_rsi.forecast.forecast_contracts import ForecastObjective
-from quant_rsi.forecast.forecast_kernel import cash_interpretation_matches
+from quant_rsi.legacy.evaluation.local_research import LocalResearchData
+from quant_rsi.legacy.forecast.forecast_contracts import ForecastObjective
+from quant_rsi.legacy.forecast.forecast_kernel import cash_interpretation_matches
 from quant_rsi.market.market_contracts import Hash, Identifier, timestamp
 
 
@@ -37,7 +37,7 @@ class ForecastRecipe(StrictModel):
                 for window in (5, 20)
             )
         if self.group == "N1":
-            from quant_rsi.factors.news import NEWS_FEATURE_DEFINITION
+            from quant_rsi.legacy.factors.news import NEWS_FEATURE_DEFINITION
 
             names += (NEWS_FEATURE_DEFINITION["name"],)
         return names
@@ -54,7 +54,7 @@ class ForecastRecipe(StrictModel):
             context_alignment="exact_registered_close_timestamp_no_fill",
         )
         if self.group == "N1":
-            from quant_rsi.factors.news import NEWS_FEATURE_DEFINITION
+            from quant_rsi.legacy.factors.news import NEWS_FEATURE_DEFINITION
 
             value.update(
                 feature_units=["dimensionless_return"] * 3 + [NEWS_FEATURE_DEFINITION["unit"]],
