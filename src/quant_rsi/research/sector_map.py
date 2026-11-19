@@ -8,7 +8,7 @@ not established relationships: the decision agent still needs evidence for any l
 
 import json
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -17,6 +17,7 @@ from pydantic import Field, HttpUrl, model_validator
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.core.contracts_base import StrictModel
 from quant_rsi.factors.contracts import InstrumentId
+from quant_rsi.market.availability import date_only_available_at, usable_at
 
 TIERS = (
     "direct_customers",
@@ -120,13 +121,28 @@ def comparator_baseline_ids(sector, target):
     ]
 
 
-def post_period(reviewed_on, first_decision_time):
-    """Reference knowledge reviewed after the studied period starts carries a label (D8)."""
-    if not reviewed_on or not first_decision_time:
-        return False
-    return date.fromisoformat(str(reviewed_on)[:10]) > date.fromisoformat(
-        str(first_decision_time)[:10]
-    )
+def post_period(available, first_decision_time):
+    """Whether knowledge was unavailable at the study's first decision (D8, under D3).
+
+    ``available`` is a review date or a creation timestamp. It is post-period unless usable
+    at the first decision instant: strictly before it (D3.1), and a date-only value from the
+    start of the next day (D3.2). Missing or unreadable times are unknown (None), never
+    in period.
+    """
+    if not available or not first_decision_time:
+        return None
+    try:
+        instant = datetime.fromisoformat(str(first_decision_time))
+        text = str(available)
+        if len(text) == 10:
+            available_at = date_only_available_at(text)
+        else:
+            available_at = datetime.fromisoformat(text)
+        if instant.tzinfo is None or available_at.tzinfo is None:
+            return None
+        return not usable_at(available_at, instant)
+    except ValueError:
+        return None
 
 
 def _mentions(entity, text):

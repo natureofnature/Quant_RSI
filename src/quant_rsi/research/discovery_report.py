@@ -78,7 +78,7 @@ def render_discovery(result):
                     (row["ref"] or "")[:12],
                     row["scope"],
                     row["reviewed_on"],
-                    "post_period_knowledge" if row["post_period_knowledge"] else "in period",
+                    _period_label(row.get("post_period_knowledge")),
                 ]
                 for row in discovery["knowledge_references"]
             ]
@@ -511,6 +511,12 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;padding:1
         + "</main></html>"
     )
     return "\n".join(markdown), html
+
+
+def _period_label(post_period):
+    if post_period is None:
+        return "unknown (undated)"
+    return "post_period_knowledge" if post_period else "in period"
 
 
 def _append_preparations(records, bundles, table):
