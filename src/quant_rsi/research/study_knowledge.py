@@ -7,9 +7,9 @@ from quant_rsi.research.sector_map import post_period
 def knowledge_references(*, sector, related, prior_memory, first_decision_time):
     """Every cross-run or reference item a study's decisions can see, with trust labels.
 
-    Reference knowledge reviewed after the first decision carries post_period_knowledge.
-    Prior-study records are results or interpretations from earlier runs, read through the
-    run's history watermark.
+    Knowledge reviewed or created after the first decision carries post_period_knowledge;
+    an undated item is None (unknown). Prior-study records are results or interpretations
+    from earlier runs, read through the run's history watermark.
     """
     rows = []
     if sector:
@@ -42,7 +42,9 @@ def knowledge_references(*, sector, related, prior_memory, first_decision_time):
                 "ref": record.get("ref") or record.get("projection_of"),
                 "scope": record.get("prior_study") or "prior study",
                 "reviewed_on": (record.get("created_at") or "")[:10] or None,
-                "post_period_knowledge": False,
+                # The history watermark shows the record preceded this run, not that it
+                # existed at a historical decision time.
+                "post_period_knowledge": post_period(record.get("created_at"), first_decision_time),
             }
         )
     return rows

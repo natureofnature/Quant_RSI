@@ -15,6 +15,7 @@ from test_study_discovery import arguments
 
 from quant_rsi.cli import main
 from quant_rsi.research import study_peers
+from quant_rsi.research.discovery_report import _period_label
 from quant_rsi.research.sector_map import (
     BASELINE_KIND,
     SectorMap,
@@ -171,8 +172,43 @@ def test_reference_reviewed_after_the_first_decision_is_post_period():
     assert [(r["source"], r["post_period_knowledge"]) for r in rows] == [
         ("sector_map", True),
         ("relationship_profile", True),
-        ("prior_study", False),
+        ("prior_study", None),  # undated: unknown, never in period
     ]
+
+
+def test_prior_study_records_are_labelled_by_their_creation_time():
+    first_decision = "2025-12-31T21:00:00+00:00"
+    rows = knowledge_references(
+        sector=None,
+        related=None,
+        prior_memory=[
+            {"kind": "experiment", "ref": "late", "created_at": "2026-11-18T12:00:00+00:00"},
+            {"kind": "interpretation", "ref": "early", "created_at": "2025-12-01T12:00:00+00:00"},
+            {"kind": "experiment", "ref": "at-decision", "created_at": first_decision},
+            {"kind": "experiment", "ref": "legacy"},
+        ],
+        first_decision_time=first_decision,
+    )
+    assert [(r["ref"], r["kind"], r["post_period_knowledge"]) for r in rows] == [
+        ("late", "result", True),
+        ("early", "interpretation", False),
+        ("at-decision", "result", True),  # D3.1: usable only strictly before the instant
+        ("legacy", "result", None),
+    ]
+    # The report renders the three states; undated is never shown as in period.
+    assert [_period_label(r["post_period_knowledge"]) for r in rows] == [
+        "post_period_knowledge",
+        "in period",
+        "post_period_knowledge",
+        "unknown (undated)",
+    ]
+
+
+def test_a_date_only_review_is_usable_from_the_next_day():
+    assert post_period("2025-12-31", "2025-12-31T21:00:00+00:00")
+    assert not post_period("2025-12-30", "2025-12-31T21:00:00+00:00")
+    assert post_period(None, "2025-12-31T21:00:00+00:00") is None
+    assert post_period("not a date", "2025-12-31T21:00:00+00:00") is None
 
 
 def test_tsm_study_compares_candidates_against_the_sector_baseline_on_one_sample(tmp_path):
