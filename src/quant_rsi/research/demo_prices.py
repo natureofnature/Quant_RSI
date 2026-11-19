@@ -12,7 +12,9 @@ from quant_rsi.market.market_contracts import DataContract
 from quant_rsi.market.market_data import parse_csv
 
 
-def load_daily_prices(symbol, directory, *, horizon_sessions=5, historical_sessions=None):
+def load_daily_prices(
+    symbol, directory, *, horizon_sessions=5, historical_sessions=None, unresolved_actions="refuse"
+):
     if type(horizon_sessions) is not int or horizon_sessions not in (3, 5, 20, 60):
         raise ValueError("Prediction horizon must be 3, 5, 20 or 60 trading sessions")
     required = HISTORY_SESSIONS + 3 * max(0, horizon_sessions - 5)
@@ -33,7 +35,11 @@ def load_daily_prices(symbol, directory, *, horizon_sessions=5, historical_sessi
             )
     try:
         return _read_collection(
-            symbol, root, horizon_sessions=horizon_sessions, historical_sessions=required
+            symbol,
+            root,
+            horizon_sessions=horizon_sessions,
+            historical_sessions=required,
+            unresolved_actions=unresolved_actions,
         )
     except (KeyError, TypeError, IndexError):
         raise ValueError(
@@ -58,7 +64,14 @@ def _read_collection(
     horizon_sessions=5,
     historical_sessions=HISTORY_SESSIONS,
     price_basis_review=None,
+    unresolved_actions="refuse",
 ):
+    """unresolved_actions="truncate" is for comparators only: instead of refusing a
+    collection with an unreviewed non-dividend corporate action, report its earliest time
+    so the caller can treat every later close as missing. Prices are never adjusted."""
+    if unresolved_actions not in {"refuse", "truncate"}:
+        raise ValueError("Unknown unresolved corporate-action policy")
+    unresolved_at = None
     receipt = json.loads((root / "collection_receipt.json").read_bytes())
     if (receipt.get("kind"), receipt.get("status"), receipt.get("ticker")) != (
         "PublicDailyCollection",
@@ -104,7 +117,9 @@ def _read_collection(
                 json.loads(event.action).get("event_kind") != "dividends"
                 and event.event_id not in resolved
             ):
-                raise ValueError("Unresolved corporate action in the daily price window")
+                if unresolved_actions == "refuse":
+                    raise ValueError("Unresolved corporate action in the daily price window")
+                unresolved_at = min(unresolved_at or event.event_at, event.event_at)
     expected = {
         (kind, session.session_id) for session in sessions for kind in ("OPEN_QUOTE", "CLOSE_QUOTE")
     }
@@ -128,6 +143,8 @@ def _read_collection(
         "qualifications": receipt["qualifications"],
         "session_close_times": [session.close_at.isoformat() for session in sessions],
     }
+    if unresolved_at is not None:
+        info["unresolved_corporate_action_at"] = unresolved_at.isoformat()
     if reviewed:
         info.update(
             price_basis="split_adjusted_excluding_distributions",

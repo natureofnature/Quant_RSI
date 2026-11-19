@@ -23,12 +23,40 @@ and `--external-drivers` make their existing inputs available as well; they are 
 the only possible candidate vocabulary.
 
 In active discovery (`--research-mode discovery --news-research`, without retained
-information mode), an instrument such as TSM does not need a configured relationship
+information mode), an instrument such as SOXL does not need a configured relationship
 profile or issuer RSS feed to begin. Missing seeds are recorded as `not_configured`,
 with empty relationships and news; the researcher can search for evidence itself.
 No receipt or historical news snapshot is invented. Failures from a configured target
 RSS feed still stop the run. Legacy, incremental and non-active discovery retain their
 existing configuration requirements.
+
+### Sector maps and the sector-aware baseline
+
+A reviewed sector map in `instruments/shared/sectors/*.json` (for example
+[semiconductors](../instruments/shared/sectors/semiconductors.json)) is selected when it
+lists the study's symbol as a member; a symbol in two maps is refused. It is reference
+knowledge, changed only by human review, and it does three things:
+
+- **Baseline.** The frozen baseline becomes the price controls plus trailing sector and
+  market comparator returns (`peer.<SYM>.peer_return_10`), each ending at the origin
+  close. Labels start at that close, so no comparator value covers the label window. The
+  comparators must be configured in the instrument's relationships profile and be
+  available on every frozen row; otherwise the study fails rather than dropping one.
+  A comparator is never the target itself. Studies without a sector map keep the
+  previous baseline (price controls and at most one peer-relative return).
+- **Tiers.** Demand-chain tiers (direct customers, customers of customers, end demand
+  and funding, cycle and capital) list leads with identity sources. Leads are not
+  established relationships. Each decision sees `sector_coverage` (`sector_tier_coverage_v1`):
+  for each entity, `measured` (an available acquired input for its symbol), `evidenced`
+  (a retained source or survey finding names it) or `gap`.
+- **Labels.** The report lists every retrieved reference (sector map, relationship
+  profile, prior-study records). Reference knowledge reviewed after the first training
+  decision carries `post_period_knowledge`. The report also shows the cumulative count
+  of evaluated fits for the same target and horizon, read through the run's history
+  watermark.
+
+Inputs the map names as unavailable (for TSM, the ADR premium over 2330.TW and TWD/USD)
+are recorded there instead of being approximated.
 
 Discovery keeps access failures as run-scoped feedback for later searches and preserves
 them on resume. Hosts that deny access, rate-limit requests or resolve to non-public

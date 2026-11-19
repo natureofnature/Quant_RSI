@@ -1,0 +1,64 @@
+{
+  "sector_id": "semiconductors",
+  "reviewed_on": "2026-11-18",
+  "members": ["TSM", "SOXX"],
+  "sector_comparator": {
+    "symbol": "SOXX",
+    "reason": "Semiconductor sector ETF used as the sector comparator in a sector-aware baseline; not a claim of historical constituent weights.",
+    "source_urls": [
+      "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf"
+    ]
+  },
+  "market_comparator": {
+    "symbol": "SPY",
+    "reason": "Broad US equity market comparator; configured research context, not a causal relationship.",
+    "source_urls": [
+      "https://www.ssga.com/us/en/individual/etfs/spdr-sp-500-etf-trust-spy"
+    ]
+  },
+  "tiers": [
+    {
+      "tier": "direct_customers",
+      "question": "Which chip designers buy foundry capacity, and what do their own disclosures say about demand, inventory and supply commitments?",
+      "entities": [
+        {"name": "NVIDIA", "symbol": "NVDA", "lead": "Fabless designer whose filings discuss third-party foundry supply; a customer link to the target needs a literal source.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810"]},
+        {"name": "Advanced Micro Devices", "symbol": "AMD", "lead": "Fabless designer whose filings discuss third-party foundry supply; a customer link to the target needs a literal source.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000002488"]},
+        {"name": "Apple", "symbol": "AAPL", "lead": "Device maker with in-house chip design; a supply link to the target needs a literal source.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193"]},
+        {"name": "Broadcom", "symbol": "AVGO", "lead": "Fabless designer of networking and custom accelerators; a customer link needs a literal source.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001730168"]},
+        {"name": "Qualcomm", "symbol": "QCOM", "lead": "Fabless mobile and compute designer; a customer link needs a literal source.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000804328"]}
+      ]
+    },
+    {
+      "tier": "customers_of_customers",
+      "question": "Are the buyers of accelerators and devices raising or cutting capital expenditure, and how is it funded?",
+      "entities": [
+        {"name": "Microsoft", "symbol": "MSFT", "lead": "Cloud operator; capital expenditure and its funding are in its own filings.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000789019"]},
+        {"name": "Alphabet", "symbol": "GOOGL", "lead": "Cloud operator; capital expenditure and its funding are in its own filings.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001652044"]},
+        {"name": "Amazon", "symbol": "AMZN", "lead": "Cloud operator; capital expenditure and its funding are in its own filings.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001018724"]},
+        {"name": "Meta Platforms", "symbol": "META", "lead": "Data-center operator; capital expenditure and its funding are in its own filings.", "source_urls": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001326801"]}
+      ]
+    },
+    {
+      "tier": "end_demand_and_funding",
+      "question": "Is end demand for AI compute funded by revenue or by external capital, and is that funding growing or retreating?",
+      "entities": [
+        {"name": "OpenAI", "lead": "Private model developer; funding and compute commitments are known only from dated announcements and counterparties' filings.", "source_urls": ["https://openai.com/"]},
+        {"name": "Anthropic", "lead": "Private model developer; funding and compute commitments are known only from dated announcements and counterparties' filings.", "source_urls": ["https://www.anthropic.com/"]}
+      ]
+    },
+    {
+      "tier": "cycle_and_capital",
+      "question": "Where is the semiconductor cycle (industry sales, inventories) and are market cash flows entering or leaving the sector?",
+      "entities": [
+        {"name": "Semiconductor Industry Association", "lead": "Publishes monthly industry sales releases based on WSTS data.", "source_urls": ["https://www.semiconductors.org/"]},
+        {"name": "World Semiconductor Trade Statistics", "lead": "Industry sales statistics and forecasts.", "source_urls": ["https://www.wsts.org/"]},
+        {"name": "iShares Semiconductor ETF", "symbol": "SOXX", "lead": "Sector price and fund-flow context; also the sector comparator.", "source_urls": ["https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf"]}
+      ]
+    }
+  ],
+  "unavailable_inputs": [
+    {"name": "TSM ADR premium over 2330.TW", "reason": "No Taiwan-listing price source or TWSE session calendar is configured in the price pipeline."},
+    {"name": "TWD/USD exchange rate", "reason": "No FX price source is configured in the price pipeline."}
+  ],
+  "notice": "Reviewed research map for the semiconductor sector. Tier entities are leads with identity sources, not verified relationships, holdings or causal links; reviewed after part of any 2025-2026 study period, so studies label it post-period knowledge."
+}

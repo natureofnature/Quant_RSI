@@ -226,3 +226,75 @@ def test_over_budget_prompt_fails_with_its_size_before_any_provider_call(monkeyp
     with pytest.raises(ValueError, match=r"Decision prompt has \d+ characters, over the 10000"):
         decide(context(), prompts)
     assert prompts == []
+
+
+def experiment_context():
+    frozen = context()
+    windows = {"partitions": {"train": {"origin_sessions": ["d"] * 200}}}
+    frozen["experiment_contract"] = {"windows": windows}
+    valuations = [{"session": f"s{i}", "equity": "1.0"} for i in range(24)]
+    rows = [{"origin_session": f"o{i}", "predicted_price": 1.0} for i in range(20)]
+    frozen["memory"].append(
+        {
+            "kind": "experiment",
+            "ref": "experiment-1",
+            "spec": {
+                "comparison_key": "group",
+                "contract": {"windows": deepcopy(windows), "metric": "mae"},
+                "input_bundles": deepcopy(frozen["input_bundles"]),
+            },
+            "result": {
+                "round": 1,
+                "metric": 1.5,
+                "prediction": {
+                    "development": {
+                        "rows": rows,
+                        "metrics": {"mae_price": 1.5},
+                        "baselines": {
+                            "unchanged_price": {"metrics": {"mae_price": 2.0}, "rows": rows},
+                        },
+                    },
+                    "strategy": {"strategy": {"valuations": valuations, "cash": "1"}},
+                },
+            },
+        }
+    )
+    return frozen
+
+
+def test_fit_records_refer_to_bundles_and_summarize_account_paths():
+    # Measured on the TSM run with fits: two experiment records embedded both 150k-character
+    # bundles and their daily paths, so decision 6 reached 997,083 characters.
+    frozen = experiment_context()
+    original = deepcopy(frozen)
+    view = sources.decision_view(frozen)
+    assert frozen == original
+    experiment = view["memory"][-1]
+    assert experiment["ref"] == "experiment-1"
+    assert experiment["spec"]["input_bundles"] == [
+        {"identity": "bundle-lower", "bundle": "context.input_bundles"},
+        {"identity": "bundle-upper", "bundle": "context.input_bundles"},
+    ]
+    assert experiment["spec"]["contract"] == {
+        "windows": "context.experiment_contract.windows",
+        "metric": "mae",
+    }
+    prediction = experiment["result"]["prediction"]
+    assert len(prediction["development"]["rows"]) == 20  # the fitted model's rows stay
+    assert prediction["development"]["baselines"]["unchanged_price"] == {
+        "metrics": {"mae_price": 2.0},
+        "rows": "retained in the experiment record",
+    }
+    path = prediction["strategy"]["strategy"]["valuations"]
+    assert path["items"] == 24 and path["last"] == {"session": "s23", "equity": "1.0"}
+    assert experiment["result"]["metric"] == 1.5
+    assert size(experiment) < size(original["memory"][-1]) / 5
+
+
+def test_bundle_outside_the_view_is_kept_compact_in_the_spec():
+    frozen = experiment_context()
+    frozen["input_bundles"] = frozen["input_bundles"][:1]
+    view = sources.decision_view(frozen)
+    kept, compact = view["memory"][-1]["spec"]["input_bundles"]
+    assert kept == {"identity": "bundle-lower", "bundle": "context.input_bundles"}
+    assert compact["identity"] == "bundle-upper" and "input_coverage" in compact

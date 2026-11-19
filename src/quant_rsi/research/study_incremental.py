@@ -4,6 +4,7 @@ from copy import deepcopy
 
 from quant_rsi.core.artifacts import canonical, digest
 from quant_rsi.research.demo_proposals import FactorProposal, extend_library
+from quant_rsi.research.sector_map import BASELINE_KIND, comparator_baseline_ids
 
 
 def freeze_plan(model):
@@ -16,14 +17,28 @@ def freeze_plan(model):
         if not any(d["factor_id"] == definition["factor_id"] for d in model.library["definitions"]):
             model.library["definitions"].append(definition)
         baseline.append(definition["factor_id"])
-    peers = sorted(
-        d["factor_id"]
-        for d in model.library["definitions"]
-        if d.get("runnable")
-        and d.get("recipe", {}).get("op") == "relative_return"
-        and d["recipe"]["window"] == 10
-    )
-    baseline += peers[:1]
+    sector = getattr(model, "sector_map", None)
+    if sector:
+        # Sector-aware controls: trailing sector and market returns ending at the origin
+        # close. Labels start at that close, so they never cover the label window. A
+        # comparator that is not runnable fails loudly instead of leaving the baseline.
+        definitions = {d["factor_id"]: d for d in model.library["definitions"]}
+        for identity in comparator_baseline_ids(sector, model.data.instruments[0]):
+            if not definitions.get(identity, {}).get("runnable"):
+                raise ValueError(
+                    f"Sector-aware baseline needs {identity} on every frozen row; configure "
+                    "the comparator in the instrument's relationships profile"
+                )
+            baseline.append(identity)
+    else:
+        peers = sorted(
+            d["factor_id"]
+            for d in model.library["definitions"]
+            if d.get("runnable")
+            and d.get("recipe", {}).get("op") == "relative_return"
+            and d["recipe"]["window"] == 10
+        )
+        baseline += peers[:1]
     domain, gaps = [], []
     for d in model.library["definitions"]:
         if d.get("recipe", {}).get("op") not in {"financial", "external"}:
@@ -55,6 +70,15 @@ def freeze_plan(model):
             "peer-relative return; a peer is not a sector benchmark."
         ),
     }
+    if sector:
+        plan |= {
+            "baseline_kind": BASELINE_KIND,
+            "sector_ref": sector["ref"],
+            "baseline_note": (
+                "Price trend/volatility plus trailing sector and market comparator returns "
+                "ending at the origin close; no comparator value covers the label window."
+            ),
+        }
     model.library["incremental_plan"] = plan
     return plan
 

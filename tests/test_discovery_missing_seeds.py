@@ -1,4 +1,8 @@
-"""Unconfigured discovery seeds stay empty; registered source errors remain errors."""
+"""Unconfigured discovery seeds stay empty; registered source errors remain errors (#152).
+
+Uses SOXL, which has no relationship, news-feed or disclosure profile. TSM became a
+configured instrument in #159 Phase 2 (sector map and comparators).
+"""
 
 import json
 from copy import deepcopy
@@ -17,7 +21,7 @@ from quant_rsi.research.demo_related import profile_related
 
 
 @pytest.mark.parametrize("prices", ["synthetic", "daily"])
-def test_tsm_active_zero_fit_reaches_decision_without_inventing_seed_data(
+def test_unconfigured_symbol_active_zero_fit_reaches_decision_without_inventing_seed_data(
     tmp_path, monkeypatch, prices
 ):
     root = tmp_path / "study"
@@ -40,7 +44,7 @@ def test_tsm_active_zero_fit_reaches_decision_without_inventing_seed_data(
         "3",
         "--no-ui",
     )
-    args[1] = "TSM"
+    args[1] = "SOXL"
     contexts = []
 
     def forbidden(*args, **kwargs):
@@ -62,7 +66,7 @@ def test_tsm_active_zero_fit_reaches_decision_without_inventing_seed_data(
     if prices == "daily":
         # Exercise daily orchestration with clearly constructed, offline price inputs.
         fixture = LightGBMDemo(load_catalog(args[args.index("--catalog") + 1]), horizon_sessions=3)
-        data = replace(fixture.data, instruments=("TSM",))
+        data = replace(fixture.data, instruments=("SOXL",))
         metadata = {
             "horizon_sessions": 3,
             "session_close_times": [data.timestamp(i, "close") for i in range(len(data.dates))],
@@ -73,12 +77,12 @@ def test_tsm_active_zero_fit_reaches_decision_without_inventing_seed_data(
     assert main(args) == 0
     assert len(contexts) == 1
     context = contexts[0]
-    assert context["symbol"] == "TSM" and context["evidence"] == []
+    assert context["symbol"] == "SOXL" and context["evidence"] == []
     assert context["related"]["status"] == "not_configured"
     assert context["related"]["stocks"] == context["related"]["relationships"] == []
     assert context["news_seed"]["status"] == "not_configured"
     assert context["news_seed"]["coverage"] == [
-        {"symbol": "TSM", "status": "not_configured", "selected_items": 0}
+        {"symbol": "SOXL", "status": "not_configured", "selected_items": 0}
     ]
     assert context["source_limits"]["search"] > 0
     news = json.loads((root / "checkpoints" / "issuer_news.json").read_text())["output"]
@@ -104,19 +108,19 @@ def test_missing_seed_opt_in_does_not_change_other_study_modes(tmp_path, mode, a
         mode,
         "--no-ui",
     )
-    args[1] = "TSM"
+    args[1] = "SOXL"
     if active:
         args.append("--news-research")
     assert main(args) == 1
     error = json.loads((tmp_path / "study" / "failure.json").read_text())
-    assert "No relationship profile for TSM" in str(error)
+    assert "No relationship profile for SOXL" in str(error)
 
 
 def test_missing_seed_helpers_keep_strict_defaults():
     with pytest.raises(ValueError, match="No relationship profile"):
-        profile_related("TSM")
+        profile_related("SOXL")
     with pytest.raises(ValueError, match="No registered issuer RSS"):
-        issuer_news({"symbol": "TSM"})
+        issuer_news({"symbol": "SOXL"})
 
 
 def test_configured_rss_failure_remains_an_error_with_missing_seed_opt_in(monkeypatch):

@@ -44,6 +44,63 @@ def render_discovery(result):
     if timing:
         table("Time conventions (declared)", ["Convention", "Rule"], timing)
     table("Operations", ["Operation", "Count"], list(discovery["counts"].items()))
+    if discovery.get("baseline"):
+        baseline = discovery["baseline"]
+        table(
+            "Baseline (frozen before any candidate)",
+            ["Kind", "Factors", "Meaning"],
+            [[baseline["kind"], ", ".join(baseline["factor_ids"]), baseline["note"]]],
+        )
+    if discovery.get("sector_coverage"):
+        coverage = discovery["sector_coverage"]
+        table(
+            "Sector map coverage by tier (" + coverage["rule"] + ")",
+            ["Tier", "Measured", "Evidenced", "Gap", "Entities"],
+            [
+                [
+                    row["tier"],
+                    row["counts"]["measured"],
+                    row["counts"]["evidenced"],
+                    row["counts"]["gap"],
+                    "; ".join(f"{e['name']}: {e['status']}" for e in row["entities"]),
+                ]
+                for row in coverage["tiers"]
+            ],
+        )
+    if discovery.get("knowledge_references") is not None:
+        table(
+            "Retrieved knowledge references",
+            ["Kind", "Source", "Reference", "Scope", "Reviewed / recorded", "Period label"],
+            [
+                [
+                    row["kind"],
+                    row["source"],
+                    (row["ref"] or "")[:12],
+                    row["scope"],
+                    row["reviewed_on"],
+                    _period_label(row.get("post_period_knowledge")),
+                ]
+                for row in discovery["knowledge_references"]
+            ]
+            or [["None", "No reference or prior-study knowledge retrieved", "", "", "", ""]],
+        )
+    if discovery.get("evaluated_attempts"):
+        attempts = discovery["evaluated_attempts"]
+        prior = attempts.get("prior_evaluated_attempts", 0)
+        here = attempts.get("this_run_evaluated_attempts", 0)
+        table(
+            "Evaluated attempts (cumulative, same target and horizon)",
+            ["Prior studies", "Prior evaluated fits", "This run", "Total", "History watermark"],
+            [
+                [
+                    attempts.get("prior_studies", 0),
+                    prior,
+                    here,
+                    prior + here,
+                    attempts.get("through"),
+                ]
+            ],
+        )
     if preparation_only:
         table(
             "Preparation only — no model fitting",
@@ -454,6 +511,12 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;padding:1
         + "</main></html>"
     )
     return "\n".join(markdown), html
+
+
+def _period_label(post_period):
+    if post_period is None:
+        return "unknown (undated)"
+    return "post_period_knowledge" if post_period else "in period"
 
 
 def _append_preparations(records, bundles, table):

@@ -1540,7 +1540,7 @@ company suggestions. RSS news limits apply per issuer; see
 | Option | Default and meaning |
 | --- | --- |
 | `--llm` | `codex`; also `api`, `deepseek`, `cursor` or `simulated` |
-| `--llm-model`, `--llm-timeout` | Optional Codex or DeepSeek model (DeepSeek default `deepseek-chat`); API model required; timeout 180 seconds per call |
+| `--llm-model`, `--llm-timeout` | Optional Codex or DeepSeek model (DeepSeek default `deepseek-chat`); API model required; timeout 600 seconds per call (survey analyses of several releases measured 135–320 s) |
 | `--cursor-dir` | Directory for `--llm cursor` request and response files; default `OUTPUT/cursor-llm` |
 | `--model` | `lightgbm` by default; `ridge` uses a reviewed regularized linear model on the same rows and features |
 | `--compare-models` | Off; one alternate LightGBM/Ridge fit on the selected research inputs, without changing selection or publication |

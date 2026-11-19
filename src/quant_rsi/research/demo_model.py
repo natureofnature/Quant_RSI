@@ -68,6 +68,7 @@ class LightGBMDemo:
         self._news_columns = {}
         self.news_feature_support = None
         self.peer_features = None
+        self.sector_map = None
         self.profile_features = None
         self.financial_features = None
         self.external_features = None
