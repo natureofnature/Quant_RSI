@@ -193,7 +193,7 @@ def test_publication_dated_xom_features_support_business_revisions_without_inven
         "notice": NOTICE,
     }
     bundle = prepare_financials(
-        snapshot, ["2026-10-31T04:59:59+00:00", "2026-10-31T05:00:00+00:00"], [1]
+        snapshot, ["2026-10-31T04:59:59+00:00", "2026-10-31T05:00:01+00:00"], [1]
     )
     columns = bundle["columns"]
     assert columns["financial.revenue_yoy"] == [None, pytest.approx(0.2)]

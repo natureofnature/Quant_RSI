@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 from urllib.request import Request, build_opener
 
 from quant_rsi.core.artifacts import atomic_write, canonical, digest
+from quant_rsi.market.availability import usable_at
 from quant_rsi.market.news_feed import NoRedirect
 from quant_rsi.research.eia_price_history import collect_price_publications
 from quant_rsi.research.eia_prices import PRICE_FIELDS, parse_prices
@@ -289,7 +290,7 @@ def prepare_petroleum(snapshot, cutoffs, required):
         selected = {}
         for record in records:
             available = datetime.fromisoformat(record["available_at"])
-            if timedelta(0) <= cutoff - available <= timedelta(days=14):
+            if usable_at(available, cutoff) and cutoff - available <= timedelta(days=14):
                 field = record["field"]
                 if field not in selected or (
                     record["available_at"],

@@ -29,7 +29,10 @@ def test_inventory_uses_mature_balance_and_comparable_year_not_previous_year_end
     records = study_financials.reported_records(data)
     before, _ = study_financials.inventory_at_cutoff(records, "2024-04-26T04:59:59+00:00")
     assert before == {}
-    values, evidence = study_financials.inventory_at_cutoff(records, "2024-04-26T05:00:00+00:00")
+    # D3.1: available exactly at the instant is not yet usable.
+    at_instant, _ = study_financials.inventory_at_cutoff(records, "2024-04-26T05:00:00+00:00")
+    assert at_instant == {}
+    values, evidence = study_financials.inventory_at_cutoff(records, "2024-04-26T05:00:01+00:00")
     assert values == {"inventory_yoy": 0.25}
     assert evidence["prior_year"]["end"] == "2023-03-31"
     assert evidence["current"]["start"] is None
@@ -39,7 +42,7 @@ def test_inventory_uses_mature_balance_and_comparable_year_not_previous_year_end
     rows.append(rows[-1] | {"val": 120, "filed": "2024-05-25", "accn": "amendment"})
     records = study_financials.reported_records(data)
     assert study_financials.inventory_at_cutoff(records, "2024-04-27T20:00:00+00:00")[0] == values
-    assert study_financials.inventory_at_cutoff(records, "2024-05-26T05:00:00+00:00")[0] == {
+    assert study_financials.inventory_at_cutoff(records, "2024-05-26T05:00:01+00:00")[0] == {
         "inventory_yoy": 0.5
     }
 

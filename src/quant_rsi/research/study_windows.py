@@ -2,10 +2,66 @@
 
 from copy import deepcopy
 from datetime import date
+from typing import Literal
 
 import numpy as np
 
+from quant_rsi.core.contracts_base import StrictModel
+from quant_rsi.market.availability import (
+    AT_INSTANT_RULE,
+    DATE_ONLY_RULE,
+    LOOKBACK_WINDOW_RULE,
+    MAX_AGE_RULE,
+    usable_at,
+)
+from quant_rsi.market.daily_data import CLOSE_BUFFER_SECONDS
 from quant_rsi.market.market_contracts import timestamp, utc_text
+
+
+class StudyTiming(StrictModel):
+    """A study's declared decision instant, label window and execution (#159 D3.1).
+
+    The at-instant rule follows from these: under a close-to-close label decided at the
+    session close, information stamped exactly at the close describes the post-close move
+    the label measures, so it is usable only if available strictly before the close.
+    """
+
+    decision_instant: Literal["session_close"] = "session_close"
+    label: Literal["close_to_close"] = "close_to_close"
+    label_window: str
+    horizon_sessions: int
+    execution: Literal["next_session_open"] = "next_session_open"
+    at_instant_rule: Literal["strictly_before_decision_instant_v1"] = AT_INSTANT_RULE
+    max_age_rule: str = MAX_AGE_RULE
+    date_only_rule: str = DATE_ONLY_RULE
+    lookback_window_rule: str = LOOKBACK_WINDOW_RULE
+    close_readiness_seconds: int = CLOSE_BUFFER_SECONDS
+
+
+def timing_rows(timing):
+    """Report rows for a recorded StudyTiming; older results without one get none."""
+    if not timing:
+        return []
+    return [
+        ["Decision instant", timing["decision_instant"]],
+        ["Label", f"{timing['label']}: {timing['label_window']}"],
+        ["Execution", timing["execution"]],
+        ["Usable at the decision instant", timing["at_instant_rule"]],
+        ["Freshness (max age)", timing["max_age_rule"]],
+        ["Date-only publication", timing["date_only_rule"]],
+        ["News and guidance windows", timing["lookback_window_rule"]],
+        ["Daily close readiness", f"close + {timing['close_readiness_seconds']} s"],
+    ]
+
+
+def study_timing(horizon_sessions):
+    return StudyTiming(
+        label_window=(
+            f"log(close[origin + {horizon_sessions} sessions] / close[origin]); "
+            "origin = decision session"
+        ),
+        horizon_sessions=horizon_sessions,
+    ).model_dump(mode="json")
 
 
 def configure_windows(model, args):
@@ -69,6 +125,7 @@ def configure_windows(model, args):
         "information_mode": mode,
         "research_cutoff": cutoff if mode == "retained" else None,
         "decision_time": "retained exchange session close; timezone-aware UTC timestamps",
+        "timing": study_timing(horizon),
         "horizon_sessions": horizon,
         "partitions": {
             name: {
@@ -92,7 +149,9 @@ def retained_news(snapshots, cutoff, symbol, limit):
     instant = timestamp(cutoff)
     eligible = []
     for snapshot in snapshots:
-        if not snapshot.get("received_at") or timestamp(snapshot["received_at"]) > instant:
+        if not snapshot.get("received_at") or not usable_at(
+            timestamp(snapshot["received_at"]), instant
+        ):
             continue
         eligible.append(snapshot)
     items = {}
@@ -101,7 +160,9 @@ def retained_news(snapshots, cutoff, symbol, limit):
             if (
                 item.get("received_at")
                 and item.get("published_at")
-                and max(timestamp(item["received_at"]), timestamp(item["published_at"])) <= instant
+                and usable_at(
+                    max(timestamp(item["received_at"]), timestamp(item["published_at"])), instant
+                )
             ):
                 items[item["id"]] = deepcopy(item)
     return {

@@ -70,9 +70,12 @@ def test_date_only_filing_boundary_and_later_restatement():
     revenue.append(revenue[-1] | {"val": 150, "filed": "2024-05-25", "accn": "restated"})
     records = financials.reported_records(data)
     before, _ = financials.at_cutoff(records, "2024-04-26T04:59:59+00:00")
-    first, evidence = financials.at_cutoff(records, "2024-04-26T05:00:00+00:00")
-    later, _ = financials.at_cutoff(records, "2024-05-26T05:00:00+00:00")
+    # D3.1: a fact available exactly at the decision instant is not yet usable.
+    at_instant, _ = financials.at_cutoff(records, "2024-04-26T05:00:00+00:00")
+    first, evidence = financials.at_cutoff(records, "2024-04-26T05:00:01+00:00")
+    later, _ = financials.at_cutoff(records, "2024-05-26T05:00:01+00:00")
     assert "revenue_yoy" not in before
+    assert "revenue_yoy" not in at_instant
     assert first == pytest.approx(
         {"revenue_yoy": 0.2, "operating_margin": 0.15, "operating_margin_yoy": 0.05}
     )

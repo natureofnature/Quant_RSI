@@ -149,7 +149,7 @@ def test_history_context_does_not_expand_the_twenty_outcome_feedback_limit(monke
     ]
     monkeypatch.setattr(
         "quant_rsi.research.study_history.history_view",
-        lambda *_: {"entries": entries, "notice": "fixture"},
+        lambda *_, **__: {"entries": entries, "notice": "fixture"},
     )
     prior = mature_feedback("unused", "KO")
     assert len(prior["entries"]) == 20

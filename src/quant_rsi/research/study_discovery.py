@@ -156,7 +156,7 @@ def run_connected_discovery(
     )
     catalog = survey_catalog(available_inputs=engine.columns)
     atomic_write(root / "discovery_catalog.json", canonical(catalog))
-    from quant_rsi.research.study_history import history_view
+    from quant_rsi.research.study_history import history_view, run_history_watermark
 
     preparation_only = configuration["fit_budget"] == 0
     prior_memory = (
@@ -171,7 +171,11 @@ def run_connected_discovery(
                 "mode": mode,
             },
             lambda: _prior_memory(
-                history_view(args.history_dir, configuration["symbol"])
+                history_view(
+                    args.history_dir,
+                    configuration["symbol"],
+                    through=run_history_watermark(cache, args.history_dir, configuration["symbol"]),
+                )
                 if args.history_dir
                 else None,
                 mode,

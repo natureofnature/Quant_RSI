@@ -43,6 +43,7 @@ from quant_rsi.research.study_history import (
     mature_feedback,
     observe_prices,
     register_study,
+    run_history_watermark,
 )
 from quant_rsi.research.study_iterations import validate_limits
 from quant_rsi.research.study_news import (
@@ -434,6 +435,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
         progress.start("observe_prior_forecasts")
         if history_prices:
             observe_prices(args.history_dir, symbol, history_prices)
+        through = run_history_watermark(cache, args.history_dir, symbol)
         prior_outcomes = cache.call(
             "prior_outcomes",
             symbol,
@@ -442,6 +444,7 @@ def _run(args, symbol, root, configuration, record, progress, cache):
                 symbol,
                 horizon_sessions=model.horizon,
                 question=configuration["question"],
+                through=through,
             ),
         )
         _write(root / "prior_outcomes.json", prior_outcomes)
