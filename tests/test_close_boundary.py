@@ -59,8 +59,8 @@ def test_close_readiness_boundary():
 
 CONSUMERS = (
     "market/daily_data.py",
-    "forecast/forecast_context_data.py",
-    "forecast/enhanced_forecast_workflow.py",
+    "legacy/forecast/forecast_context_data.py",
+    "legacy/forecast/enhanced_forecast_workflow.py",
 )
 
 
